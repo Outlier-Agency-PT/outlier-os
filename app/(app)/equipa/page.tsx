@@ -1,28 +1,49 @@
-import { UsersRound, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
+import { TeamTable } from "@/components/team/team-table";
 import { Button } from "@/components/ui/button";
+import { getTeamMembers, isCurrentUserAdmin } from "@/lib/queries/team";
+import { Plus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
-export default function EquipaPage() {
+export const dynamic = "force-dynamic";
+
+export default async function EquipaPage() {
+  const [members, isAdmin] = await Promise.all([getTeamMembers(), isCurrentUserAdmin()]);
+
   return (
     <>
       <PageHeader
         title="Equipa"
-        description="Gestão de membros e permissões"
+        description={`${members.length} ${members.length === 1 ? "membro" : "membros"}`}
         actions={
-          <Button>
-            <Plus />
-            Convidar Membro
-          </Button>
+          isAdmin && (
+            <Button asChild>
+              <a
+                href="https://supabase.com/dashboard/project/_/auth/users"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Plus />
+                Adicionar Membro
+              </a>
+            </Button>
+          )
         }
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={UsersRound}
-          title="Gestão de Equipa"
-          description="Lista de membros com função (Admin/Membro), departamento, tarefas abertas e permissões granulares por módulo."
-          sprintTag="Sprint 1"
-        />
+      <div className="space-y-4 p-8">
+        {isAdmin && (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              <p>
+                <strong>Como adicionar membros:</strong> vai ao dashboard Supabase →
+                Authentication → Users → <em>Add user</em>. O trigger automático cria
+                o registo correspondente em <code>team_members</code>. Depois edita
+                aqui para definir função, departamento e permissões.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        <TeamTable members={members} isAdmin={isAdmin} />
       </div>
     </>
   );

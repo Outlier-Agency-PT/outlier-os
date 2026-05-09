@@ -1,29 +1,32 @@
-import { CheckSquare, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { TasksBoard } from "@/components/tasks/tasks-board";
+import { getTasks } from "@/lib/queries/tasks";
+import { getStatuses } from "@/lib/queries/statuses";
+import { getClients } from "@/lib/queries/clients";
+import { getTeamMembers } from "@/lib/queries/team";
 
-export default function TarefasPage() {
+export const dynamic = "force-dynamic";
+
+export default async function TarefasPage() {
+  const [tasks, statuses, clients, members] = await Promise.all([
+    getTasks(),
+    getStatuses("task_statuses"),
+    getClients(),
+    getTeamMembers(),
+  ]);
+
   return (
     <>
       <PageHeader
         title="Tarefas"
-        description="Kanban com drag-and-drop, filtros e registo de tempo"
-        actions={
-          <Button>
-            <Plus />
-            Nova Tarefa
-          </Button>
-        }
+        description={`${tasks.length} ${tasks.length === 1 ? "tarefa" : "tarefas"}`}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={CheckSquare}
-          title="Gestão de Tarefas"
-          description="Kanban 6-col + Tabela, com prioridades, registo de tempo (timer + manual), comentários e bulk actions."
-          sprintTag="Sprint 1"
-        />
-      </div>
+      <TasksBoard
+        tasks={tasks}
+        statuses={statuses}
+        clients={clients.map((c) => ({ id: c.id, label: c.name }))}
+        members={members.map((m) => ({ id: m.id, label: m.full_name }))}
+      />
     </>
   );
 }

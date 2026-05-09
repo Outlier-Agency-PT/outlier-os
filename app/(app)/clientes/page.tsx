@@ -1,29 +1,29 @@
-import { Users, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { ClientsList } from "@/components/clients/clients-list";
+import { getClients } from "@/lib/queries/clients";
+import { getStatuses } from "@/lib/queries/statuses";
+import { getTeamMembers } from "@/lib/queries/team";
 
-export default function ClientesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ClientesPage() {
+  const [clients, statuses, members] = await Promise.all([
+    getClients(),
+    getStatuses("client_statuses"),
+    getTeamMembers(),
+  ]);
+
   return (
     <>
       <PageHeader
         title="Clientes"
-        description="Gere os teus clientes, dashboards e métricas"
-        actions={
-          <Button>
-            <Plus />
-            Novo Cliente
-          </Button>
-        }
+        description={`${clients.length} ${clients.length === 1 ? "cliente" : "clientes"}`}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={Users}
-          title="Gestão de Clientes"
-          description="Lista, kanban e detalhe de clientes com 7 tabs (Overview, Tarefas, Lançamentos, Conteúdo, Reuniões, Relatórios, Feedback) e dashboard partilhado público."
-          sprintTag="Sprint 1"
-        />
-      </div>
+      <ClientsList
+        clients={clients}
+        statuses={statuses.map((s) => ({ id: s.id, label: s.label }))}
+        members={members.map((m) => ({ id: m.id, full_name: m.full_name }))}
+      />
     </>
   );
 }
