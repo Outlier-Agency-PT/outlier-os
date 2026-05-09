@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 36 29% 95%;          /* bege Outlier OS */
+    --foreground: 20 14% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 14% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14% 14%;
+    --primary: 174 65% 30%;            /* teal escuro Outlier */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 36 20% 88%;
+    --secondary-foreground: 20 14% 14%;
+    --muted: 36 20% 90%;
+    --muted-foreground: 25 5% 45%;
+    --accent: 36 20% 88%;
+    --accent-foreground: 20 14% 14%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 36 15% 85%;
+    --input: 36 15% 85%;
+    --ring: 174 65% 30%;
+    --radius: 0.5rem;
+
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 20 14% 14%;
+    --sidebar-accent: 174 65% 95%;
+    --sidebar-accent-foreground: 174 65% 30%;
+  }
+
+  .dark {
+    --background: 20 14% 8%;
+    --foreground: 36 20% 92%;
+    --card: 20 14% 12%;
+    --card-foreground: 36 20% 92%;
+    --popover: 20 14% 12%;
+    --popover-foreground: 36 20% 92%;
+    --primary: 174 50% 50%;
+    --primary-foreground: 20 14% 8%;
+    --secondary: 20 14% 18%;
+    --secondary-foreground: 36 20% 92%;
+    --muted: 20 14% 18%;
+    --muted-foreground: 36 10% 60%;
+    --accent: 20 14% 18%;
+    --accent-foreground: 36 20% 92%;
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 36 20% 92%;
+    --border: 20 14% 20%;
+    --input: 20 14% 20%;
+    --ring: 174 50% 50%;
+
+    --sidebar: 20 14% 10%;
+    --sidebar-foreground: 36 20% 92%;
+    --sidebar-accent: 174 50% 18%;
+    --sidebar-accent-foreground: 174 50% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
