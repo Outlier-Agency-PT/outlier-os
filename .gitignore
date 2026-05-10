@@ -49,3 +49,4 @@ supabase/.temp
 !.vscode/launch.json
 !.vscode/extensions.json
 .idea/
+.secrets.local
