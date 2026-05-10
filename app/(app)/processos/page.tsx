@@ -1,29 +1,19 @@
-import { BookOpen, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { ProcessesView } from "@/components/processes/processes-view";
+import { getProcesses, getProcessCategories } from "@/lib/queries/processes";
 
-export default function ProcessosPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ProcessosPage() {
+  const [processes, categories] = await Promise.all([getProcesses(), getProcessCategories()]);
+
   return (
     <>
       <PageHeader
         title="Processos & SOPs"
-        description="Documentação interna por categoria"
-        actions={
-          <Button>
-            <Plus />
-            Novo Processo
-          </Button>
-        }
+        description={`${processes.length} ${processes.length === 1 ? "processo" : "processos"}`}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={BookOpen}
-          title="Processos & SOPs"
-          description="Editor TipTap com slash commands, link Miro, tags, links externos e 8 categorias (Tráfego, Conteúdo, Onboarding, Vendas, Administrativo, Estratégia, Design, Incubadora)."
-          sprintTag="Sprint 4"
-        />
-      </div>
+      <ProcessesView processes={processes} categories={categories} />
     </>
   );
 }

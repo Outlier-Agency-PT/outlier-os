@@ -2,20 +2,21 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { Users, CheckSquare, Rocket, Target } from "lucide-react";
+import { getRecentActivity, describeActivity } from "@/lib/queries/activity";
+import { formatRelative } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  // Carregar IDs de estados em paralelo (depende do seed estar aplicado)
-  const [taskClosedRes, launchClosedRes, clientActiveRes] = await Promise.all([
+  const [taskClosedRes, launchClosedRes, clientActiveRes, activity] = await Promise.all([
     supabase.from("task_statuses").select("id").eq("key", "concluido").maybeSingle(),
     supabase.from("launch_statuses").select("id").in("key", ["concluido", "cancelado"]),
     supabase.from("client_statuses").select("id").eq("key", "ativo").maybeSingle(),
+    getRecentActivity(10),
   ]);
 
-  // Contagens em paralelo, com fallback se status não existirem
   const [clientesRes, tarefasRes, lancamentosRes] = await Promise.all([
     clientActiveRes.data?.id
       ? supabase
@@ -41,11 +42,27 @@ export default async function DashboardPage() {
       : supabase.from("launches").select("*", { count: "exact", head: true }),
   ]);
 
+  // OKR progresso médio
+  const { data: krs } = await supabase.from("key_results").select("initial_value, current_value, target_value");
+  let okrAvg: number | null = null;
+  if (krs && krs.length > 0) {
+    let total = 0;
+    let count = 0;
+    for (const kr of krs as { initial_value: number; current_value: number; target_value: number }[]) {
+      const range = kr.target_value - kr.initial_value;
+      if (range === 0) continue;
+      const p = ((kr.current_value - kr.initial_value) / range) * 100;
+      total += Math.max(0, Math.min(100, p));
+      count++;
+    }
+    okrAvg = count > 0 ? total / count : null;
+  }
+
   const kpis = [
     { label: "Clientes Ativos", value: clientesRes.count ?? 0, icon: Users, tone: "text-blue-500" },
     { label: "Tarefas Abertas", value: tarefasRes.count ?? 0, icon: CheckSquare, tone: "text-orange-500" },
     { label: "Lançamentos Ativos", value: lancamentosRes.count ?? 0, icon: Rocket, tone: "text-purple-500" },
-    { label: "Progresso OKRs", value: "—", icon: Target, tone: "text-green-500" },
+    { label: "Progresso OKRs", value: okrAvg !== null ? `${okrAvg.toFixed(0)}%` : "—", icon: Target, tone: "text-green-500" },
   ];
 
   return (
@@ -77,20 +94,42 @@ export default async function DashboardPage() {
               <CardTitle className="text-base">Atividade Recente</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Sem actividade ainda. Quando criares clientes, tarefas ou lançamentos, aparecem aqui.
-              </p>
+              {activity.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Sem atividade ainda. Cria clientes, tarefas ou lançamentos para preencher o feed.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {activity.map((a) => (
+                    <li key={a.id} className="flex items-start justify-between gap-2 text-sm">
+                      <div>
+                        <p>
+                          <span className="font-medium">{a.member?.full_name ?? "Sistema"}</span>{" "}
+                          <span className="text-muted-foreground">{describeActivity(a)}</span>
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatRelative(a.created_at)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Progresso da Equipa</CardTitle>
+              <CardTitle className="text-base">Próximos passos</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Gráficos disponíveis após terem dados de tarefas concluídas no período.
-              </p>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>1. Cria os teus primeiros clientes em <strong className="text-foreground">Clientes</strong></li>
+                <li>2. Adiciona tarefas em <strong className="text-foreground">Tarefas</strong> e usa o Kanban</li>
+                <li>3. Convida membros em <strong className="text-foreground">Equipa</strong> (via Supabase Auth → trigger cria team_member)</li>
+                <li>4. Configura templates de lançamento em <strong className="text-foreground">Configurações</strong></li>
+                <li>5. Activa <strong className="text-foreground">Partilha</strong> em clientes para dashboards públicos</li>
+              </ul>
             </CardContent>
           </Card>
         </div>

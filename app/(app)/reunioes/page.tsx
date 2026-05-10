@@ -1,29 +1,20 @@
-import { Calendar, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { MeetingsView } from "@/components/meetings/meetings-view";
+import { getMeetings } from "@/lib/queries/meetings";
+import { getClients } from "@/lib/queries/clients";
 
-export default function ReunioesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ReunioesPage() {
+  const [meetings, clients] = await Promise.all([getMeetings(), getClients()]);
+
   return (
     <>
       <PageHeader
         title="Reuniões"
-        description="Agenda e notas de reuniões"
-        actions={
-          <Button>
-            <Plus />
-            Nova Reunião
-          </Button>
-        }
+        description={`${meetings.length} ${meetings.length === 1 ? "reunião" : "reuniões"}`}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={Calendar}
-          title="Calendário de Reuniões"
-          description="Vista Agenda (semana) + Lista, com agenda, notas, attendees e ligação a cliente."
-          sprintTag="Sprint 4"
-        />
-      </div>
+      <MeetingsView meetings={meetings} clients={clients.map((c) => ({ id: c.id, name: c.name }))} />
     </>
   );
 }

@@ -1,29 +1,23 @@
-import { GraduationCap, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { StudentsView } from "@/components/students/students-view";
+import { getStudents } from "@/lib/queries/students";
+import { getTeamMembers } from "@/lib/queries/team";
 
-export default function IncubadoraPage() {
+export const dynamic = "force-dynamic";
+
+export default async function IncubadoraPage() {
+  const [students, members] = await Promise.all([getStudents(), getTeamMembers()]);
+
   return (
     <>
       <PageHeader
         title="Incubadora"
-        description="Alunos da Incubadora de Infoprodutores"
-        actions={
-          <Button>
-            <Plus />
-            Novo Aluno
-          </Button>
-        }
+        description={`${students.length} ${students.length === 1 ? "aluno" : "alunos"}`}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={GraduationCap}
-          title="Gestão de Alunos"
-          description="Kanban por nível (Aprendiz/Fazedor/Autoridade/Referência/Aguardar), timeline de 6 sessões, briefing e tracking de coach."
-          sprintTag="Sprint 4"
-        />
-      </div>
+      <StudentsView
+        students={students}
+        members={members.map((m) => ({ id: m.id, full_name: m.full_name }))}
+      />
     </>
   );
 }
