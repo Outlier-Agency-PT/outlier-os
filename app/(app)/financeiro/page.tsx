@@ -1,29 +1,33 @@
-import { DollarSign, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { FinancialDashboard } from "@/components/financial/financial-dashboard";
+import {
+  getFinancialCategories,
+  getTransactions,
+  getPnLSummary,
+} from "@/lib/queries/financial";
+import { getClients } from "@/lib/queries/clients";
 
-export default function FinanceiroPage() {
+export const dynamic = "force-dynamic";
+
+export default async function FinanceiroPage() {
+  const year = new Date().getFullYear();
+  const [summary, transactions, categories, clients] = await Promise.all([
+    getPnLSummary(year),
+    getTransactions(),
+    getFinancialCategories(),
+    getClients(),
+  ]);
+
   return (
     <>
-      <PageHeader
-        title="Financeiro"
-        description="P&L, transações e recorrentes"
-        actions={
-          <Button>
-            <Plus />
-            Nova Transação
-          </Button>
-        }
+      <PageHeader title="Financeiro" description="Profit & Loss · Análise financeira da Outlier" />
+      <FinancialDashboard
+        summary={summary}
+        transactions={transactions}
+        categories={categories}
+        clients={clients.map((c) => ({ id: c.id, name: c.name }))}
+        year={year}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={DollarSign}
-          title="Profit & Loss"
-          description="P&L mensal/trimestral/anual, gráfico Receita vs Despesa, transações recorrentes com gerador automático, import/export CSV, 14 categorias padrão."
-          sprintTag="Sprint 3"
-        />
-      </div>
     </>
   );
 }

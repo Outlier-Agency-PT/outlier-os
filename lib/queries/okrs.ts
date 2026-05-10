@@ -1,0 +1,75 @@
+import { createClient } from "@/lib/supabase/server";
+
+export interface KeyResult {
+  id: string;
+  objective_id: string;
+  title: string;
+  initial_value: number;
+  current_value: number;
+  target_value: number;
+  deadline: string | null;
+  responsible_ids: string[] | null;
+  sort_order: number;
+}
+
+export interface Objective {
+  id: string;
+  title: string;
+  description: string | null;
+  quarter: string;
+  year: number;
+  department: string | null;
+  confidence: "baixa" | "media" | "alta" | null;
+  status: string;
+  responsible_ids: string[] | null;
+  created_at: string;
+  key_results: KeyResult[];
+  progress: number;
+}
+
+export async function getObjectives(filters?: {
+  quarter?: string;
+  year?: number;
+  department?: string;
+}): Promise<Objective[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("objectives")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (filters?.quarter) q = q.eq("quarter", filters.quarter);
+  if (filters?.year) q = q.eq("year", filters.year);
+  if (filters?.department) q = q.eq("department", filters.department);
+
+  const { data: objectives } = await q;
+  if (!objectives) return [];
+
+  // Buscar todos os key_results
+  const { data: krs } = await supabase
+    .from("key_results")
+    .select("*")
+    .in(
+      "objective_id",
+      (objectives as { id: string }[]).map((o) => o.id),
+    );
+
+  type ObjRow = Omit<Objective, "key_results" | "progress">;
+  return (objectives as ObjRow[]).map((o) => {
+    const myKrs = ((krs ?? []) as KeyResult[]).filter((k) => k.objective_id === o.id);
+    let totalProgress = 0;
+    for (const kr of myKrs) {
+      const range = kr.target_value - kr.initial_value;
+      if (range === 0) continue;
+      const p = ((kr.current_value - kr.initial_value) / range) * 100;
+      totalProgress += Math.max(0, Math.min(100, p));
+    }
+    const progress = myKrs.length > 0 ? totalProgress / myKrs.length : 0;
+
+    return {
+      ...o,
+      key_results: myKrs.sort((a, b) => a.sort_order - b.sort_order),
+      progress,
+    };
+  });
+}

@@ -1,29 +1,20 @@
-import { ClipboardList, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { ReportsList } from "@/components/reports/reports-list";
+import { getReports } from "@/lib/queries/reports";
+import { getClients } from "@/lib/queries/clients";
 
-export default function RelatoriosPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RelatoriosPage() {
+  const [reports, clients] = await Promise.all([getReports(), getClients()]);
+
   return (
     <>
       <PageHeader
         title="Relatórios"
-        description="Relatórios semanais e mensais por cliente"
-        actions={
-          <Button>
-            <Plus />
-            Gerar Relatório
-          </Button>
-        }
+        description={`${reports.length} ${reports.length === 1 ? "relatório" : "relatórios"}`}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={ClipboardList}
-          title="Relatórios Automáticos"
-          description="Gerador semanal/mensal com KPIs automáticos (tarefas concluídas, conteúdos publicados, lançamentos ativos) e editor markdown."
-          sprintTag="Sprint 3"
-        />
-      </div>
+      <ReportsList reports={reports} clients={clients.map((c) => ({ id: c.id, name: c.name }))} />
     </>
   );
 }

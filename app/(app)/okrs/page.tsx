@@ -1,29 +1,35 @@
-import { Target, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { OkrsView } from "@/components/okrs/okrs-view";
+import { getObjectives } from "@/lib/queries/okrs";
 
-export default function OkrsPage() {
+export const dynamic = "force-dynamic";
+
+interface PageProps {
+  searchParams: Promise<{ q?: string; y?: string }>;
+}
+
+function currentQuarter() {
+  const m = new Date().getMonth() + 1;
+  if (m <= 3) return "Q1";
+  if (m <= 6) return "Q2";
+  if (m <= 9) return "Q3";
+  return "Q4";
+}
+
+export default async function OkrsPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const quarter = (params.q as "Q1" | "Q2" | "Q3" | "Q4") ?? currentQuarter();
+  const year = params.y ? Number(params.y) : new Date().getFullYear();
+
+  const objectives = await getObjectives({ quarter, year });
+
   return (
     <>
       <PageHeader
         title="OKRs"
-        description="Objectivos e Key Results por trimestre"
-        actions={
-          <Button>
-            <Plus />
-            Novo Objetivo
-          </Button>
-        }
+        description={`${objectives.length} ${objectives.length === 1 ? "objetivo" : "objetivos"} · ${quarter} ${year}`}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={Target}
-          title="Objectivos & Key Results"
-          description="Vista por trimestre com confiança (Alta/Média/Baixa), agrupamento por departamento, key results com início/atual/meta e progresso colorido."
-          sprintTag="Sprint 3"
-        />
-      </div>
+      <OkrsView objectives={objectives} selectedQuarter={quarter} selectedYear={year} />
     </>
   );
 }
