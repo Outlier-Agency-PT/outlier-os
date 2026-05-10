@@ -1,29 +1,32 @@
-import { FileText, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyModule } from "@/components/layout/empty-module";
-import { Button } from "@/components/ui/button";
+import { ContentsBoard } from "@/components/contents/contents-board";
+import { getContents } from "@/lib/queries/contents";
+import { getStatuses } from "@/lib/queries/statuses";
+import { getClients } from "@/lib/queries/clients";
+import { getTeamMembers } from "@/lib/queries/team";
 
-export default function ConteudoPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ConteudoPage() {
+  const [contents, statuses, clients, members] = await Promise.all([
+    getContents(),
+    getStatuses("content_statuses"),
+    getClients(),
+    getTeamMembers(),
+  ]);
+
   return (
     <>
       <PageHeader
         title="Conteúdo"
-        description="Calendário de conteúdo com workflow editorial 9-stages"
-        actions={
-          <Button>
-            <Plus />
-            Novo Conteúdo
-          </Button>
-        }
+        description={`${contents.length} ${contents.length === 1 ? "conteúdo" : "conteúdos"}`}
       />
-      <div className="p-8">
-        <EmptyModule
-          icon={FileText}
-          title="Workflow Editorial"
-          description="9 stages (Ideia → Aprovação Ideia → Aprovado → Design → Copy → Aprovação Final → Agendado → Publicado/Rejeitado), upload de ficheiros, copy + copy design separados, feedback do cliente."
-          sprintTag="Sprint 2"
-        />
-      </div>
+      <ContentsBoard
+        contents={contents}
+        statuses={statuses}
+        clients={clients.map((c) => ({ id: c.id, label: c.name }))}
+        members={members.map((m) => ({ id: m.id, label: m.full_name }))}
+      />
     </>
   );
 }

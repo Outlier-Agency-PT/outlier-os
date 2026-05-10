@@ -7,8 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { ShareToggle } from "@/components/clients/share-toggle";
 import { getClientById } from "@/lib/queries/clients";
 import { getTasks } from "@/lib/queries/tasks";
+import { getContents } from "@/lib/queries/contents";
+import { getLaunches } from "@/lib/queries/launches";
 import { CLIENT_TYPE_LABELS, type ClientType } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -23,8 +26,14 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
   const client = await getClientById(id);
   if (!client) notFound();
 
-  const tasks = await getTasks({ clientId: id });
+  const [tasks, contents, allLaunches] = await Promise.all([
+    getTasks({ clientId: id }),
+    getContents({ clientId: id }),
+    getLaunches(),
+  ]);
+  const launches = allLaunches.filter((l) => l.client_id === id);
   const openTasks = tasks.filter((t) => t.status?.key !== "concluido").length;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   return (
     <>
@@ -41,35 +50,40 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
           </span>
         }
         actions={
-          <Button variant="outline" asChild>
-            <Link href="/clientes">
-              <ArrowLeft />
-              Voltar
-            </Link>
-          </Button>
+          <>
+            <ShareToggle
+              clientId={client.id}
+              shareToken={client.public_share_token}
+              enabled={client.public_share_enabled}
+              appUrl={appUrl}
+            />
+            <Button variant="outline" asChild>
+              <Link href="/clientes">
+                <ArrowLeft />
+                Voltar
+              </Link>
+            </Button>
+          </>
         }
       />
 
       <div className="space-y-6 p-8">
-        {/* KPIs */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi label="Tarefas Abertas" value={openTasks} />
-          <Kpi label="Total Tarefas" value={tasks.length} />
+          <Kpi label="Lançamentos" value={launches.length} />
+          <Kpi label="Conteúdos" value={contents.length} />
           <Kpi
             label="Valor Mensal"
-            value={
-              client.monthly_value !== null ? formatCurrency(client.monthly_value) : "—"
-            }
+            value={client.monthly_value !== null ? formatCurrency(client.monthly_value) : "—"}
           />
-          <Kpi label="Cliente Desde" value={client.start_date ? formatDate(client.start_date) : "—"} />
         </div>
 
         <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tarefas">Tarefas ({tasks.length})</TabsTrigger>
-            <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
-            <TabsTrigger value="conteudo">Conteúdo</TabsTrigger>
+            <TabsTrigger value="lancamentos">Lançamentos ({launches.length})</TabsTrigger>
+            <TabsTrigger value="conteudo">Conteúdo ({contents.length})</TabsTrigger>
             <TabsTrigger value="reunioes">Reuniões</TabsTrigger>
             <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
             <TabsTrigger value="feedback">Feedback</TabsTrigger>
@@ -82,12 +96,8 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
                   <CardTitle className="text-base">Informação</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  {client.email && (
-                    <Row icon={Mail} label="Email" value={client.email} />
-                  )}
-                  {client.phone && (
-                    <Row icon={Phone} label="Telefone" value={client.phone} />
-                  )}
+                  {client.email && <Row icon={Mail} label="Email" value={client.email} />}
+                  {client.phone && <Row icon={Phone} label="Telefone" value={client.phone} />}
                   {client.website && (
                     <Row
                       icon={Globe}
@@ -104,9 +114,7 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
                       }
                     />
                   )}
-                  {client.sector && (
-                    <Row label="Sector" value={client.sector} />
-                  )}
+                  {client.sector && <Row label="Sector" value={client.sector} />}
                   {client.responsible && (
                     <Row label="Responsável" value={client.responsible.full_name} />
                   )}
@@ -124,13 +132,30 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Próximos passos</CardTitle>
+                  <CardTitle className="text-base">Atividade Recente</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Após Sprint 2: aqui aparece resumo de Lançamentos Ativos, Conteúdo
-                    Pendente, próximas Reuniões e Atividade Recente.
-                  </p>
+                  {tasks.length === 0 && launches.length === 0 && contents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Sem atividade ainda.</p>
+                  ) : (
+                    <ul className="space-y-2 text-sm">
+                      {tasks.slice(0, 3).map((t) => (
+                        <li key={`t-${t.id}`}>
+                          <span className="text-muted-foreground">Tarefa:</span> {t.title}
+                        </li>
+                      ))}
+                      {launches.slice(0, 3).map((l) => (
+                        <li key={`l-${l.id}`}>
+                          <span className="text-muted-foreground">Lançamento:</span> {l.name}
+                        </li>
+                      ))}
+                      {contents.slice(0, 3).map((c) => (
+                        <li key={`c-${c.id}`}>
+                          <span className="text-muted-foreground">Conteúdo:</span> {c.name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -148,14 +173,10 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
                         <div>
                           <p className="font-medium">{t.title}</p>
                           {t.assignee && (
-                            <p className="text-xs text-muted-foreground">
-                              {t.assignee.full_name}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{t.assignee.full_name}</p>
                           )}
                         </div>
-                        {t.status && (
-                          <StatusBadge label={t.status.label} color={t.status.color} />
-                        )}
+                        {t.status && <StatusBadge label={t.status.label} color={t.status.color} />}
                       </li>
                     ))}
                   </ul>
@@ -165,11 +186,50 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
           </TabsContent>
 
           <TabsContent value="lancamentos">
-            <Placeholder text="Lançamentos disponível em Sprint 2." />
+            <Card>
+              <CardContent className="p-6">
+                {launches.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sem lançamentos.</p>
+                ) : (
+                  <ul className="divide-y">
+                    {launches.map((l) => (
+                      <li key={l.id} className="flex items-center justify-between py-2">
+                        <Link href={`/lancamentos/${l.id}`} className="font-medium hover:underline">
+                          {l.name}
+                        </Link>
+                        {l.status && <StatusBadge label={l.status.label} color={l.status.color} />}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
+
           <TabsContent value="conteudo">
-            <Placeholder text="Calendário editorial disponível em Sprint 2." />
+            <Card>
+              <CardContent className="p-6">
+                {contents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sem conteúdos.</p>
+                ) : (
+                  <ul className="divide-y">
+                    {contents.map((c) => (
+                      <li key={c.id} className="flex items-center justify-between py-2">
+                        <div>
+                          <p className="font-medium">{c.name}</p>
+                          {c.format && (
+                            <p className="text-xs text-muted-foreground">{c.format}</p>
+                          )}
+                        </div>
+                        {c.status && <StatusBadge label={c.status.label} color={c.status.color} />}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
+
           <TabsContent value="reunioes">
             <Placeholder text="Reuniões disponível em Sprint 4." />
           </TabsContent>
@@ -177,7 +237,7 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
             <Placeholder text="Relatórios disponível em Sprint 3." />
           </TabsContent>
           <TabsContent value="feedback">
-            <Placeholder text="Feedback do cliente disponível em Sprint 2." />
+            <Placeholder text="Feedback inline disponível em Sprint 4. Por agora, vê via dashboard partilhado." />
           </TabsContent>
         </Tabs>
       </div>
