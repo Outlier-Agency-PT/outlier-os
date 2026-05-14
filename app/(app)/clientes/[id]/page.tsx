@@ -12,8 +12,9 @@ import { getClientById } from "@/lib/queries/clients";
 import { getTasks } from "@/lib/queries/tasks";
 import { getContents } from "@/lib/queries/contents";
 import { getLaunches } from "@/lib/queries/launches";
+import { getActivityForClient, describeActivity } from "@/lib/queries/activity";
 import { CLIENT_TYPE_LABELS, type ClientType } from "@/lib/types";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatRelative } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,11 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
   const client = await getClientById(id);
   if (!client) notFound();
 
-  const [tasks, contents, allLaunches] = await Promise.all([
+  const [tasks, contents, allLaunches, activity] = await Promise.all([
     getTasks({ clientId: id }),
     getContents({ clientId: id }),
     getLaunches(),
+    getActivityForClient(id, 15),
   ]);
   const launches = allLaunches.filter((l) => l.client_id === id);
   const openTasks = tasks.filter((t) => t.status?.key !== "concluido").length;
@@ -135,23 +137,19 @@ export default async function ClienteDetalhePage({ params }: PageProps) {
                   <CardTitle className="text-base">Atividade Recente</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {tasks.length === 0 && launches.length === 0 && contents.length === 0 ? (
+                  {activity.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Sem atividade ainda.</p>
                   ) : (
                     <ul className="space-y-2 text-sm">
-                      {tasks.slice(0, 3).map((t) => (
-                        <li key={`t-${t.id}`}>
-                          <span className="text-muted-foreground">Tarefa:</span> {t.title}
-                        </li>
-                      ))}
-                      {launches.slice(0, 3).map((l) => (
-                        <li key={`l-${l.id}`}>
-                          <span className="text-muted-foreground">Lançamento:</span> {l.name}
-                        </li>
-                      ))}
-                      {contents.slice(0, 3).map((c) => (
-                        <li key={`c-${c.id}`}>
-                          <span className="text-muted-foreground">Conteúdo:</span> {c.name}
+                      {activity.map((a) => (
+                        <li key={a.id} className="flex items-start justify-between gap-2">
+                          <span>
+                            <span className="font-medium">{a.member?.full_name ?? "Sistema"}</span>{" "}
+                            <span className="text-muted-foreground">{describeActivity(a)}</span>
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {formatRelative(a.created_at)}
+                          </span>
                         </li>
                       ))}
                     </ul>

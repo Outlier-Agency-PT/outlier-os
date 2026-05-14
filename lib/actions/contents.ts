@@ -78,6 +78,56 @@ export async function deleteContentAction(id: string) {
   return { success: true };
 }
 
+// Ficheiros: server action que recebe um File via FormData e faz upload ao bucket
+export async function uploadContentFileAction(contentId: string, formData: FormData) {
+  const file = formData.get("file");
+  if (!(file instanceof File)) return { error: "Sem ficheiro" };
+  if (file.size > 50 * 1024 * 1024) return { error: "Ficheiro > 50 MB" };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado" };
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const path = `${contentId}/${Date.now()}_${safeName}`;
+
+  const { error: upErr } = await supabase.storage.from("content-files").upload(path, file, {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
+  if (upErr) return { error: upErr.message };
+
+  const { error: dbErr } = await supabase.from("content_files").insert({
+    content_id: contentId,
+    storage_path: path,
+    file_name: file.name,
+    mime_type: file.type,
+    size_bytes: file.size,
+    uploaded_by: user.id,
+  });
+  if (dbErr) return { error: dbErr.message };
+
+  revalidatePath(`/conteudo`);
+  return { success: true, path };
+}
+
+export async function deleteContentFileAction(fileId: string) {
+  const supabase = await createClient();
+  const { data: file } = await supabase
+    .from("content_files")
+    .select("storage_path")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (file) {
+    await supabase.storage
+      .from("content-files")
+      .remove([(file as { storage_path: string }).storage_path]);
+  }
+  await supabase.from("content_files").delete().eq("id", fileId);
+  revalidatePath("/conteudo");
+  return { success: true };
+}
+
 // Feedback do cliente (via dashboard partilhado)
 const feedbackSchema = z.object({
   content_id: z.string().uuid().optional(),

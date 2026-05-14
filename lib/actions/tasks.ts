@@ -90,6 +90,22 @@ export async function deleteTaskAction(id: string) {
   return { success: true };
 }
 
+export async function postTaskCommentAction(taskId: string, body: string) {
+  if (!body.trim()) return { error: "Comentário vazio" };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado" };
+
+  const { data, error } = await supabase
+    .from("task_comments")
+    .insert({ task_id: taskId, author_id: user.id, body: body.trim() })
+    .select()
+    .single();
+  if (error) return { error: error.message };
+  revalidatePath(`/tarefas/${taskId}`);
+  return { data };
+}
+
 // Time tracking
 export async function startTimerAction(taskId: string) {
   const supabase = await createClient();

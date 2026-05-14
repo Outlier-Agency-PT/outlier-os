@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { ALL_MODULE_KEYS } from "@/lib/types";
 
@@ -41,6 +42,81 @@ export async function updateMemberAction(id: string, input: MemberUpdateInput) {
 
   revalidatePath("/equipa");
   return { data };
+}
+
+const inviteSchema = z.object({
+  email: z.string().email(),
+  full_name: z.string().min(1),
+  role: z.enum(["admin", "membro"]).default("membro"),
+  department: z.string().nullable().optional(),
+  job_title: z.string().nullable().optional(),
+  permissions_modules: z.array(z.string()).default([]),
+  password: z.string().min(8).optional(),
+});
+
+export type InviteInput = z.infer<typeof inviteSchema>;
+
+export async function inviteMemberAction(input: InviteInput) {
+  // Apenas admins podem convidar
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: { _form: ["Não autenticado"] } };
+
+  const { data: me } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!me || (me as { role: string }).role !== "admin") {
+    return { error: { _form: ["Apenas administradores podem convidar membros"] } };
+  }
+
+  const parsed = inviteSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
+
+  // Gera password se não fornecida (admin deve enviá-la ao membro)
+  const password =
+    parsed.data.password ??
+    Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((b) => b.toString(36).padStart(2, "0"))
+      .join("")
+      .slice(0, 20);
+
+  // Cria user via Admin API (service_role)
+  const admin = createAdminClient();
+  const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
+    email: parsed.data.email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: parsed.data.full_name },
+  });
+
+  if (createErr || !newUser.user) {
+    return { error: { _form: [createErr?.message ?? "Erro a criar utilizador"] } };
+  }
+
+  // Atualiza team_member com role, department, permissões (trigger já criou linha)
+  const permissions =
+    parsed.data.role === "admin" ? [] : parsed.data.permissions_modules;
+
+  await admin
+    .from("team_members")
+    .update({
+      role: parsed.data.role,
+      department: parsed.data.department ?? null,
+      job_title: parsed.data.job_title ?? null,
+      permissions_modules: permissions,
+    })
+    .eq("id", newUser.user.id);
+
+  revalidatePath("/equipa");
+  return {
+    data: {
+      id: newUser.user.id,
+      email: parsed.data.email,
+      password, // admin precisa de partilhar com o membro
+    },
+  };
 }
 
 export async function deactivateMemberAction(id: string) {
