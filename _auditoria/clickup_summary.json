@@ -1,0 +1,449 @@
+{
+  "totals": {
+    "spaces": 10,
+    "folders": 41,
+    "lists": 116,
+    "tasks_sampled": 1399,
+    "open": 549,
+    "closed": 593
+  },
+  "per_space": [
+    {
+      "name": "Outlier Agency - Gestão",
+      "folders": 2,
+      "lists": 5,
+      "open": 10,
+      "closed": 0
+    },
+    {
+      "name": "Recursos Humanos",
+      "folders": 2,
+      "lists": 2,
+      "open": 0,
+      "closed": 0
+    },
+    {
+      "name": "Outlier Agency - Equipa",
+      "folders": 6,
+      "lists": 30,
+      "open": 164,
+      "closed": 357
+    },
+    {
+      "name": "Administrativo",
+      "folders": 4,
+      "lists": 6,
+      "open": 11,
+      "closed": 30
+    },
+    {
+      "name": "Leads Hunters (dpt Revenue)",
+      "folders": 2,
+      "lists": 1,
+      "open": 0,
+      "closed": 11
+    },
+    {
+      "name": "Revenue",
+      "folders": 4,
+      "lists": 8,
+      "open": 63,
+      "closed": 20
+    },
+    {
+      "name": "Mapa de Lançamentos",
+      "folders": 3,
+      "lists": 3,
+      "open": 3,
+      "closed": 3
+    },
+    {
+      "name": "Clientes One Shot",
+      "folders": 3,
+      "lists": 10,
+      "open": 48,
+      "closed": 3
+    },
+    {
+      "name": "Clientes Long Term",
+      "folders": 11,
+      "lists": 37,
+      "open": 221,
+      "closed": 169
+    },
+    {
+      "name": "Template Lançamentos",
+      "folders": 4,
+      "lists": 14,
+      "open": 29,
+      "closed": 0
+    }
+  ],
+  "top_active_lists": [
+    {
+      "space": "Clientes Long Term",
+      "folder": null,
+      "name": "[long term] Onboarding para avença",
+      "open": 4,
+      "closed": 0,
+      "last_update": "2026-06-05"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "João Dias",
+      "name": "Tarefas João Dias",
+      "open": 1,
+      "closed": 0,
+      "last_update": "2026-03-12"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Celina Noro",
+      "name": "Tarefas Celina Noro",
+      "open": 7,
+      "closed": 0,
+      "last_update": "2026-02-16"
+    },
+    {
+      "space": "Revenue",
+      "folder": "Conteúdo",
+      "name": "Conteúdo Daniel Godinho",
+      "open": 6,
+      "closed": 6,
+      "last_update": "2026-01-30"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Daniel Godinho",
+      "name": "Processos 2.0 Incubadora",
+      "open": 26,
+      "closed": 1,
+      "last_update": "2026-01-22"
+    },
+    {
+      "space": "Mapa de Lançamentos",
+      "folder": "2026 MAPA DE LANÇAMENTOS",
+      "name": "MAPA LANÇAMENTOS",
+      "open": 0,
+      "closed": 2,
+      "last_update": "2026-01-13"
+    },
+    {
+      "space": "Clientes One Shot",
+      "folder": "Lourdes Monteiro",
+      "name": "teste",
+      "open": 9,
+      "closed": 0,
+      "last_update": "2026-01-09"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": null,
+      "name": "Serviço Google Ads Onboarding",
+      "open": 1,
+      "closed": 0,
+      "last_update": "2026-01-07"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Clube Finanças",
+      "name": "Intake Atas Reuniões Mensais Clube Finanças",
+      "open": 30,
+      "closed": 0,
+      "last_update": "2026-01-05"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Daniel Godinho",
+      "name": "Perfil Alunos Incubadora",
+      "open": 0,
+      "closed": 0,
+      "last_update": "2026-01-04"
+    }
+  ],
+  "strategic_candidates": [
+    {
+      "space": "Clientes Long Term",
+      "folder": null,
+      "name": "[long term] Onboarding para avença",
+      "open": 4,
+      "last_update": 1780663638767
+    },
+    {
+      "space": "Mapa de Lançamentos",
+      "folder": "2026 MAPA DE LANÇAMENTOS",
+      "name": "MAPA LANÇAMENTOS",
+      "open": 0,
+      "last_update": 1768308354387
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": null,
+      "name": "Serviço Google Ads Onboarding",
+      "open": 1,
+      "last_update": 1767822990170
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "OKRA's",
+      "name": "2025 - 4ºT",
+      "open": 1,
+      "last_update": 1762504099703
+    },
+    {
+      "space": "Outlier Agency - Gestão",
+      "folder": null,
+      "name": "Plano ação ultimo trimestre 2025",
+      "open": 6,
+      "last_update": 1759490782264
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "OKRA's",
+      "name": "2025 - 3ºT",
+      "open": 1,
+      "last_update": 1758793745846
+    },
+    {
+      "space": "Administrativo",
+      "folder": "Clientes Serviço",
+      "name": "Onboarding Clientes Serviço",
+      "open": 1,
+      "last_update": 1758726519732
+    },
+    {
+      "space": "Template Lançamentos",
+      "folder": "LANÇAMENTOS MASTER",
+      "name": "Onboarding & Kick-Off",
+      "open": 1,
+      "last_update": 1756895458860
+    },
+    {
+      "space": "Template Lançamentos",
+      "folder": "LANÇAMENTOS TRAFFIC",
+      "name": "Onboarding & Kick-Off",
+      "open": 1,
+      "last_update": 1756895330550
+    },
+    {
+      "space": "Template Lançamentos",
+      "folder": "LANÇAMENTOS PREMIUM",
+      "name": "Onboarding & Kick-Off",
+      "open": 1,
+      "last_update": 1756895327438
+    },
+    {
+      "space": "Clientes One Shot",
+      "folder": "Lourdes Monteiro",
+      "name": "Onboarding Cliente",
+      "open": 4,
+      "last_update": 1756215703755
+    },
+    {
+      "space": "Revenue",
+      "folder": null,
+      "name": "RoadMap de Melhorias Revenue",
+      "open": 5,
+      "last_update": 1756198734340
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Outlier Agency",
+      "name": "Tarefas Rebranding",
+      "open": 6,
+      "last_update": 1754391312412
+    },
+    {
+      "space": "Revenue",
+      "folder": "Checkout Conference",
+      "name": "#18_SET_CC_lista_tarefas_lançamento",
+      "open": 8,
+      "last_update": 1751296748666
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "RoadMap",
+      "name": "RoadmapPrioritários Liderança",
+      "open": 9,
+      "last_update": 1749034560237
+    }
+  ],
+  "stale_lists_60d": [
+    {
+      "space": "Administrativo",
+      "folder": "Tarefas Administrativas",
+      "name": "Tarefas Recorrentes",
+      "open": 0,
+      "last_update": "2024-03-22"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "Onboarding Colaboradores",
+      "name": "Davi Macedo [Tráfego]",
+      "open": 0,
+      "last_update": "2024-05-06"
+    },
+    {
+      "space": "Outlier Agency - Gestão",
+      "folder": "Stakeholders",
+      "name": "Fornecedores",
+      "open": 0,
+      "last_update": "2024-05-18"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Outlier Agency",
+      "name": "Tarefas avença recorrentes",
+      "open": 0,
+      "last_update": "2024-05-30"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "Onboarding Colaboradores",
+      "name": "Mafalda Barbosa [Copy]",
+      "open": 0,
+      "last_update": "2024-06-05"
+    },
+    {
+      "space": "Administrativo",
+      "folder": "Clientes & Projetos",
+      "name": "Clientes [2022 e 2023]",
+      "open": 1,
+      "last_update": "2024-06-30"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "Onboarding Colaboradores",
+      "name": "Mariane [Tráfego]",
+      "open": 1,
+      "last_update": "2024-07-08"
+    },
+    {
+      "space": "Administrativo",
+      "folder": "Clientes & Projetos",
+      "name": "Clientes [2024]",
+      "open": 9,
+      "last_update": "2024-07-08"
+    },
+    {
+      "space": "Mapa de Lançamentos",
+      "folder": "2024 MAPA DE LANÇAMENTOS",
+      "name": "MAPA LANÇAMENTOS",
+      "open": 0,
+      "last_update": "2024-07-16"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "Onboarding Colaboradores",
+      "name": "Talita [Design]",
+      "open": 3,
+      "last_update": "2024-07-31"
+    },
+    {
+      "space": "Revenue",
+      "folder": "Conteúdo",
+      "name": "Conteúdo Outlier Agency",
+      "open": 1,
+      "last_update": "2024-08-12"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "MÍDIA",
+      "name": "List",
+      "open": 0,
+      "last_update": "2024-09-12"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "Onboarding Colaboradores",
+      "name": "Leandro [Comercial]",
+      "open": 2,
+      "last_update": "2024-09-25"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "Onboarding Colaboradores",
+      "name": "Diogo Daniel [Operações] ",
+      "open": 1,
+      "last_update": "2024-12-19"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Daniel Godinho",
+      "name": "Incubadora de Infoprodutores (Pós-venda)",
+      "open": 7,
+      "last_update": "2024-12-19"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "RoadMap",
+      "name": "RoadMap de Implementação",
+      "open": 19,
+      "last_update": "2025-01-21"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "Processos & Operações",
+      "name": "Intake atas reuniões",
+      "open": 30,
+      "last_update": "2025-01-23"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Outlier Agency",
+      "name": "Tarefas recorrentes social media MJ",
+      "open": 5,
+      "last_update": "2025-02-05"
+    },
+    {
+      "space": "Outlier Agency - Equipa",
+      "folder": "Onboarding Colaboradores",
+      "name": "Lara Silva [A. Marketing]",
+      "open": 0,
+      "last_update": "2025-02-10"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Outlier Agency",
+      "name": "DG Planner Social Media - DG",
+      "open": 22,
+      "last_update": "2025-02-10"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Outlier Agency",
+      "name": "Tarefas recorrentes social media OA",
+      "open": 6,
+      "last_update": "2025-02-17"
+    },
+    {
+      "space": "Clientes One Shot",
+      "folder": "Drª Filipa",
+      "name": "Tarefas Drª Filipa",
+      "open": 7,
+      "last_update": "2025-02-20"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Outlier Agency",
+      "name": "MJ Planner Social Media",
+      "open": 22,
+      "last_update": "2025-02-24"
+    },
+    {
+      "space": "Clientes Long Term",
+      "folder": "Outlier Agency",
+      "name": "Tarefas recorrentes social media DG",
+      "open": 6,
+      "last_update": "2025-02-26"
+    },
+    {
+      "space": "Clientes One Shot",
+      "folder": "Drª Filipa",
+      "name": "tarefas onboarding",
+      "open": 1,
+      "last_update": "2025-02-26"
+    }
+  ],
+  "stale_count_total": 101
+}

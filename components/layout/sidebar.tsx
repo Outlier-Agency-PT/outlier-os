@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-const SECTIONS: ModuleSection[] = ["dashboard", "operacional", "financeiro", "gestao"];
+const SECTIONS: ModuleSection[] = ["dashboard", "estrategia", "operacional", "financeiro", "gestao"];
 
 export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?: string }) {
   const pathname = usePathname();
