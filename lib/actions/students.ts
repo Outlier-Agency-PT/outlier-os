@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
 const studentSchema = z.object({
@@ -31,6 +32,10 @@ function clean<T extends Record<string, unknown>>(input: T) {
   return r;
 }
 
+function generatePassword() {
+  return Math.random().toString(36).slice(-10) + "A1!";
+}
+
 export async function createStudentAction(input: StudentInput) {
   const parsed = studentSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
@@ -39,9 +44,45 @@ export async function createStudentAction(input: StudentInput) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: { _form: ["Não autenticado"] } };
 
+  let newUserId: string | null = null;
+  let password: string | null = null;
+  const cleanData = clean(parsed.data);
+
+  // Se email foi fornecido, criar user em auth
+  if (parsed.data.email && parsed.data.email.trim()) {
+    const generatedPassword = generatePassword();
+    const admin = createAdminClient();
+
+    const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
+      email: parsed.data.email,
+      password: generatedPassword,
+      email_confirm: true,
+      user_metadata: { full_name: parsed.data.name },
+    });
+
+    if (createErr || !newUser.user) {
+      return { error: { _form: [createErr?.message ?? "Erro a criar utilizador"] } };
+    }
+
+    newUserId = newUser.user.id;
+    password = generatedPassword;
+
+    // Inserir role 'aluno' em user_roles
+    await supabase.from("user_roles").insert({
+      user_id: newUserId,
+      role: "aluno",
+    });
+  }
+
+  // Criar student com user_id se foi criado auth user
+  const studentData = { ...cleanData, created_by: user.id };
+  if (newUserId) {
+    (studentData as Record<string, any>).user_id = newUserId;
+  }
+
   const { data, error } = await supabase
     .from("students")
-    .insert({ ...clean(parsed.data), created_by: user.id })
+    .insert(studentData)
     .select()
     .single();
   if (error) return { error: { _form: [error.message] } };
@@ -58,7 +99,7 @@ export async function createStudentAction(input: StudentInput) {
   }
 
   revalidatePath("/incubadora");
-  return { data };
+  return { data: { student: data, password } };
 }
 
 export async function updateStudentAction(id: string, input: Partial<StudentInput>) {
@@ -90,5 +131,86 @@ export async function updateSessionAction(
   const supabase = await createClient();
   const { error } = await supabase.from("student_sessions").update(data).eq("id", id);
   if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function updateStudentLaunchAction(
+  studentId: string,
+  data: {
+    launch_product?: string | null;
+    launch_objective?: string | null;
+    launch_date?: string | null;
+    product_ticket?: string | null;
+    leads_goal?: number | null;
+    revenue_goal?: number | null;
+    investment_budget?: number | null;
+  },
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("students")
+    .update(clean(data))
+    .eq("id", studentId);
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
+  return { success: true };
+}
+
+export async function updateStudentFinancialAction(
+  studentId: string,
+  data: { revenue_generated?: number | null; debriefing?: string | null },
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("students")
+    .update(clean(data))
+    .eq("id", studentId);
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
+  return { success: true };
+}
+
+export async function upsertStudentChecklistAction(
+  studentId: string,
+  data: {
+    has_leads_goal?: boolean;
+    has_organic_content?: boolean;
+    has_bio_link?: boolean;
+    notes?: string | null;
+  },
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("student_checklist").upsert(
+    { student_id: studentId, ...clean(data) },
+    { onConflict: "student_id" },
+  );
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
+  return { success: true };
+}
+
+export async function createStudentNoteAction(
+  studentId: string,
+  data: {
+    contact_type: "Call" | "WhatsApp" | "Email" | "Sessão quinzenal" | "Outro";
+    involvement: string;
+    motivation: string;
+    content: string;
+  },
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado" };
+
+  const { error } = await supabase.from("student_notes").insert({
+    student_id: studentId,
+    author_id: user.id,
+    contact_type: data.contact_type,
+    involvement: data.involvement,
+    motivation: data.motivation,
+    content: data.content,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
   return { success: true };
 }

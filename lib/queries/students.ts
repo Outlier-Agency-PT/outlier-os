@@ -16,8 +16,38 @@ export interface Student {
   start_date: string | null;
   end_date: string | null;
   briefing: string | null;
+  launch_product: string | null;
+  launch_objective: string | null;
+  launch_date: string | null;
+  product_ticket: string | null;
+  leads_goal: number | null;
+  revenue_goal: number | null;
+  investment_budget: number | null;
+  revenue_generated: number | null;
+  debriefing: string | null;
   created_at: string;
   coach: { id: string; full_name: string } | null;
+}
+
+export interface StudentChecklist {
+  id: string;
+  student_id: string;
+  has_leads_goal: boolean;
+  has_organic_content: boolean;
+  has_bio_link: boolean;
+  notes: string | null;
+}
+
+export interface StudentNote {
+  id: string;
+  student_id: string;
+  author_id: string;
+  contact_type: "Call" | "WhatsApp" | "Email" | "Sessão quinzenal" | "Outro";
+  involvement: string;
+  motivation: string;
+  content: string;
+  created_at: string;
+  author: { full_name: string };
 }
 
 export interface SessionType {
@@ -49,9 +79,11 @@ export async function getStudents(): Promise<Student[]> {
 export async function getStudentById(id: string): Promise<{
   student: Student | null;
   sessions: StudentSession[];
+  checklist: StudentChecklist | null;
+  notes: StudentNote[];
 }> {
   const supabase = await createClient();
-  const [{ data: student }, { data: sessions }] = await Promise.all([
+  const [{ data: student }, { data: sessions }, { data: checklist }, { data: notes }] = await Promise.all([
     supabase
       .from("students")
       .select(`*, coach:team_members!students_coach_id_fkey(id, full_name)`)
@@ -62,11 +94,43 @@ export async function getStudentById(id: string): Promise<{
       .select(`*, type:student_session_types(key, label)`)
       .eq("student_id", id)
       .order("type"),
+    supabase
+      .from("student_checklist")
+      .select("*")
+      .eq("student_id", id)
+      .maybeSingle(),
+    supabase
+      .from("student_notes")
+      .select(`*, author:team_members!student_notes_author_id_fkey(full_name)`)
+      .eq("student_id", id)
+      .order("created_at", { ascending: false }),
   ]);
   return {
     student: (student ?? null) as Student | null,
     sessions: (sessions ?? []) as StudentSession[],
+    checklist: (checklist ?? null) as StudentChecklist | null,
+    notes: (notes ?? []) as StudentNote[],
   };
+}
+
+export async function getStudentChecklist(studentId: string): Promise<StudentChecklist | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("student_checklist")
+    .select("*")
+    .eq("student_id", studentId)
+    .maybeSingle();
+  return (data ?? null) as StudentChecklist | null;
+}
+
+export async function getStudentNotes(studentId: string): Promise<StudentNote[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("student_notes")
+    .select(`*, author:team_members!student_notes_author_id_fkey(full_name)`)
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as StudentNote[];
 }
 
 export async function getSessionTypes(): Promise<SessionType[]> {
