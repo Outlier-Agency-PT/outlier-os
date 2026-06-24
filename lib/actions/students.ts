@@ -197,6 +197,7 @@ export async function createStudentNoteAction(
     motivation: string;
     content: string;
     reminder_date?: string | null;
+    reminder_note?: string | null;
   },
 ) {
   const supabase = await createClient();
@@ -211,6 +212,7 @@ export async function createStudentNoteAction(
     motivation: data.motivation,
     content: data.content,
     reminder_date: data.reminder_date || null,
+    reminder_note: data.reminder_note || null,
   });
   if (error) return { error: error.message };
   revalidatePath(`/incubadora/${studentId}`);
@@ -226,6 +228,7 @@ export async function updateStudentNoteAction(
     motivation?: string;
     content?: string;
     reminder_date?: string | null;
+    reminder_note?: string | null;
   },
 ) {
   const supabase = await createClient();

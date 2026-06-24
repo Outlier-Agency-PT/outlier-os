@@ -47,6 +47,7 @@ export interface StudentNote {
   motivation: string;
   content: string;
   reminder_date: string | null;
+  reminder_note: string | null;
   created_at: string;
   author: { full_name: string };
 }
@@ -58,6 +59,7 @@ export interface PendingReminder {
   contact_type: string;
   content: string;
   reminder_date: string;
+  reminder_note: string | null;
   urgency: "vencido" | "hoje" | "esta-semana";
 }
 
@@ -158,7 +160,7 @@ export async function getPendingReminders(): Promise<PendingReminder[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("student_notes")
-    .select(`id, student_id, contact_type, content, reminder_date, students(name)`)
+    .select(`id, student_id, contact_type, content, reminder_date, reminder_note, students(name)`)
     .not("reminder_date", "is", null)
     .order("reminder_date");
 
@@ -187,6 +189,7 @@ export async function getPendingReminders(): Promise<PendingReminder[]> {
         contact_type: note.contact_type,
         content: note.content,
         reminder_date: note.reminder_date,
+        reminder_note: note.reminder_note,
         urgency,
       };
     })

@@ -199,31 +199,50 @@ export function StudentsView({ students, members, progressMap, detailedProgressM
                 <div key={urgency} className="space-y-2">
                   <h3 className="text-sm font-medium">{urgencyLabel}</h3>
                   <div className="space-y-2">
-                    {group.map((reminder) => (
-                      <div key={reminder.id} className="flex items-start gap-3 rounded-lg border bg-muted/50 p-3">
-                        <div className="flex-1">
-                          <Link href={`/incubadora/${reminder.student_id}`} className="hover:underline">
-                            <p className="text-sm font-medium">{reminder.student_name}</p>
-                          </Link>
-                          <p className="text-xs text-muted-foreground">{reminder.contact_type}</p>
-                          <p className="mt-1 text-sm">{reminder.content}</p>
+                    {group.map((reminder) => {
+                      const reminderDate = new Date(reminder.reminder_date);
+                      const formattedDate = reminderDate.toLocaleDateString("pt-PT", { day: "numeric", month: "short", year: "numeric" });
+                      const contentPreview = reminder.content.length > 80 ? reminder.content.slice(0, 80) + "..." : reminder.content;
+
+                      return (
+                        <div key={reminder.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-2">
+                              <Link href={`/incubadora/${reminder.student_id}`} className="hover:underline">
+                                <p className="text-sm font-semibold text-foreground">{reminder.student_name}</p>
+                              </Link>
+
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-xs">{reminder.contact_type}</Badge>
+                                <span className="text-xs font-medium text-muted-foreground">{formattedDate}</span>
+                              </div>
+
+                              {reminder.reminder_note && (
+                                <p className="text-sm font-semibold text-foreground">{reminder.reminder_note}</p>
+                              )}
+
+                              <p className="text-sm text-muted-foreground">{contentPreview}</p>
+                            </div>
+
+                            <button
+                              onClick={async () => {
+                                const result = await completeReminderAction(reminder.id, reminder.student_id);
+                                if ("error" in result && result.error) {
+                                  toast.error(result.error);
+                                } else {
+                                  toast.success("Lembrete concluído");
+                                  window.location.reload();
+                                }
+                              }}
+                              className="shrink-0 inline-flex items-center justify-center h-8 w-8 rounded border border-input hover:bg-muted transition-colors"
+                              title="Marcar como concluído"
+                            >
+                              <span className="text-lg font-medium">✓</span>
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          onClick={async () => {
-                            const result = await completeReminderAction(reminder.id, reminder.student_id);
-                            if ("error" in result && result.error) {
-                              toast.error(result.error);
-                            } else {
-                              toast.success("Lembrete concluído");
-                              window.location.reload();
-                            }
-                          }}
-                          className="whitespace-nowrap rounded px-2 py-1 text-xs font-medium hover:bg-muted"
-                        >
-                          ✓
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );

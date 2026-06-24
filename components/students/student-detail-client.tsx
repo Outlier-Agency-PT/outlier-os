@@ -61,6 +61,7 @@ export function StudentDetailClient({
     motivation: "",
     content: "",
     reminder_date: null as string | null,
+    reminder_note: null as string | null,
   });
   const [checklistNotes, setChecklistNotes] = useState(initialChecklist?.notes ?? "");
   const checklistTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -142,7 +143,7 @@ export function StudentDetailClient({
       toast.success(editingNoteId ? "Nota actualizada" : "Nota criada");
       setShowNoteDialog(false);
       setEditingNoteId(null);
-      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "", reminder_date: null });
+      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "", reminder_date: null, reminder_note: null });
     }
   }
 
@@ -157,11 +158,12 @@ export function StudentDetailClient({
           motivation: note.motivation,
           content: note.content,
           reminder_date: note.reminder_date || null,
+          reminder_note: note.reminder_note || null,
         });
       }
     } else {
       setEditingNoteId(null);
-      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "", reminder_date: null });
+      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "", reminder_date: null, reminder_note: null });
     }
     setShowNoteDialog(true);
   }
@@ -516,6 +518,17 @@ export function StudentDetailClient({
                 className="mt-1"
               />
             </div>
+            {noteForm.reminder_date && (
+              <div>
+                <label className="text-sm font-medium">Motivo do lembrete</label>
+                <Input
+                  value={noteForm.reminder_note || ""}
+                  onChange={(e) => setNoteForm({ ...noteForm, reminder_note: e.target.value || null })}
+                  placeholder="ex: Rever números do CAC, Follow-up sobre lançamento"
+                  className="mt-1"
+                />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Envolvimento</label>
               <Input
