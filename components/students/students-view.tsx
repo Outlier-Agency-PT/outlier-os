@@ -206,23 +206,22 @@ export function StudentsView({ students, members, progressMap, detailedProgressM
                       const contentPreview = reminder.content.length > 80 ? reminder.content.slice(0, 80) + "..." : reminder.content;
 
                       return (
-                        <div key={reminder.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 space-y-2">
+                        <div key={reminder.id} className="rounded-lg border bg-card p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 space-y-1.5">
                               <Link href={`/incubadora/${reminder.student_id}`} className="hover:underline">
-                                <p className="text-sm font-semibold text-foreground">{reminder.student_name}</p>
+                                <p className="text-sm font-medium text-foreground">{reminder.student_name}</p>
                               </Link>
 
-                              <div className="flex items-center gap-2">
+                              <p className="text-xs text-muted-foreground">
+                                Lembrete para {formattedDate}{reminder.reminder_note && ` · ${reminder.reminder_note}`}
+                              </p>
+
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <Badge variant="secondary" className="text-xs">{reminder.contact_type}</Badge>
-                                <span className="text-xs font-medium text-muted-foreground">{formattedDate}</span>
+                                <span className="text-xs text-muted-foreground">·</span>
+                                <span className="text-xs text-muted-foreground">{contentPreview}</span>
                               </div>
-
-                              {reminder.reminder_note && (
-                                <p className="text-sm font-semibold text-foreground">{reminder.reminder_note}</p>
-                              )}
-
-                              <p className="text-sm text-muted-foreground">{contentPreview}</p>
                             </div>
 
                             <button

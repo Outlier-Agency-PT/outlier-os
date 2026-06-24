@@ -424,28 +424,27 @@ export function StudentDetailClient({
           ) : (
             <div className="space-y-3">
               {notes.map((note) => {
-                const contactTypeColors: Record<string, string> = {
-                  "Call": "bg-blue-100 text-blue-700",
-                  "WhatsApp": "bg-green-100 text-green-700",
-                  "Email": "bg-purple-100 text-purple-700",
-                  "Sessão quinzenal": "bg-orange-100 text-orange-700",
-                  "Outro": "bg-gray-100 text-gray-700",
-                };
+                const noteDate = formatDate(note.created_at).split(" ").slice(-3).join(" ");
                 return (
-                  <div key={note.id} className="border-b pb-3 last:border-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge className={`text-xs ${contactTypeColors[note.contact_type] || "bg-gray-100 text-gray-700"}`}>
-                            {note.contact_type}
-                          </Badge>
+                  <div key={note.id} className="rounded-lg border bg-card p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium">{note.author.full_name}</p>
+                          <span className="text-xs text-muted-foreground">·</span>
+                          <Badge variant="secondary" className="text-xs">{note.contact_type}</Badge>
+                          <span className="text-xs text-muted-foreground">·</span>
+                          <span className="text-xs text-muted-foreground">{noteDate}</span>
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {formatDate(note.created_at)} · {note.involvement} · {note.motivation}
+
+                        <p className="text-xs text-muted-foreground">
+                          Envolvimento: {note.involvement} · Motivação: {note.motivation}
                         </p>
+
+                        <p className="text-sm text-foreground">{note.content}</p>
                       </div>
-                      <div className="flex gap-1">
+
+                      <div className="flex gap-1 shrink-0">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -464,7 +463,6 @@ export function StudentDetailClient({
                         </Button>
                       </div>
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm">{note.content}</p>
                   </div>
                 );
               })}
