@@ -25,7 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createStudentAction, type StudentInput, completeReminderAction } from "@/lib/actions/students";
+import { createStudentAction, type StudentInput } from "@/lib/actions/students";
+import { completeReminderAction } from "@/lib/actions/reminders";
 import { ActivityBadge } from "@/components/incubadora/incubadora-components";
 import { toast } from "sonner";
 import type { Student, PendingReminder } from "@/lib/queries/students";

@@ -251,14 +251,3 @@ export async function deleteStudentNoteAction(noteId: string, studentId: string)
   revalidatePath(`/incubadora/${studentId}`);
   return { success: true };
 }
-
-export async function completeReminderAction(noteId: string, studentId: string) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("student_notes")
-    .update({ reminder_date: null })
-    .eq("id", noteId);
-  if (error) return { error: error.message };
-  revalidatePath(`/incubadora/${studentId}`);
-  return { success: true };
-}
