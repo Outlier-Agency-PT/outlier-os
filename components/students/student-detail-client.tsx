@@ -142,7 +142,7 @@ export function StudentDetailClient({
       toast.success(editingNoteId ? "Nota actualizada" : "Nota criada");
       setShowNoteDialog(false);
       setEditingNoteId(null);
-      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "" });
+      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "", reminder_date: null });
     }
   }
 
@@ -492,7 +492,7 @@ export function StudentDetailClient({
               <label className="text-sm font-medium">Tipo de Contacto</label>
               <Input
                 value={noteForm.contact_type}
-                onChange={(e) => setNoteForm({ ...noteForm, contact_type: e.target.value })}
+                onChange={(e) => setNoteForm({ ...noteForm, contact_type: e.target.value as any })}
                 list="contact-types"
                 className="mt-1"
                 placeholder="Call, WhatsApp, Email..."
@@ -621,6 +621,3 @@ function ChecklistItem({
   );
 }
 
-function Badge({ variant, children, className }: { variant?: string; children: React.ReactNode; className?: string }) {
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${className}`}>{children}</span>;
-}

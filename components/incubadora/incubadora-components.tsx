@@ -78,7 +78,7 @@ export function ModulesPanel({ modules: initialModules }: { modules: Module[] })
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
 
-  const [moduleForm, setModuleForm] = useState<ModuleInput>({ title: "", order_index: 0 });
+  const [moduleForm, setModuleForm] = useState<ModuleInput>({ title: "", order_index: 0, is_active: true });
   const [lessonForm, setLessonForm] = useState<LessonInput>({
     module_id: "",
     title: "",
