@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentação Técnica — Outlier OS</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #181c27;
+      --surface2: #1e2335;
+      --border: #2a3049;
+      --accent: #6c8af7;
+      --accent2: #10b981;
+      --accent3: #f59e0b;
+      --accent4: #ef4444;
+      --text: #e2e8f0;
+      --muted: #8b9cb8;
+      --code-bg: #0d1117;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .layout { display: flex; min-height: 100vh; }
+    nav {
+      width: 260px;
+      min-width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    nav .logo {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    nav .logo h1 { font-size: 16px; font-weight: 700; color: var(--text); }
+    nav .logo p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    nav ul { list-style: none; }
+    nav ul li a {
+      display: block;
+      padding: 7px 20px;
+      font-size: 13px;
+      color: var(--muted);
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    nav ul li a:hover {
+      color: var(--text);
+      background: var(--surface2);
+      border-left-color: var(--accent);
+      text-decoration: none;
+    }
+    nav .section-label {
+      padding: 12px 20px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    main { flex: 1; padding: 48px 56px; max-width: 980px; }
+
+    /* Typography */
+    h1 { font-size: 32px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+    h2 { font-size: 22px; font-weight: 700; color: var(--text); margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 600; color: var(--text); margin: 28px 0 10px; }
+    h4 { font-size: 14px; font-weight: 600; color: var(--accent); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    p { margin-bottom: 12px; color: var(--text); }
+    ul, ol { padding-left: 20px; margin-bottom: 12px; }
+    li { margin-bottom: 4px; }
+
+    /* Header */
+    .doc-header {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 40px;
+    }
+    .doc-header .subtitle { color: var(--muted); font-size: 14px; margin-top: 6px; margin-bottom: 0; }
+    .doc-header .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .badge-blue { background: #1d3461; color: #6c8af7; border: 1px solid #2e4fa5; }
+    .badge-green { background: #0d2e22; color: #10b981; border: 1px solid #0f5a3f; }
+    .badge-yellow { background: #2e2010; color: #f59e0b; border: 1px solid #7a5010; }
+    .badge-red { background: #2e1010; color: #ef4444; border: 1px solid #7a2020; }
+    .badge-purple { background: #1e1540; color: #a78bfa; border: 1px solid #4c3a9a; }
+    .badge-gray { background: #1e2335; color: #8b9cb8; border: 1px solid #2a3049; }
+
+    /* Code blocks */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 12px 0 20px;
+      color: #c9d1d9;
+    }
+    code {
+      background: #1a1f2e;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 12.5px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      color: #a8d8b0;
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 13px;
+      color: #c9d1d9;
+    }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 24px; font-size: 13.5px; }
+    th {
+      background: var(--surface2);
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:hover td { background: var(--surface2); }
+    td code { font-size: 11.5px; }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .card h3 { margin-top: 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+    /* Alert boxes */
+    .alert {
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 13.5px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .alert-warn { background: #1e1a0a; border: 1px solid #7a5010; color: #d9a02a; }
+    .alert-danger { background: #1e0a0a; border: 1px solid #7a2020; color: #d94040; }
+    .alert-info { background: #0a1020; border: 1px solid #1e3a7a; color: #5080d0; }
+    .alert-ok { background: #0a1e14; border: 1px solid #0f5a3f; color: #20b060; }
+
+    /* Section anchors */
+    .section { scroll-margin-top: 24px; }
+
+    /* Status dots */
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    .dot-green { background: #10b981; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-red { background: #ef4444; }
+
+    /* Flow diagram */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+    .flow-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .flow-arrow { color: var(--muted); font-size: 16px; }
+
+    /* Module pills */
+    .module-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
+    .module-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 12.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* TOC number */
+    .toc-num { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 11px; margin-right: 4px; }
+
+    @media (max-width: 900px) {
+      nav { display: none; }
+      main { padding: 24px 20px; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ===== SIDEBAR ===== -->
+<nav>
+  <div class="logo">
+    <h1>Outlier OS</h1>
+    <p>Documentação Técnica v0.1</p>
+  </div>
+  <ul>
+    <li class="section-label">Visão Geral</li>
+    <li><a href="#visao-geral"><span class="toc-num">1.</span> Propósito e Stack</a></li>
+    <li><a href="#estrutura-pastas"><span class="toc-num">2.</span> Estrutura de Pastas</a></li>
+
+    <li class="section-label">Arquitectura</li>
+    <li><a href="#arquitectura"><span class="toc-num">3.</span> Frontend & Backend</a></li>
+    <li><a href="#base-dados"><span class="toc-num">4.</span> Base de Dados</a></li>
+    <li><a href="#autenticacao"><span class="toc-num">5.</span> Autenticação & Auth</a></li>
+
+    <li class="section-label">Módulos</li>
+    <li><a href="#modulos"><span class="toc-num">6.</span> Todos os Módulos</a></li>
+    <li><a href="#estrategia">— Estratégia</a></li>
+    <li><a href="#operacional">— Operacional</a></li>
+    <li><a href="#financeiro-mod">— Financeiro</a></li>
+    <li><a href="#gestao-mod">— Gestão</a></li>
+
+    <li class="section-label">Base de Dados</li>
+    <li><a href="#tabelas"><span class="toc-num">7.</span> Tabelas & Relações</a></li>
+    <li><a href="#triggers"><span class="toc-num">8.</span> Triggers & Funções</a></li>
+    <li><a href="#rls"><span class="toc-num">9.</span> Políticas RLS</a></li>
+
+    <li class="section-label">Rotas & API</li>
+    <li><a href="#rotas"><span class="toc-num">10.</span> Páginas Frontend</a></li>
+    <li><a href="#api-endpoints"><span class="toc-num">11.</span> API Endpoints</a></li>
+
+    <li class="section-label">Estado & Setup</li>
+    <li><a href="#estado"><span class="toc-num">12.</span> Funcional vs Incompleto</a></li>
+    <li><a href="#como-correr"><span class="toc-num">13.</span> Como Correr Localmente</a></li>
+    <li><a href="#integracoes"><span class="toc-num">14.</span> Integrações Externas</a></li>
+    <li><a href="#seguranca"><span class="toc-num">15.</span> Segurança</a></li>
+  </ul>
+</nav>
+
+<!-- ===== MAIN ===== -->
+<main>
+
+<!-- Header -->
+<div class="doc-header">
+  <h1>Outlier OS</h1>
+  <p class="subtitle">Documentação técnica completa · Gerada em 19 Jun 2026</p>
+  <div class="badges">
+    <span class="badge badge-blue">Next.js 15</span>
+    <span class="badge badge-blue">React 19</span>
+    <span class="badge badge-green">Supabase (PostgreSQL)</span>
+    <span class="badge badge-purple">TypeScript</span>
+    <span class="badge badge-yellow">Tailwind CSS 3</span>
+    <span class="badge badge-gray">16 módulos</span>
+    <span class="badge badge-green">34 tabelas DB</span>
+    <span class="badge badge-green">RLS em todas</span>
+  </div>
+</div>
+
+
+<!-- ===================================================== -->
+<h2 id="visao-geral" class="section">1. Visão Geral</h2>
+
+<h3>Propósito</h3>
+<p>
+  O <strong>Outlier OS</strong> é um sistema operacional interno construído à medida para a agência Outlier Agency (Daniel Godinho).
+  Serve como hub central de gestão: clientes, tarefas, lançamentos, conteúdo, financeiro, OKRs, processos, reuniões,
+  incubadora de alunos e camada estratégica (iniciativas, mentorias, decisões CEO).
+</p>
+<p>
+  Substitui a dispersão entre ClickUp, Sheets, dashboards HTML soltos e outras ferramentas, centralizando toda
+  a operação e tomada de decisão numa única aplicação web autenticada.
+</p>
+
+<h3>Stack Tecnológico</h3>
+<div class="grid-2">
+  <div class="card">
+    <h4>Frontend</h4>
+    <table>
+      <tr><td><strong>Framework</strong></td><td>Next.js 15.1 (App Router)</td></tr>
+      <tr><td><strong>UI Library</strong></td><td>React 19</td></tr>
+      <tr><td><strong>Linguagem</strong></td><td>TypeScript 5.7</td></tr>
+      <tr><td><strong>Estilos</strong></td><td>Tailwind CSS 3.4 + shadcn/ui</td></tr>
+      <tr><td><strong>Formulários</strong></td><td>react-hook-form + Zod</td></tr>
+      <tr><td><strong>Drag & Drop</strong></td><td>dnd-kit</td></tr>
+      <tr><td><strong>Gráficos</strong></td><td>Recharts 2</td></tr>
+      <tr><td><strong>Rich Text</strong></td><td>TipTap (instalado, parcialmente usado)</td></tr>
+      <tr><td><strong>State</strong></td><td>TanStack Query + Zustand</td></tr>
+      <tr><td><strong>Dark Mode</strong></td><td>next-themes</td></tr>
+      <tr><td><strong>Toasts</strong></td><td>Sonner</td></tr>
+      <tr><td><strong>Ícones</strong></td><td>Lucide React</td></tr>
+      <tr><td><strong>Datas</strong></td><td>date-fns 4</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Backend & Infra</h4>
+    <table>
+      <tr><td><strong>BaaS</strong></td><td>Supabase (cloud, região eu-west-2)</td></tr>
+      <tr><td><strong>Base de Dados</strong></td><td>PostgreSQL (Supabase)</td></tr>
+      <tr><td><strong>Auth</strong></td><td>Supabase Auth (JWT + cookies)</td></tr>
+      <tr><td><strong>SDK Auth</strong></td><td>@supabase/ssr (SSR-safe)</td></tr>
+      <tr><td><strong>Ref do Projecto</strong></td><td><code>dsfzhrodcxtlayxcfjpx</code></td></tr>
+      <tr><td><strong>Server Actions</strong></td><td>Next.js Server Actions ("use server")</td></tr>
+      <tr><td><strong>Admin Client</strong></td><td>service_role (bypass RLS, só server)</td></tr>
+      <tr><td><strong>Deploy alvo</strong></td><td>Vercel (pendente — token expirado)</td></tr>
+      <tr><td><strong>Package Manager</strong></td><td>npm 10+</td></tr>
+      <tr><td><strong>Node</strong></td><td>18+ (testado em 24)</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  <span class="alert-icon">ℹ️</span>
+  <span>O projecto não usa Edge Functions Supabase. Toda a lógica server-side corre via Next.js Server Actions ou Route Handlers. O admin client (service_role) é usado pontualmente em <code>/share/[token]</code> e na rota <code>/api/share/feedback</code>.</span>
+</div>
+
+
+<!-- ===================================================== -->
+<h2 id="estrutura-pastas" class="section">2. Estrutura de Pastas</h2>
+
+<pre><code>outlier-os/
+├── app/                         # Next.js App Router (páginas e API)
+│   ├── (app)/                   # Grupo de rotas protegidas (requer login)
+│   │   ├── layout.tsx           # Layout base: verifica sessão + renderiza Sidebar
+│   │   ├── dashboard/page.tsx   # Dashboard principal
+│   │   ├── iniciativas/         # Módulo Iniciativas (lista + detalhe [id])
+│   │   ├── decisoes/            # Módulo Decisões
+│   │   ├── mentorias/           # Módulo Mentorias (lista + detalhe [id])
+│   │   ├── clientes/            # Módulo Clientes (lista + detalhe [id])
+│   │   ├── tarefas/             # Módulo Tarefas (lista + detalhe [id])
+│   │   ├── lancamentos/         # Módulo Lançamentos (lista + detalhe [id])
+│   │   ├── conteudo/            # Módulo Conteúdo
+│   │   ├── incubadora/          # Módulo Incubadora (lista + detalhe [id])
+│   │   ├── relatorios/          # Módulo Relatórios (lista + detalhe [id])
+│   │   ├── financeiro/          # Módulo Financeiro
+│   │   ├── okrs/                # Módulo OKRs
+│   │   ├── processos/           # Módulo Processos (lista + detalhe [id])
+│   │   ├── reunioes/            # Módulo Reuniões
+│   │   ├── equipa/              # Módulo Equipa
+│   │   └── configuracoes/       # Módulo Configurações
+│   ├── (auth)/
+│   │   └── login/page.tsx       # Página de login
+│   ├── share/[token]/page.tsx   # Dashboard público (sem autenticação)
+│   ├── api/
+│   │   └── share/feedback/      # POST: receber feedback de clientes
+│   ├── globals.css              # CSS global (Tailwind base)
+│   ├── layout.tsx               # Root layout (html, body, ThemeProvider)
+│   └── page.tsx                 # Root "/" → redireciona para /dashboard
+│
+├── components/                  # Componentes React reutilizáveis
+│   ├── ui/                      # Primitivos shadcn/ui (~13 componentes)
+│   ├── layout/                  # Sidebar, PageHeader, EmptyModule
+│   ├── clients/                 # ClientForm, ClientsList, ClientsToolbar, ShareToggle
+│   ├── initiatives/             # InitiativeForm, InitiativesList, InitiativeToggles, etc.
+│   ├── decisions/               # DecisionForm, DecisionsBoard, DecisionsList
+│   ├── mentorships/             # MentorshipForm, MentorshipsGrid, MentorshipModules, etc.
+│   ├── tasks/                   # TaskForm, TasksBoard, TaskTimeTracker, TaskComments
+│   ├── launches/                # LaunchForm, LaunchesBoard
+│   ├── contents/                # ContentForm, ContentsBoard
+│   ├── financial/               # FinancialDashboard, TransactionForm
+│   ├── okrs/                    # OkrsView
+│   ├── processes/               # ProcessesView
+│   ├── meetings/                # MeetingsView
+│   ├── reports/                 # ReportEditor, ReportsList
+│   ├── students/                # StudentsView (Incubadora)
+│   ├── team/                    # TeamTable, PermissionsEditor, InviteMemberDialog
+│   ├── configuracoes/           # StagesSection
+│   ├── dashboard/               # FocusWeek, PendingDecisions
+│   ├── share/                   # ShareFeedbackForm
+│   ├── avatar-display.tsx       # Componente de avatar
+│   ├── status-badge.tsx         # Badge de status com cor dinâmica
+│   ├── query-provider.tsx       # TanStack Query provider
+│   └── theme-provider.tsx       # next-themes provider
+│
+├── lib/                         # Lógica de negócio e utilitários
+│   ├── supabase/
+│   │   ├── client.ts            # Supabase client (browser, anon key)
+│   │   ├── server.ts            # Supabase client (server, cookies SSR)
+│   │   ├── middleware.ts        # updateSession (refresh JWT em cada request)
+│   │   └── admin.ts             # Admin client (service_role, bypass RLS)
+│   ├── actions/                 # Server Actions (mutations)
+│   │   ├── clients.ts, tasks.ts, launches.ts, contents.ts
+│   │   ├── financial.ts, okrs.ts, processes.ts, meetings.ts
+│   │   ├── reports.ts, students.ts, statuses.ts, team.ts
+│   │   ├── decisions.ts, mentorships.ts
+│   │   └── initiatives.ts
+│   ├── queries/                 # Funções de leitura server-side
+│   │   ├── clients.ts, tasks.ts, task-detail.ts, launches.ts
+│   │   ├── contents.ts, financial.ts, okrs.ts, processes.ts
+│   │   ├── meetings.ts, reports.ts, students.ts, team.ts
+│   │   ├── statuses.ts, activity.ts
+│   │   ├── decisions.ts, mentorships.ts
+│   │   └── initiatives.ts
+│   ├── modules.ts               # Definição dos 16 módulos (key, label, href, icon, section)
+│   ├── types.ts                 # Tipos TypeScript do domínio (replicam schema Postgres)
+│   └── utils.ts                 # Utilitários (formatCurrency, formatDate, formatRelative, cn)
+│
+├── supabase/
+│   ├── config.toml              # Config CLI Supabase
+│   └── migrations/
+│       ├── 0001_initial_schema.sql    # 24 tabelas core + enums + triggers updated_at
+│       ├── 0002_rls_policies.sql      # RLS em todas as tabelas + helper functions
+│       ├── 0003_seed_defaults.sql     # Dados iniciais (statuses, categorias, session types)
+│       ├── 0004_activity_log_triggers.sql  # Triggers de auditoria em 9 tabelas
+│       └── 0005_initiatives_mentorships_decisions.sql  # Camada estratégica (Jun/2026)
+│
+├── types/
+│   └── database.ts              # Tipos gerados pelo Supabase CLI (placeholder manual)
+│
+├── middleware.ts                # Next.js middleware → chama updateSession
+├── package.json
+├── tailwind.config.ts
+├── tsconfig.json
+├── .env.example                 # Template de variáveis de ambiente
+├── PROGRESS.md                  # Registo de progresso e decisões de desenvolvimento
+├── SETUP.md                     # Guia de setup
+└── _auditoria/                  # Auditoria do negócio (Jun 2026, não é código da app)</code></pre>
+
+
+<!-- ===================================================== -->
+<h2 id="arquitectura" class="section">3. Arquitectura</h2>
+
+<h3>Padrão Geral</h3>
+<p>
+  O Outlier OS usa o padrão <strong>Next.js App Router com Server Components</strong>.
+  A maioria das páginas são Server Components que lêem dados directamente do Supabase no servidor.
+  Mutações usam <strong>Server Actions</strong> (<code>"use server"</code>) — não há API REST própria excepto um único Route Handler.
+</p>
+
+<div class="flow">
+  <div class="flow-box">Browser</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">Next.js Middleware<br><small style="color:var(--muted)">updateSession JWT</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">Server Component<br><small style="color:var(--muted)">lib/queries/*.ts</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">Supabase SDK<br><small style="color:var(--muted)">(server client)</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">PostgreSQL<br><small style="color:var(--muted)">RLS activo</small></div>
+</div>
+
+<div class="flow">
+  <div class="flow-box">User Action<br><small style="color:var(--muted)">(submit form)</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">Server Action<br><small style="color:var(--muted)">lib/actions/*.ts</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">Zod Validation</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">Supabase SDK</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">revalidatePath()<br><small style="color:var(--muted)">Next.js cache</small></div>
+</div>
+
+<h3>Camadas</h3>
+<div class="grid-3">
+  <div class="card">
+    <h4>Apresentação</h4>
+    <ul>
+      <li>Server Components (páginas)</li>
+      <li>Client Components (interactividade)</li>
+      <li>shadcn/ui primitivos</li>
+      <li>Tailwind CSS</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Dados (Leitura)</h4>
+    <ul>
+      <li><code>lib/queries/</code></li>
+      <li>Executam no servidor</li>
+      <li>Supabase server client</li>
+      <li>Joins via PostgREST</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Dados (Escrita)</h4>
+    <ul>
+      <li><code>lib/actions/</code></li>
+      <li>Server Actions Next.js</li>
+      <li>Validação Zod</li>
+      <li>revalidatePath()</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Clientes Supabase</h3>
+<table>
+  <tr><th>Ficheiro</th><th>Contexto</th><th>Key usada</th><th>RLS</th><th>Uso</th></tr>
+  <tr>
+    <td><code>lib/supabase/client.ts</code></td>
+    <td>Browser</td>
+    <td>anon key (pública)</td>
+    <td><span class="badge badge-green">Activo</span></td>
+    <td>Componentes client-side</td>
+  </tr>
+  <tr>
+    <td><code>lib/supabase/server.ts</code></td>
+    <td>Server (SSR)</td>
+    <td>anon key + cookies</td>
+    <td><span class="badge badge-green">Activo</span></td>
+    <td>Server Components e Actions</td>
+  </tr>
+  <tr>
+    <td><code>lib/supabase/admin.ts</code></td>
+    <td>Server only</td>
+    <td>service_role (secreta)</td>
+    <td><span class="badge badge-red">Bypass</span></td>
+    <td>Dashboard público + invite members</td>
+  </tr>
+</table>
+
+<div class="alert alert-warn">
+  <span class="alert-icon">⚠️</span>
+  <span>O <code>admin.ts</code> usa <code>SUPABASE_SERVICE_ROLE_KEY</code> que bypassa todas as políticas RLS. É usado em dois locais: <code>app/share/[token]/page.tsx</code> (valida o token antes das queries) e <code>lib/actions/team.ts</code> na função <code>inviteMemberAction</code> (verifica que quem chama é admin antes de usar). Nunca deve ser importado por código que corra no browser.</span>
+</div>
+
+
+<!-- ===================================================== -->
+<h2 id="base-dados" class="section">4. Base de Dados</h2>
+
+<p>PostgreSQL hospedado no Supabase (projecto <code>dsfzhrodcxtlayxcfjpx</code>, região <code>eu-west-2</code>).
+O schema foi aplicado via 5 migration files ordenados.</p>
+
+<h3>Enums PostgreSQL</h3>
+<table>
+  <tr><th>Enum</th><th>Valores</th></tr>
+  <tr><td><code>client_type</code></td><td>one_shot · long_term · interno</td></tr>
+  <tr><td><code>student_level</code></td><td>aprendiz · fazedor · autoridade · referencia · aguardar</td></tr>
+  <tr><td><code>task_priority</code></td><td>sem_prioridade · baixa · media · alta · urgente</td></tr>
+  <tr><td><code>confidence_level</code></td><td>baixa · media · alta</td></tr>
+  <tr><td><code>quarter_label</code></td><td>Q1 · Q2 · Q3 · Q4</td></tr>
+  <tr><td><code>transaction_type</code></td><td>receita · despesa</td></tr>
+  <tr><td><code>recurring_frequency</code></td><td>mensal · trimestral · semestral · anual</td></tr>
+  <tr><td><code>report_type</code></td><td>semanal · mensal</td></tr>
+  <tr><td><code>report_status</code></td><td>rascunho · publicado</td></tr>
+  <tr><td><code>member_role</code></td><td>admin · membro</td></tr>
+  <tr><td><code>initiative_status</code></td><td>ideia · planeamento · em_curso · em_pausa · concluida · cancelada</td></tr>
+  <tr><td><code>initiative_priority</code></td><td>baixa · media · alta · critica</td></tr>
+  <tr><td><code>initiative_source</code></td><td>interno · cliente · mentoria · oportunidade · crise</td></tr>
+  <tr><td><code>initiative_health</code></td><td>verde · amarelo · vermelho</td></tr>
+  <tr><td><code>mentorship_status</code></td><td>ativa · em_pausa · concluida · arquivada</td></tr>
+  <tr><td><code>implementation_status</code></td><td>pendente · a_implementar · em_curso · implementado · parqueada</td></tr>
+  <tr><td><code>decision_status</code></td><td>pendente · decidida · adiada · arquivada</td></tr>
+  <tr><td><code>decision_impact</code></td><td>baixo · medio · alto · critico</td></tr>
+</table>
+
+
+<!-- ===================================================== -->
+<h2 id="autenticacao" class="section">5. Autenticação e Autorização</h2>
+
+<h3>Como funciona</h3>
+<p>A autenticação usa <strong>Supabase Auth</strong> com sessões baseadas em JWT armazenadas em cookies HTTP-only.</p>
+
+<ol>
+  <li>O utilizador acede a qualquer rota protegida → Next.js Middleware (<code>middleware.ts</code>) executa <code>updateSession()</code></li>
+  <li><code>updateSession</code> renova o JWT via <code>supabase.auth.getUser()</code> e actualiza os cookies</li>
+  <li>Se não há sessão válida, redireciona para <code>/login</code></li>
+  <li>Se há sessão e o utilizador tenta aceder a <code>/login</code>, redireciona para <code>/dashboard</code></li>
+  <li>Rotas <code>/share/*</code> são públicas (sem autenticação)</li>
+</ol>
+
+<h3>Roles e Permissões</h3>
+<table>
+  <tr><th>Role</th><th>Descrição</th><th>permissions_modules</th></tr>
+  <tr>
+    <td><span class="badge badge-red">admin</span></td>
+    <td>Acesso total a todos os módulos. O primeiro utilizador a registar fica automaticamente admin (via trigger).</td>
+    <td><code>[]</code> (array vazio — ignora a lista, acesso total)</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-gray">membro</span></td>
+    <td>Acesso apenas aos módulos listados em permissions_modules.</td>
+    <td>Array com keys dos módulos permitidos ex: <code>["clientes","tarefas"]</code></td>
+  </tr>
+</table>
+
+<h3>Funções SQL de Helper para RLS</h3>
+<pre><code>-- Verifica se uid é admin activo
+is_admin(uid uuid) → boolean
+
+-- Verifica se uid é qualquer membro activo
+is_team_member(uid uuid) → boolean
+
+-- Verifica se uid tem permissão para módulo específico
+-- (admin ignora a lista; membro verifica permissions_modules)
+has_module(uid uuid, module text) → boolean</code></pre>
+
+<h3>Fluxo de Criação de Utilizador</h3>
+<div class="flow">
+  <div class="flow-box">Admin cria user<br><small style="color:var(--muted)">via UI Equipa</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">inviteMemberAction()<br><small style="color:var(--muted)">service_role</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">auth.admin.createUser()<br><small style="color:var(--muted)">Supabase Admin API</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">Trigger on_auth_user_created<br><small style="color:var(--muted)">cria team_member</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">update role + permissions</div>
+</div>
+
+<div class="alert alert-warn">
+  <span class="alert-icon">⚠️</span>
+  <span>O sistema devolve a password gerada na resposta da Server Action para o admin a partilhar manualmente. Não há envio de email de convite implementado (identificado como lacuna no PROGRESS.md). A password viaja na resposta da action — não persiste, mas devia ser enviada por canal seguro.</span>
+</div>
+
+
+<!-- ===================================================== -->
+<h2 id="modulos" class="section">6. Módulos e Funcionalidades</h2>
+
+<p>O app tem 16 módulos organizados em 4 secções na sidebar:</p>
+<div class="module-grid">
+  <span class="module-pill"><span class="dot dot-green"></span>Dashboard</span>
+  <span class="module-pill" style="border-color:#4c3a9a;"><span class="dot" style="background:#a78bfa"></span>Iniciativas</span>
+  <span class="module-pill" style="border-color:#4c3a9a;"><span class="dot" style="background:#a78bfa"></span>Decisões</span>
+  <span class="module-pill" style="border-color:#4c3a9a;"><span class="dot" style="background:#a78bfa"></span>Mentorias</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Clientes</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Tarefas</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Lançamentos</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Conteúdo</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Incubadora</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Relatórios</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Financeiro</span>
+  <span class="module-pill"><span class="dot dot-green"></span>OKRs</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Processos</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Reuniões</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Equipa</span>
+  <span class="module-pill"><span class="dot dot-green"></span>Configurações</span>
+</div>
+
+<!-- Dashboard -->
+<h2 id="estrategia" class="section" style="margin-top:32px;font-size:15px;border:none;padding:0;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;">DASHBOARD</h2>
+
+<div class="card">
+  <h3>Dashboard <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/dashboard</code> · <strong>Ficheiro:</strong> <code>app/(app)/dashboard/page.tsx</code></p>
+  <p>Página principal após login. Server Component que agrega dados de múltiplas tabelas em paralelo.</p>
+  <h4>O que mostra</h4>
+  <ul>
+    <li><strong>Foco da Semana</strong> — iniciativas com <code>focus_this_week = true</code> (componente <code>FocusWeek</code>)</li>
+    <li><strong>Decisões Pendentes</strong> — decisões com status "pendente" (componente <code>PendingDecisions</code>)</li>
+    <li><strong>4 KPIs operacionais:</strong> Clientes Ativos, Tarefas Abertas, Lançamentos Ativos, Progresso OKRs (%)</li>
+    <li><strong>Feed de Atividade Recente</strong> — últimas 10 entradas do <code>activity_log</code> (via triggers Postgres)</li>
+  </ul>
+  <h4>Componentes envolvidos</h4>
+  <code>components/dashboard/focus-week.tsx</code> · <code>components/dashboard/pending-decisions.tsx</code><br>
+  <code>lib/queries/initiatives.ts</code> · <code>lib/queries/decisions.ts</code> · <code>lib/queries/activity.ts</code>
+</div>
+
+<!-- Secção Estratégia -->
+<h2 id="estrategia" class="section" style="margin-top:32px;font-size:15px;border:none;padding:0;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;">ESTRATÉGIA (Camada CEO — Migration 0005, Jun/2026)</h2>
+
+<div class="card">
+  <h3>Iniciativas <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rotas:</strong> <code>/iniciativas</code> · <code>/iniciativas/[id]</code></p>
+  <p>Projetos estratégicos de médio/longo prazo, acima de tarefas e lançamentos. Permitem rastrear o estado, saúde, bloqueador e próximo passo de cada iniciativa.</p>
+  <h4>Campos principais</h4>
+  <table>
+    <tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr>
+    <tr><td>title</td><td>text</td><td>Nome da iniciativa</td></tr>
+    <tr><td>status</td><td>initiative_status</td><td>ideia → planeamento → em_curso → concluida</td></tr>
+    <tr><td>priority</td><td>initiative_priority</td><td>baixa / media / alta / critica</td></tr>
+    <tr><td>health</td><td>initiative_health</td><td>verde / amarelo / vermelho</td></tr>
+    <tr><td>focus_this_week</td><td>boolean</td><td>Aparece no widget Foco da Semana no Dashboard</td></tr>
+    <tr><td>needs_decision</td><td>boolean</td><td>Aparece no widget Decisões Pendentes</td></tr>
+    <tr><td>next_step / blocker</td><td>text</td><td>Campos operacionais de contexto</td></tr>
+    <tr><td>owner_id</td><td>uuid → team_members</td><td>Responsável</td></tr>
+    <tr><td>client_id</td><td>uuid → clients</td><td>Ligação opcional a cliente</td></tr>
+    <tr><td>mentorship_id</td><td>uuid → mentorships</td><td>Ligação opcional a mentoria</td></tr>
+  </table>
+  <h4>Ficheiros chave</h4>
+  <code>components/initiatives/</code> · <code>lib/actions/initiatives.ts</code> · <code>lib/queries/initiatives.ts</code>
+</div>
+
+<div class="card">
+  <h3>Decisões <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/decisoes</code></p>
+  <p>Queue de decisões do CEO. Cada decisão tem contexto, opções, impacto e urgência. Quando decidida, regista quem decidiu e quando.</p>
+  <h4>Campos</h4>
+  <ul>
+    <li><code>title</code>, <code>context</code>, <code>options</code> — o quê e porquê</li>
+    <li><code>status</code> — pendente / decidida / adiada / arquivada</li>
+    <li><code>impact</code> — baixo / medio / alto / critico</li>
+    <li><code>decided_by</code>, <code>decided_at</code>, <code>decision</code> — resultado</li>
+    <li>FKs opcionais: <code>initiative_id</code>, <code>client_id</code>, <code>mentorship_id</code></li>
+  </ul>
+  <h4>Restrição RLS</h4>
+  <span class="badge badge-red">Apenas admins</span> — só utilizadores com role admin vêem e gerem decisões.
+</div>
+
+<div class="card">
+  <h3>Mentorias <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rotas:</strong> <code>/mentorias</code> · <code>/mentorias/[id]</code></p>
+  <p>Registo de programas de mentoria/cursos frequentados (ex: Core IA, VTSD, Stories 10x). Cada programa tem módulos/aulas e ações de implementação derivadas.</p>
+  <h4>Tabelas envolvidas</h4>
+  <ul>
+    <li><code>mentorships</code> — programa (nome, mentor, plataforma, status)</li>
+    <li><code>mentorship_modules</code> — aulas (título, ordem, data de consumo, insights)</li>
+    <li><code>implementation_actions</code> — ações a implementar (ligáveis a tasks e iniciativas)</li>
+  </ul>
+  <h4>Restrição RLS</h4>
+  <span class="badge badge-red">Apenas admins</span> — conteúdo pessoal do Daniel.
+</div>
+
+<!-- Secção Operacional -->
+<h2 id="operacional" class="section" style="margin-top:32px;font-size:15px;border:none;padding:0;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;">OPERACIONAL</h2>
+
+<div class="card">
+  <h3>Clientes <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rotas:</strong> <code>/clientes</code> · <code>/clientes/[id]</code></p>
+  <p>Gestão completa de clientes com 3 tipos: one_shot, long_term, interno. Vista em Galeria, Tabela ou Kanban por tipo.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Filtros por status, tipo e pesquisa por nome</li>
+    <li>Detalhe com 7 tabs: Overview, Tarefas, Lançamentos, Conteúdo, Reuniões, Relatórios, Feedback</li>
+    <li><strong>Dashboard Público Partilhável</strong>: cada cliente tem <code>public_share_token</code> (hex 16 bytes). Ao activar, gera URL pública <code>/share/{token}</code> sem login</li>
+    <li>Toggle de partilha via <code>components/clients/share-toggle.tsx</code></li>
+  </ul>
+  <h4>Ficheiros chave</h4>
+  <code>components/clients/</code> · <code>lib/actions/clients.ts</code> · <code>lib/queries/clients.ts</code>
+</div>
+
+<div class="card">
+  <h3>Tarefas <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rotas:</strong> <code>/tarefas</code> · <code>/tarefas/[id]</code></p>
+  <p>Gestão de tarefas com kanban drag-and-drop (dnd-kit) entre 6 estados configuráveis (Backlog → Concluído).</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Kanban drag-and-drop com persistência (update status_id ao largar)</li>
+    <li>Vista tabela alternativa</li>
+    <li>Prioridades com código de cores (5 níveis)</li>
+    <li>Atribuição a membro da equipa</li>
+    <li>Ligação a cliente e/ou lançamento</li>
+    <li><strong>Time Tracking</strong>: start/stop com timer em tempo real, registo manual de horas (<code>task_time_logs</code>)</li>
+    <li>Comentários por tarefa (<code>task_comments</code>)</li>
+  </ul>
+  <h4>Ficheiros chave</h4>
+  <code>components/tasks/</code> · <code>lib/actions/tasks.ts</code> · <code>lib/queries/tasks.ts</code> · <code>lib/queries/task-detail.ts</code>
+</div>
+
+<div class="card">
+  <h3>Lançamentos <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rotas:</strong> <code>/lancamentos</code> · <code>/lancamentos/[id]</code></p>
+  <p>Pipeline de lançamentos de produtos/serviços com kanban de 7 estados (Planeamento → Concluído).</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Pipeline kanban 7 colunas com drag-and-drop</li>
+    <li><strong>Templates de lançamento</strong>: ao criar a partir de template, auto-cria tarefas com day_offset relativo à data de início</li>
+    <li>Tiers: master, premium, traffic</li>
+    <li>Ligação a cliente</li>
+    <li>Comentários por lançamento (<code>launch_comments</code>)</li>
+  </ul>
+  <h4>Tabelas envolvidas</h4>
+  <code>launches</code>, <code>launch_templates</code>, <code>launch_template_tasks</code>, <code>launch_comments</code>
+</div>
+
+<div class="card">
+  <h3>Conteúdo <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/conteudo</code></p>
+  <p>Workflow editorial com 9 estados (Ideia → Publicado). Gestão de conteúdos criados para clientes.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Vista default: tabela; alternativa: kanban (9 colunas)</li>
+    <li>Formato: reel, carrossel, post, story, video, etc.</li>
+    <li>Multi-plataformas: Instagram, YouTube, TikTok, LinkedIn</li>
+    <li>Campos copy_post e copy_design separados</li>
+    <li>Data de publicação</li>
+    <li>Upload de ficheiros (tabela <code>content_files</code> existe, UI de upload não implementada)</li>
+    <li>Feedback do cliente (<code>content_feedback</code> — threads com resolução)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Incubadora <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rotas:</strong> <code>/incubadora</code> · <code>/incubadora/[id]</code></p>
+  <p>Gestão de alunos da incubadora por nível: Aprendiz → Fazedor → Autoridade → Referência → Aguardar.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Kanban por nível (student_level)</li>
+    <li>Ao criar aluno, auto-cria 6 sessões placeholder (Sessão Inicial, Hotseats 1-3, Sessões Estratégicas 1-2)</li>
+    <li>Timeline de sessões no detalhe do aluno</li>
+    <li>Coach atribuído, nicho/subnicho, turma, tipo de entrada</li>
+  </ul>
+  <h4>Tabelas</h4>
+  <code>students</code>, <code>student_session_types</code>, <code>student_sessions</code>
+</div>
+
+<div class="card">
+  <h3>Relatórios <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rotas:</strong> <code>/relatorios</code> · <code>/relatorios/[id]</code></p>
+  <p>Gerador automático de relatórios por cliente. Agrega dados de tarefas, conteúdos e lançamentos num período.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Tipos: semanal, mensal</li>
+    <li>Estados: rascunho, publicado</li>
+    <li>Geração automática: agrega tarefas concluídas/criadas/em progresso, conteúdos publicados, lançamentos ativos</li>
+    <li>Campo <code>kpis</code> (JSONB) — snapshot de métricas no momento da geração</li>
+    <li>Conteúdo em Markdown (<code>content_md</code>) com editor TipTap</li>
+    <li>Relatórios publicados visíveis no dashboard público do cliente</li>
+  </ul>
+</div>
+
+<!-- Secção Financeiro -->
+<h2 id="financeiro-mod" class="section" style="margin-top:32px;font-size:15px;border:none;padding:0;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;">FINANCEIRO</h2>
+
+<div class="card">
+  <h3>Financeiro <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/financeiro</code></p>
+  <p>Dashboard P&amp;L com gráficos e tabela de transações. Filtrado por ano.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>4 KPIs: Receita Total, Despesa Total, Lucro, Margem %</li>
+    <li>Gráfico de barras mensal (Receita vs Despesa) — Recharts</li>
+    <li>Pie charts por categoria (receita / despesa separados)</li>
+    <li>Tabela de transações (limitada a 50 por página — sem paginação real)</li>
+    <li>Modal "Nova Transação" com categoria, cliente, data</li>
+    <li>7 categorias de receita e 7 de despesa pré-definidas (configuráveis)</li>
+    <li>Transações recorrentes (<code>recurring_transactions</code>) — lógica de geração manual, sem cron automático</li>
+  </ul>
+  <h4>Tabelas</h4>
+  <code>transactions</code>, <code>recurring_transactions</code>, <code>financial_categories</code>
+  <div class="alert alert-warn" style="margin-top:12px;">
+    <span class="alert-icon">⚠️</span>
+    <span>A tabela de transações mostra apenas os primeiros 50 registos (<code>.slice(0, 50)</code> no componente). Não há paginação real. Em volumes maiores, o utilizador não vê todos os dados.</span>
+  </div>
+</div>
+
+<!-- Secção Gestão -->
+<h2 id="gestao-mod" class="section" style="margin-top:32px;font-size:15px;border:none;padding:0;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;">GESTÃO</h2>
+
+<div class="card">
+  <h3>OKRs <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/okrs</code></p>
+  <p>Gestão de Objectives and Key Results por trimestre e ano. Visível a todos os membros (leitura); edição restrita a admin/responsável.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Filtros por trimestre e ano</li>
+    <li>Agrupamento por departamento</li>
+    <li>Criação inline de objectives com key results</li>
+    <li>Edição rápida do <code>current_value</code> em cada KR</li>
+    <li>Progresso calculado: <code>((current - initial) / (target - initial)) × 100</code></li>
+    <li>Barra de progresso visual + percentagem</li>
+    <li>Responsáveis múltiplos (<code>responsible_ids uuid[]</code>)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Processos & SOPs <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rotas:</strong> <code>/processos</code> · <code>/processos/[id]</code></p>
+  <p>Base de conhecimento de processos internos com 8 categorias e pesquisa por texto.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>8 categorias: Tráfego, Conteúdo, Onboarding, Vendas, Administrativo, Estratégia, Design, Incubadora</li>
+    <li>Editor Markdown (Textarea simples — TipTap foi descartado por complexidade)</li>
+    <li>Tags livres com índice GIN para pesquisa</li>
+    <li>Campo Miro Link e external_links (JSONB)</li>
+    <li>Publicado/não publicado</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Reuniões <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/reunioes</code></p>
+  <p>Calendário semanal customizado com vista de lista. Sem biblioteca externa de calendário.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Vista semanal (calendário simples) e lista</li>
+    <li>Navegação anterior/próximo/hoje</li>
+    <li>Criar reunião com cliente, agenda (Markdown), duração, localização</li>
+    <li>Participantes múltiplos (<code>attendee_ids uuid[]</code>)</li>
+    <li>Notas pós-reunião (<code>notes_md</code>)</li>
+    <li>Vista mensal <strong>não implementada</strong> (identificada como lacuna)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Equipa <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/equipa</code></p>
+  <p>Gestão de membros com permissões granulares por módulo.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Lista de membros com avatar, função, departamento</li>
+    <li>Convidar novo membro (cria user Supabase Auth + team_member)</li>
+    <li>Editor de permissões por módulo (checkboxes — apenas para role "membro")</li>
+    <li>Desactivar membro (<code>active = false</code> — não apaga)</li>
+    <li>Editar cargo e departamento</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Configurações <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/configuracoes</code></p>
+  <p>CRUD de stages/statuses para os 4 módulos que têm pipeline configurável.</p>
+  <h4>Features</h4>
+  <ul>
+    <li>Gestão de Client Statuses (nome, cor, ordem)</li>
+    <li>Gestão de Task Statuses</li>
+    <li>Gestão de Launch Statuses</li>
+    <li>Gestão de Content Statuses</li>
+    <li>Cor em formato hexadecimal</li>
+  </ul>
+  <div class="alert alert-info" style="margin-top:12px;">
+    <span class="alert-icon">ℹ️</span>
+    <span>Gestão de Templates de Lançamento na UI <strong>não implementada</strong>. Os templates existem na BD mas só podem ser criados/editados via SQL directo.</span>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Dashboard Público <span class="badge badge-green">Funcional</span></h3>
+  <p><strong>Rota:</strong> <code>/share/[token]</code> (pública, sem login)</p>
+  <p>Página de relatório partilhável com clientes via URL única. Não requer autenticação.</p>
+  <h4>O que mostra ao cliente</h4>
+  <ul>
+    <li>Nome do cliente, sector, responsável, status</li>
+    <li>KPIs: Tarefas Ativas, Conteúdos Publicados, Valor Mensal</li>
+    <li>Lista de tarefas ativas (excluindo concluídas)</li>
+    <li>Conteúdos com status "publicado"</li>
+    <li>Relatórios publicados (primeiros 500 chars do conteúdo)</li>
+    <li>Formulário de feedback (envia para <code>content_feedback</code> via API)</li>
+  </ul>
+  <h4>Segurança</h4>
+  <p>Usa <code>createAdminClient()</code> (service_role) mas valida o token antes de qualquer query: só retorna dados se <code>public_share_enabled = true</code> e o token corresponde. Se não encontrar cliente → <code>notFound()</code>.</p>
+</div>
+
+
+<!-- ===================================================== -->
+<h2 id="tabelas" class="section">7. Tabelas da Base de Dados</h2>
+
+<h3>Identidade e Equipa</h3>
+<table>
+  <tr><th>Tabela</th><th>Colunas Principais</th><th>Notas</th></tr>
+  <tr>
+    <td><code>team_members</code></td>
+    <td>id (FK auth.users), full_name, email, role (member_role), department, job_title, avatar_url, permissions_modules text[], active</td>
+    <td>Criada automaticamente via trigger ao registar no Auth. Primeiro user = admin.</td>
+  </tr>
+</table>
+
+<h3>Status Tables (configuráveis via /configuracoes)</h3>
+<table>
+  <tr><th>Tabela</th><th>Colunas</th></tr>
+  <tr><td><code>client_statuses</code></td><td>id, key, label, color, sort_order, active</td></tr>
+  <tr><td><code>task_statuses</code></td><td>id, key, label, color, sort_order, active</td></tr>
+  <tr><td><code>launch_statuses</code></td><td>id, key, label, color, sort_order, active</td></tr>
+  <tr><td><code>content_statuses</code></td><td>id, key, label, color, sort_order, active</td></tr>
+</table>
+
+<h3>Módulo Clientes</h3>
+<table>
+  <tr><th>Tabela</th><th>Colunas Principais</th></tr>
+  <tr>
+    <td><code>clients</code></td>
+    <td>id, name, client_type, status_id → client_statuses, responsible_id → team_members, contact_name, email, phone, website, sector, monthly_value, start_date, end_date, notes, <strong>public_share_token</strong> (hex único), <strong>public_share_enabled</strong>, created_by</td>
+  </tr>
+</table>
+
+<h3>Módulo Lançamentos</h3>
+<table>
+  <tr><th>Tabela</th><th>Relações</th></tr>
+  <tr><td><code>launches</code></td><td>client_id → clients, status_id → launch_statuses, template_id → launch_templates</td></tr>
+  <tr><td><code>launch_templates</code></td><td>name, tier, duration_days</td></tr>
+  <tr><td><code>launch_template_tasks</code></td><td>template_id → launch_templates, title, day_offset, default_priority</td></tr>
+  <tr><td><code>launch_comments</code></td><td>launch_id → launches, author_id → team_members, body</td></tr>
+</table>
+
+<h3>Módulo Tarefas</h3>
+<table>
+  <tr><th>Tabela</th><th>Relações</th></tr>
+  <tr><td><code>tasks</code></td><td>status_id → task_statuses, assignee_id → team_members, client_id → clients, launch_id → launches, created_by → team_members</td></tr>
+  <tr><td><code>task_time_logs</code></td><td>task_id → tasks, member_id → team_members, start_at, end_at, duration_minutes, is_manual</td></tr>
+  <tr><td><code>task_comments</code></td><td>task_id → tasks, author_id → team_members, body</td></tr>
+</table>
+
+<h3>Módulo Conteúdo</h3>
+<table>
+  <tr><th>Tabela</th><th>Relações</th></tr>
+  <tr><td><code>contents</code></td><td>client_id → clients, launch_id → launches, status_id → content_statuses, responsible_id → team_members, format text, platforms text[]</td></tr>
+  <tr><td><code>content_files</code></td><td>content_id → contents, storage_path, file_name, mime_type, size_bytes</td></tr>
+  <tr><td><code>content_feedback</code></td><td>content_id → contents, client_id → clients, parent_id → content_feedback (threads), is_from_client, resolved</td></tr>
+</table>
+
+<h3>Módulo Incubadora</h3>
+<table>
+  <tr><th>Tabela</th><th>Relações</th></tr>
+  <tr><td><code>students</code></td><td>coach_id → team_members, level (student_level), nicho, subnicho, turma, entry_type, status</td></tr>
+  <tr><td><code>student_session_types</code></td><td>key, label, sort_order</td></tr>
+  <tr><td><code>student_sessions</code></td><td>student_id → students, type_id → student_session_types, scheduled_date, completed_at, notes</td></tr>
+</table>
+
+<h3>Módulo Relatórios</h3>
+<table>
+  <tr><th>Tabela</th><th>Colunas</th></tr>
+  <tr><td><code>reports</code></td><td>client_id → clients, type (semanal/mensal), status (rascunho/publicado), period_start, period_end, kpis JSONB, content_md, generated_by → team_members, published_at</td></tr>
+</table>
+
+<h3>Módulo Financeiro</h3>
+<table>
+  <tr><th>Tabela</th><th>Relações</th></tr>
+  <tr><td><code>financial_categories</code></td><td>type (receita/despesa), name, color, is_default</td></tr>
+  <tr><td><code>transactions</code></td><td>type, amount, description, category_id → financial_categories, client_id → clients, transaction_date, recurring_id → recurring_transactions</td></tr>
+  <tr><td><code>recurring_transactions</code></td><td>type, amount, frequency, day_of_month, start_date, end_date, active, last_generated_date</td></tr>
+</table>
+
+<h3>Módulo OKRs</h3>
+<table>
+  <tr><th>Tabela</th><th>Colunas</th></tr>
+  <tr><td><code>objectives</code></td><td>title, quarter (Q1-Q4), year, department, confidence, status, responsible_ids uuid[]</td></tr>
+  <tr><td><code>key_results</code></td><td>objective_id → objectives, title, initial_value, current_value, target_value, deadline, responsible_ids uuid[]</td></tr>
+</table>
+
+<h3>Módulo Processos</h3>
+<table>
+  <tr><th>Tabela</th><th>Colunas</th></tr>
+  <tr><td><code>process_categories</code></td><td>key, label, color, sort_order</td></tr>
+  <tr><td><code>processes</code></td><td>title, description, category_id, content_json JSONB, content_md text, miro_link, external_links JSONB, tags text[] (índice GIN), published</td></tr>
+</table>
+
+<h3>Módulo Reuniões</h3>
+<table>
+  <tr><th>Tabela</th><th>Colunas</th></tr>
+  <tr><td><code>meetings</code></td><td>title, client_id → clients, scheduled_at, duration_minutes, location, agenda_md, notes_md, attendee_ids uuid[]</td></tr>
+</table>
+
+<h3>Camada Estratégica (Migration 0005)</h3>
+<table>
+  <tr><th>Tabela</th><th>Relações Principais</th></tr>
+  <tr><td><code>mentorships</code></td><td>name, mentor, platform, url, status, total_modules, cover_emoji</td></tr>
+  <tr><td><code>mentorship_modules</code></td><td>mentorship_id → mentorships, title, order_index, consumed_at, key_insights, raw_notes</td></tr>
+  <tr><td><code>initiatives</code></td><td>owner_id → team_members, client_id → clients, mentorship_id → mentorships, parent_initiative_id → initiatives (hierarquia)</td></tr>
+  <tr><td><code>initiative_updates</code></td><td>initiative_id → initiatives, content text, author_id → team_members</td></tr>
+  <tr><td><code>implementation_actions</code></td><td>mentorship_id → mentorships, module_id → mentorship_modules, task_id → tasks, initiative_id → initiatives</td></tr>
+  <tr><td><code>decisions</code></td><td>initiative_id → initiatives, client_id → clients, mentorship_id → mentorships, decided_by → team_members</td></tr>
+</table>
+
+<h3>Sistema</h3>
+<table>
+  <tr><th>Tabela</th><th>Colunas</th></tr>
+  <tr><td><code>favorites</code></td><td>member_id → team_members, item_type text, item_id uuid, label text. Unique(member_id, item_type, item_id)</td></tr>
+  <tr><td><code>activity_log</code></td><td>member_id → team_members, action ('created'/'updated'/'deleted'), entity_type, entity_id, entity_label, metadata JSONB</td></tr>
+</table>
+
+<h3>Diagrama de Relações Principais</h3>
+<pre><code>auth.users ──────────────────→ team_members (trigger on insert)
+                                      │
+                    ┌─────────────────┼──────────────────┐
+                    ↓                 ↓                   ↓
+                 clients           tasks             launches
+                    │                │                   │
+           ┌────────┴──────┐    ┌────┴────┐         ┌───┴───────┐
+           ↓               ↓    ↓         ↓         ↓           ↓
+       contents        meetings task_     task_   launch_    launch_
+                               time_logs comments comments   template_tasks
+                                                              (via launch_templates)
+
+initiatives ──→ clients
+            ──→ mentorships ──→ mentorship_modules ──→ implementation_actions
+            ──→ team_members (owner)                        │
+                                                            ↓
+decisions ──→ initiatives                                tasks
+          ──→ clients
+          ──→ mentorships</code></pre>
+
+
+<!-- ===================================================== -->
+<h2 id="triggers" class="section">8. Triggers e Funções SQL</h2>
+
+<table>
+  <tr><th>Trigger / Função</th><th>Em que tabelas</th><th>O que faz</th></tr>
+  <tr>
+    <td><code>trg_set_updated_at()</code><br>Trigger: <code>set_updated_at</code></td>
+    <td>team_members, clients, launches, launch_templates, tasks, contents, students, reports, recurring_transactions, objectives, key_results, processes, meetings, mentorships, initiatives, decisions</td>
+    <td>BEFORE UPDATE — define <code>updated_at = now()</code> automaticamente em qualquer UPDATE.</td>
+  </tr>
+  <tr>
+    <td><code>trg_handle_new_user()</code><br>Trigger: <code>on_auth_user_created</code></td>
+    <td>auth.users</td>
+    <td>AFTER INSERT — cria automaticamente um registo em <code>team_members</code> com o nome e email do utilizador. O primeiro user registado fica com <code>role='admin'</code>.</td>
+  </tr>
+  <tr>
+    <td><code>trg_log_activity()</code><br>Trigger: <code>log_activity</code></td>
+    <td>clients, tasks, launches, contents, students, objectives, meetings, processes, transactions, initiatives, decisions, mentorships</td>
+    <td>AFTER INSERT OR UPDATE OR DELETE — grava em <code>activity_log</code> a acção (created/updated/deleted), o membro que a fez, o tipo e id da entidade, e um label snapshot (campo <code>name</code> ou <code>title</code>). Em caso de excepção, nunca bloqueia a operação principal.</td>
+  </tr>
+  <tr>
+    <td><code>is_admin(uid)</code></td>
+    <td>—</td>
+    <td>Função helper SQL (security definer) para uso nas políticas RLS. Verifica se uid tem role='admin' e active=true em team_members.</td>
+  </tr>
+  <tr>
+    <td><code>is_team_member(uid)</code></td>
+    <td>—</td>
+    <td>Função helper SQL. Verifica se uid existe e está activo em team_members.</td>
+  </tr>
+  <tr>
+    <td><code>has_module(uid, module)</code></td>
+    <td>—</td>
+    <td>Função helper SQL. Admin retorna sempre true. Para membros, verifica se module está em permissions_modules.</td>
+  </tr>
+</table>
+
+
+<!-- ===================================================== -->
+<h2 id="rls" class="section">9. Políticas RLS (Row Level Security)</h2>
+
+<p>RLS está activo em <strong>todas as 34 tabelas</strong>. Não há nenhuma tabela sem RLS.</p>
+
+<table>
+  <tr><th>Tabela(s)</th><th>Select</th><th>Insert/Update/Delete</th></tr>
+  <tr>
+    <td>team_members</td>
+    <td>Qualquer team_member activo</td>
+    <td>Self-update; Admin: tudo</td>
+  </tr>
+  <tr>
+    <td>client_statuses, task_statuses, launch_statuses, content_statuses, process_categories</td>
+    <td>Qualquer team_member</td>
+    <td>Apenas admin</td>
+  </tr>
+  <tr>
+    <td>financial_categories</td>
+    <td><code>has_module('financeiro')</code></td>
+    <td>Apenas admin</td>
+  </tr>
+  <tr>
+    <td>student_session_types</td>
+    <td><code>has_module('incubadora')</code></td>
+    <td>Apenas admin</td>
+  </tr>
+  <tr>
+    <td>clients</td>
+    <td><code>has_module('clientes')</code> OU <code>public_share_enabled = true</code></td>
+    <td><code>has_module('clientes')</code></td>
+  </tr>
+  <tr>
+    <td>launches, launch_comments, launch_templates, launch_template_tasks</td>
+    <td colspan="2"><code>has_module('lancamentos')</code></td>
+  </tr>
+  <tr>
+    <td>tasks, task_time_logs, task_comments</td>
+    <td colspan="2"><code>has_module('tarefas')</code></td>
+  </tr>
+  <tr>
+    <td>contents, content_files, content_feedback</td>
+    <td colspan="2"><code>has_module('conteudo')</code></td>
+  </tr>
+  <tr>
+    <td>students, student_sessions</td>
+    <td colspan="2"><code>has_module('incubadora')</code></td>
+  </tr>
+  <tr>
+    <td>reports</td>
+    <td colspan="2"><code>has_module('relatorios')</code></td>
+  </tr>
+  <tr>
+    <td>transactions, recurring_transactions</td>
+    <td colspan="2"><code>has_module('financeiro')</code></td>
+  </tr>
+  <tr>
+    <td>objectives, key_results</td>
+    <td>Qualquer team_member</td>
+    <td>Admin / responsável / criador</td>
+  </tr>
+  <tr>
+    <td>processes</td>
+    <td colspan="2"><code>has_module('processos')</code></td>
+  </tr>
+  <tr>
+    <td>meetings</td>
+    <td colspan="2"><code>has_module('reunioes')</code></td>
+  </tr>
+  <tr>
+    <td>initiatives, initiative_updates</td>
+    <td colspan="2"><code>has_module('iniciativas')</code>; Delete: apenas admin</td>
+  </tr>
+  <tr>
+    <td>mentorships, mentorship_modules, implementation_actions</td>
+    <td colspan="2"><span class="badge badge-red">Apenas admin</span></td>
+  </tr>
+  <tr>
+    <td>decisions</td>
+    <td colspan="2"><span class="badge badge-red">Apenas admin</span></td>
+  </tr>
+  <tr>
+    <td>favorites</td>
+    <td colspan="2">Apenas o próprio membro (<code>member_id = auth.uid()</code>)</td>
+  </tr>
+  <tr>
+    <td>activity_log</td>
+    <td>Qualquer team_member</td>
+    <td>Insert: qualquer team_member (sem update/delete)</td>
+  </tr>
+</table>
+
+<div class="alert alert-ok">
+  <span class="alert-icon">✅</span>
+  <span>Todas as 34 tabelas têm RLS activo. Não foi encontrada nenhuma tabela sem políticas. O padrão é consistente: leitura restrita ao módulo correspondente, escrita idem, com admin a ter acesso total via <code>is_admin()</code>.</span>
+</div>
+
+
+<!-- ===================================================== -->
+<h2 id="rotas" class="section">10. Rotas e Páginas Frontend</h2>
+
+<table>
+  <tr><th>Rota</th><th>Acesso</th><th>Descrição</th></tr>
+  <tr><td><code>/</code></td><td>Público</td><td>Redireciona para /dashboard (ou /login se não autenticado)</td></tr>
+  <tr><td><code>/login</code></td><td>Público</td><td>Página de autenticação Supabase Auth</td></tr>
+  <tr><td><code>/dashboard</code></td><td>Autenticado</td><td>Dashboard principal com KPIs, Foco da Semana, Decisões, Atividade</td></tr>
+  <tr><td><code>/iniciativas</code></td><td>has_module('iniciativas')</td><td>Lista de iniciativas estratégicas com filtros</td></tr>
+  <tr><td><code>/iniciativas/[id]</code></td><td>has_module('iniciativas')</td><td>Detalhe de iniciativa com timeline de updates</td></tr>
+  <tr><td><code>/decisoes</code></td><td>Admin only</td><td>Queue de decisões CEO</td></tr>
+  <tr><td><code>/mentorias</code></td><td>Admin only</td><td>Grid de programas de mentoria</td></tr>
+  <tr><td><code>/mentorias/[id]</code></td><td>Admin only</td><td>Detalhe de mentoria com módulos e ações</td></tr>
+  <tr><td><code>/clientes</code></td><td>has_module('clientes')</td><td>Lista/galeria/kanban de clientes</td></tr>
+  <tr><td><code>/clientes/[id]</code></td><td>has_module('clientes')</td><td>Detalhe do cliente com 7 tabs</td></tr>
+  <tr><td><code>/tarefas</code></td><td>has_module('tarefas')</td><td>Kanban e tabela de tarefas</td></tr>
+  <tr><td><code>/tarefas/[id]</code></td><td>has_module('tarefas')</td><td>Detalhe de tarefa com time tracking e comentários</td></tr>
+  <tr><td><code>/lancamentos</code></td><td>has_module('lancamentos')</td><td>Pipeline kanban de lançamentos</td></tr>
+  <tr><td><code>/lancamentos/[id]</code></td><td>has_module('lancamentos')</td><td>Detalhe do lançamento</td></tr>
+  <tr><td><code>/conteudo</code></td><td>has_module('conteudo')</td><td>Workflow editorial (tabela + kanban)</td></tr>
+  <tr><td><code>/incubadora</code></td><td>has_module('incubadora')</td><td>Kanban de alunos por nível</td></tr>
+  <tr><td><code>/incubadora/[id]</code></td><td>has_module('incubadora')</td><td>Detalhe do aluno com sessões</td></tr>
+  <tr><td><code>/relatorios</code></td><td>has_module('relatorios')</td><td>Lista de relatórios por cliente</td></tr>
+  <tr><td><code>/relatorios/[id]</code></td><td>has_module('relatorios')</td><td>Editor de relatório com gerador automático</td></tr>
+  <tr><td><code>/financeiro</code></td><td>has_module('financeiro')</td><td>P&L dashboard com gráficos</td></tr>
+  <tr><td><code>/okrs</code></td><td>Qualquer member</td><td>OKRs por trimestre e departamento</td></tr>
+  <tr><td><code>/processos</code></td><td>has_module('processos')</td><td>Base de conhecimento de SOPs</td></tr>
+  <tr><td><code>/processos/[id]</code></td><td>has_module('processos')</td><td>Detalhe de processo com editor MD</td></tr>
+  <tr><td><code>/reunioes</code></td><td>has_module('reunioes')</td><td>Calendário semanal de reuniões</td></tr>
+  <tr><td><code>/equipa</code></td><td>Autenticado</td><td>Gestão de membros e permissões</td></tr>
+  <tr><td><code>/configuracoes</code></td><td>Admin only</td><td>CRUD de stages/statuses</td></tr>
+  <tr><td><code>/share/[token]</code></td><td><span class="badge badge-green">Público</span></td><td>Dashboard do cliente sem login (token único por cliente)</td></tr>
+</table>
+
+
+<!-- ===================================================== -->
+<h2 id="api-endpoints" class="section">11. API Endpoints</h2>
+
+<p>O projecto tem apenas <strong>um Route Handler</strong> dedicado. Todas as restantes operações usam Server Actions.</p>
+
+<div class="card">
+  <h3>POST /api/share/feedback</h3>
+  <p><strong>Ficheiro:</strong> <code>app/api/share/feedback/route.ts</code> · <strong>Acesso:</strong> Público (sem autenticação)</p>
+  <h4>Payload</h4>
+  <pre><code>{
+  "clientId": "uuid",    // obrigatório
+  "name": "string",     // opcional, máx 100 chars
+  "body": "string"      // obrigatório, máx 5000 chars
+}</code></pre>
+  <h4>Comportamento</h4>
+  <ol>
+    <li>Valida payload (clientId obrigatório, body não vazio e &lt;5000 chars)</li>
+    <li>Verifica que o cliente existe e tem <code>public_share_enabled = true</code></li>
+    <li>Se falhar → 403 Forbidden</li>
+    <li>Insere em <code>content_feedback</code> com <code>is_from_client=true</code> e <code>read_by_team=false</code></li>
+  </ol>
+  <h4>Usa</h4>
+  <code>createAdminClient()</code> (service_role) — valida o cliente antes das escritas.
+</div>
+
+<h3>Server Actions (por módulo)</h3>
+<table>
+  <tr><th>Ficheiro</th><th>Actions disponíveis</th></tr>
+  <tr><td><code>lib/actions/clients.ts</code></td><td>createClient, updateClient, deleteClient, toggleShare</td></tr>
+  <tr><td><code>lib/actions/tasks.ts</code></td><td>createTask, updateTask, deleteTask, addTimeLog, addComment</td></tr>
+  <tr><td><code>lib/actions/launches.ts</code></td><td>createLaunch, updateLaunch, deleteLaunch, createFromTemplate</td></tr>
+  <tr><td><code>lib/actions/contents.ts</code></td><td>createContent, updateContent, deleteContent</td></tr>
+  <tr><td><code>lib/actions/financial.ts</code></td><td>createTransaction, updateTransaction, deleteTransaction</td></tr>
+  <tr><td><code>lib/actions/okrs.ts</code></td><td>createObjective, updateObjective, deleteObjective, createKR, updateKR, deleteKR</td></tr>
+  <tr><td><code>lib/actions/processes.ts</code></td><td>createProcess, updateProcess, deleteProcess</td></tr>
+  <tr><td><code>lib/actions/meetings.ts</code></td><td>createMeeting, updateMeeting, deleteMeeting</td></tr>
+  <tr><td><code>lib/actions/reports.ts</code></td><td>createReport, updateReport, publishReport, generateReport</td></tr>
+  <tr><td><code>lib/actions/students.ts</code></td><td>createStudent, updateStudent, updateSession</td></tr>
+  <tr><td><code>lib/actions/team.ts</code></td><td>updateMemberAction, inviteMemberAction, deactivateMemberAction</td></tr>
+  <tr><td><code>lib/actions/statuses.ts</code></td><td>CRUD de statuses para os 4 módulos configuráveis</td></tr>
+  <tr><td><code>lib/actions/decisions.ts</code></td><td>createDecision, updateDecision, deleteDecision</td></tr>
+  <tr><td><code>lib/actions/mentorships.ts</code></td><td>createMentorship, updateMentorship, createModule, updateModule</td></tr>
+  <tr><td><code>lib/actions/initiatives.ts</code></td><td>createInitiativeAction, updateInitiativeAction, deleteInitiativeAction, postInitiativeUpdateAction, toggleFocusAction</td></tr>
+</table>
+
+
+<!-- ===================================================== -->
+<h2 id="estado" class="section">12. Funcional vs. Incompleto</h2>
+
+<h3>Funcionalidades Implementadas e Funcionais</h3>
+<table>
+  <tr><th>Feature</th><th>Estado</th></tr>
+  <tr><td>Autenticação (login, logout, sessão persistente, redirect)</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Todos os 16 módulos com CRUD básico</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Kanban drag-and-drop (Tarefas, Lançamentos, Conteúdo, Incubadora)</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Time Tracking em Tarefas (start/stop + manual)</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Dashboard público partilhável por cliente</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Feedback de clientes via form público</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Activity Log automático via triggers Postgres</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Geração automática de relatórios (agrega dados por período)</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>P&L Financeiro com gráficos (Recharts)</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>OKRs com cálculo de progresso</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Permissões granulares por módulo para membros</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Templates de Lançamento com auto-criação de tarefas</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>RLS em todas as 34 tabelas</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Dark mode</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+  <tr><td>Calendário semanal de Reuniões</td><td><span class="badge badge-green">✅ Completo</span></td></tr>
+</table>
+
+<h3>Lacunas e Funcionalidades Incompletas</h3>
+<table>
+  <tr><th>Feature</th><th>Estado</th><th>Notas</th></tr>
+  <tr>
+    <td>Deploy Vercel</td>
+    <td><span class="badge badge-red">❌ Bloqueado</span></td>
+    <td>Token Vercel expirou. App só corre localmente.</td>
+  </tr>
+  <tr>
+    <td>Repositório GitHub</td>
+    <td><span class="badge badge-red">❌ Bloqueado</span></td>
+    <td>Falta PAT GitHub para push.</td>
+  </tr>
+  <tr>
+    <td>Upload de ficheiros (Conteúdo)</td>
+    <td><span class="badge badge-yellow">🟡 Parcial</span></td>
+    <td>Tabela <code>content_files</code> existe. Acção de upload implementada. UI de upload não implementada.</td>
+  </tr>
+  <tr>
+    <td>Convite de membros por email</td>
+    <td><span class="badge badge-yellow">🟡 Parcial</span></td>
+    <td>Criação funciona. Sem email de convite (precisaria SMTP/Resend). Password gerada é devolvida no response da action.</td>
+  </tr>
+  <tr>
+    <td>Transações recorrentes (cron automático)</td>
+    <td><span class="badge badge-yellow">🟡 Parcial</span></td>
+    <td>Schema existe, lógica manual. Sem Edge Function / cron de geração automática.</td>
+  </tr>
+  <tr>
+    <td>Paginação de transações</td>
+    <td><span class="badge badge-yellow">🟡 Parcial</span></td>
+    <td>Componente faz <code>transactions.slice(0, 50)</code> — sem paginação real. Funciona para volume pequeno.</td>
+  </tr>
+  <tr>
+    <td>Editor rich-text em Processos</td>
+    <td><span class="badge badge-yellow">🟡 Parcial</span></td>
+    <td>TipTap instalado mas Processos usa Textarea Markdown simples. Campo <code>content_json</code> existe no schema mas não é usado.</td>
+  </tr>
+  <tr>
+    <td>Gestão de Templates de Lançamento (UI)</td>
+    <td><span class="badge badge-yellow">🟡 Parcial</span></td>
+    <td>Templates funcionam. Criação/edição só via SQL directo (sem UI em Configurações).</td>
+  </tr>
+  <tr>
+    <td>Calendário Reuniões — vista mensal</td>
+    <td><span class="badge badge-yellow">🟡 Parcial</span></td>
+    <td>Vista semanal funciona. Vista mensal não implementada.</td>
+  </tr>
+  <tr>
+    <td>Notificações por email</td>
+    <td><span class="badge badge-red">❌ Não implementado</span></td>
+    <td>Sem SMTP/Resend configurado. Sem notificações de feedback, tarefas atribuídas, etc.</td>
+  </tr>
+  <tr>
+    <td>Tour de onboarding</td>
+    <td><span class="badge badge-red">❌ Não implementado</span></td>
+    <td>Descartado por complexidade (Driver.js). Planeado nos requisitos iniciais.</td>
+  </tr>
+  <tr>
+    <td>Activity log no detalhe de cliente</td>
+    <td><span class="badge badge-red">❌ Não implementado</span></td>
+    <td>Tabela tem índice por entity_type/entity_id. A query de filtro existe mas o componente no detalhe de cliente não foi criado.</td>
+  </tr>
+  <tr>
+    <td>Sync ClickUp → outlier-os</td>
+    <td><span class="badge badge-red">❌ Não implementado</span></td>
+    <td>Planeado na auditoria (Jun/2026). Precisaria Edge Function + cron.</td>
+  </tr>
+  <tr>
+    <td>Sync GoHighLevel → outlier-os</td>
+    <td><span class="badge badge-red">❌ Não implementado</span></td>
+    <td>JSONs de dump existem em <code>_auditoria/</code> mas sem importer.</td>
+  </tr>
+  <tr>
+    <td>Tipos TypeScript gerados pelo Supabase</td>
+    <td><span class="badge badge-yellow">🟡 Parcial</span></td>
+    <td><code>types/database.ts</code> é placeholder manual. Para tipos exactos: <code>npm run db:types</code>.</td>
+  </tr>
+</table>
+
+<h3>TODOs e Comentários no Código</h3>
+<p>Não foram encontrados comentários <code>TODO</code> ou <code>FIXME</code> espalhados pelo código — as lacunas estão documentadas no <code>PROGRESS.md</code> e <code>_auditoria/Outlier-OS-Auditoria.md</code>. A decisão de usar Textarea em vez de TipTap está documentada no PROGRESS.md como decisão autónoma consciente.</p>
+
+<h3>Código Potencialmente Morto / Não Usado</h3>
+<ul>
+  <li><code>content_json</code> (JSONB) em <code>processes</code> — campo existe no schema, não é lido nem escrito pelo código actual</li>
+  <li><code>content_files</code> — tabela completa, acção de upload existe, UI nunca criada</li>
+  <li><code>recurring_transactions</code> — schema completo, lógica de geração incompleta (sem cron)</li>
+  <li><code>student_sessions</code> — auto-criadas ao criar aluno, mas a UI de edição pode não estar totalmente completa</li>
+  <li><code>favorites</code> — tabela com RLS, sem UI de favoritos implementada em nenhum módulo</li>
+  <li>TipTap (instalado nas dependências) — usado só em Relatórios; Processos usa Textarea</li>
+  <li>Zustand (instalado) — sem store global implementada; componentes usam state local</li>
+  <li>TanStack Query (instalado, QueryProvider wrapping o app) — sem queries client-side usando <code>useQuery</code> identificadas; toda a leitura é server-side</li>
+</ul>
+
+
+<!-- ===================================================== -->
+<h2 id="como-correr" class="section">13. Como Correr Localmente</h2>
+
+<h3>Pré-requisitos</h3>
+<ul>
+  <li>Node.js 18+ (testado em 24)</li>
+  <li>npm 10+</li>
+  <li>Conta Supabase (gratuita serve)</li>
+</ul>
+
+<h3>Variáveis de Ambiente</h3>
+<p>Copiar <code>.env.example</code> para <code>.env.local</code> e preencher:</p>
+<pre><code># Supabase (encontras em Settings → API no dashboard do projecto)
+NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJECTO.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...        # anon / public
+SUPABASE_SERVICE_ROLE_KEY=eyJ...            # service_role / secret ⚠️ nunca expor
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000</code></pre>
+
+<div class="alert alert-danger">
+  <span class="alert-icon">🔴</span>
+  <span><code>SUPABASE_SERVICE_ROLE_KEY</code> bypassa todas as políticas RLS. Nunca commitar para o Git. Nunca expor ao browser. Apenas para uso server-side.</span>
+</div>
+
+<h3>Setup da Base de Dados</h3>
+<p>Aplicar as 5 migrations por ordem no SQL Editor do Supabase:</p>
+<pre><code>supabase/migrations/0001_initial_schema.sql
+supabase/migrations/0002_rls_policies.sql
+supabase/migrations/0003_seed_defaults.sql
+supabase/migrations/0004_activity_log_triggers.sql
+supabase/migrations/0005_initiatives_mentorships_decisions.sql</code></pre>
+
+<p>Ou via Supabase CLI:</p>
+<pre><code>npx supabase login
+npx supabase link --project-ref SEU-PROJECT-REF
+npx supabase db push</code></pre>
+
+<h3>Criar Primeiro Utilizador (Admin)</h3>
+<p>No Supabase Dashboard → Authentication → Users → Add user:</p>
+<ul>
+  <li>Email: o teu email</li>
+  <li>Auto-confirm: ✅ ON</li>
+</ul>
+<p>O trigger <code>on_auth_user_created</code> cria automaticamente o registo em <code>team_members</code> com <code>role='admin'</code> (porque é o primeiro utilizador).</p>
+
+<h3>Arrancar o Projecto</h3>
+<pre><code>cd outlier-os
+npm install
+npm run dev        # http://localhost:3000</code></pre>
+
+<h3>Scripts Disponíveis</h3>
+<table>
+  <tr><th>Comando</th><th>O que faz</th></tr>
+  <tr><td><code>npm run dev</code></td><td>Servidor de desenvolvimento (Next.js turbopack)</td></tr>
+  <tr><td><code>npm run build</code></td><td>Build de produção</td></tr>
+  <tr><td><code>npm run start</code></td><td>Servidor de produção (após build)</td></tr>
+  <tr><td><code>npm run lint</code></td><td>ESLint</td></tr>
+  <tr><td><code>npm run typecheck</code></td><td>TypeScript sem emitir ficheiros</td></tr>
+  <tr><td><code>npm run db:push</code></td><td>Aplica migrations via Supabase CLI</td></tr>
+  <tr><td><code>npm run db:reset</code></td><td>Reset completo da BD (⚠️ destrutivo)</td></tr>
+  <tr><td><code>npm run db:diff</code></td><td>Diff de schema</td></tr>
+  <tr><td><code>npm run db:types</code></td><td>Gera <code>types/database.ts</code> a partir do schema</td></tr>
+</table>
+
+<h3>Troubleshooting</h3>
+<table>
+  <tr><th>Erro</th><th>Causa / Solução</th></tr>
+  <tr><td>"permission denied for table X"</td><td>Correr migrations com role <code>postgres</code> no SQL Editor do Supabase</td></tr>
+  <tr><td>Login funciona mas sidebar não carrega</td><td>Trigger <code>on_auth_user_created</code> não correu — inserir linha em <code>team_members</code> manualmente</td></tr>
+  <tr><td>"Module not found" em runtime</td><td><code>rm -rf node_modules .next && npm install</code></td></tr>
+  <tr><td>Erros de tipo TypeScript</td><td><code>npm run db:types</code> para regenerar <code>types/database.ts</code></td></tr>
+</table>
+
+
+<!-- ===================================================== -->
+<h2 id="integracoes" class="section">14. Integrações com Ferramentas Externas</h2>
+
+<h3>Estado Actual das Integrações</h3>
+<table>
+  <tr><th>Ferramenta</th><th>Estado</th><th>Detalhes</th></tr>
+  <tr>
+    <td>Supabase</td>
+    <td><span class="badge badge-green">✅ Integrado</span></td>
+    <td>Base de dados principal, auth, storage (configurado mas sem uso de storage ainda).</td>
+  </tr>
+  <tr>
+    <td>Vercel</td>
+    <td><span class="badge badge-red">❌ Pendente</span></td>
+    <td>Projecto Vercel existe (<code>.vercel/project.json</code>), mas token de deploy expirou. App só corre localmente.</td>
+  </tr>
+  <tr>
+    <td>ClickUp</td>
+    <td><span class="badge badge-yellow">🟡 Planeado</span></td>
+    <td>Script de auditoria em <code>_auditoria/audit.mjs</code> usa a ClickUp API para dump de dados. Sync bidirecional ClickUp → outlier-os planeado (Edge Function + cron 4/4h) mas não implementado.</td>
+  </tr>
+  <tr>
+    <td>GoHighLevel (GHL)</td>
+    <td><span class="badge badge-yellow">🟡 Planeado</span></td>
+    <td>Dumps JSON existem em <code>_auditoria/</code>. Importer para outlier-os planeado mas não implementado. Dados de vendas e calls.</td>
+  </tr>
+  <tr>
+    <td>n8n</td>
+    <td><span class="badge badge-gray">Não mencionado</span></td>
+    <td>Não há referência a n8n no código. Poderia ser usado para automatizar sync ClickUp/GHL.</td>
+  </tr>
+  <tr>
+    <td>Telegram (Vasco da Gama)</td>
+    <td><span class="badge badge-yellow">🟡 Planeado</span></td>
+    <td>Envio automático do "Foco da Semana" às segundas 8h planeado (auditoria). Não implementado no outlier-os. Existe projecto separado de WhatsApp/Telegram agent.</td>
+  </tr>
+  <tr>
+    <td>Google Sheets</td>
+    <td><span class="badge badge-gray">Não integrado</span></td>
+    <td>5 dashboards HTML EMPRESA/ lêem Sheets directamente no browser. Planeada migração para server-side no outlier-os.</td>
+  </tr>
+  <tr>
+    <td>SMTP / Resend</td>
+    <td><span class="badge badge-red">❌ Não configurado</span></td>
+    <td>Sem envio de emails (convites, notificações de feedback). Identificado como lacuna.</td>
+  </tr>
+</table>
+
+<h3>Dashboard Público (única integração com exterior activa)</h3>
+<p>
+  A única integração "externa" activa é o <strong>Dashboard Público</strong> (<code>/share/[token]</code>).
+  Clientes recebem um URL único e acedem a um view read-only sem login. Podem submeter feedback via
+  <code>POST /api/share/feedback</code>. Não há webhook ou notificação quando o feedback chega —
+  é preciso verificar manualmente no módulo Clientes → tab Feedback.
+</p>
+
+<h3>Webhooks</h3>
+<p>Não há webhooks configurados no código. A base de dados Supabase suporta Database Webhooks nativamente (podem ser configurados no dashboard), mas não estão configurados no projecto actual.</p>
+
+
+<!-- ===================================================== -->
+<h2 id="seguranca" class="section">15. Segurança — Pontos de Atenção</h2>
+
+<h3>Edge Functions</h3>
+<div class="alert alert-ok">
+  <span class="alert-icon">✅</span>
+  <span>O projecto <strong>não usa Edge Functions Supabase</strong>. Toda a lógica server-side corre via Next.js Server Components e Server Actions, protegidos pelo middleware de sessão. Não existe o risco de Edge Functions sem verificação JWT.</span>
+</div>
+
+<h3>RLS — Verificação por Tabela</h3>
+<div class="alert alert-ok">
+  <span class="alert-icon">✅</span>
+  <span>RLS está activo e com políticas em <strong>todas as 34 tabelas</strong>. Confirmado na migration 0002 e 0005. Nenhuma tabela foi encontrada sem <code>enable row level security</code>.</span>
+</div>
+
+<h3>Dados Sensíveis — Pontos de Atenção</h3>
+<table>
+  <tr><th>Item</th><th>Risco</th><th>Estado</th></tr>
+  <tr>
+    <td><code>SUPABASE_SERVICE_ROLE_KEY</code></td>
+    <td>Bypassa RLS se exposta</td>
+    <td><span class="badge badge-green">Seguro</span> — só em variáveis de ambiente server-side, nunca prefixada com NEXT_PUBLIC_</td>
+  </tr>
+  <tr>
+    <td><code>.env.local</code></td>
+    <td>Contém credenciais reais</td>
+    <td><span class="badge badge-yellow">Atenção</span> — ficheiro existe com credenciais reais. Verificar se está no <code>.gitignore</code>.</td>
+  </tr>
+  <tr>
+    <td><code>.secrets.local</code></td>
+    <td>Password do admin</td>
+    <td><span class="badge badge-red">Risco</span> — ficheiro com password em texto plain. Garantir que está no <code>.gitignore</code>.</td>
+  </tr>
+  <tr>
+    <td>Password devolvida no inviteMemberAction</td>
+    <td>Password gerada volta no response</td>
+    <td><span class="badge badge-yellow">Atenção</span> — password é devolvida na resposta da Server Action para o admin partilhar. Não persiste, mas transita na network. Sem notificação por email alternativa.</td>
+  </tr>
+  <tr>
+    <td>public_share_token</td>
+    <td>Token de acesso ao dashboard público</td>
+    <td><span class="badge badge-green">Adequado</span> — gerado com <code>gen_random_bytes(16)</code> (128 bits, criptograficamente seguro). Validado server-side antes de qualquer query.</td>
+  </tr>
+  <tr>
+    <td>createAdminClient() em /share</td>
+    <td>service_role bypassa RLS</td>
+    <td><span class="badge badge-green">Adequado</span> — valida que <code>public_share_enabled = true</code> e token corresponde antes de qualquer leitura. Código comentado a avisar que não deve ir para o browser.</td>
+  </tr>
+  <tr>
+    <td>Feedback sem rate limiting</td>
+    <td>Spam/flooding do endpoint público</td>
+    <td><span class="badge badge-yellow">Risco moderado</span> — <code>POST /api/share/feedback</code> é público e sem rate limiting implementado. Supabase tem limites de API globais mas sem protecção específica.</td>
+  </tr>
+  <tr>
+    <td>Validação de input no feedback</td>
+    <td>Injecção / conteúdo abusivo</td>
+    <td><span class="badge badge-green">Parcialmente adequado</span> — body limitado a 5000 chars, clientId validado, name limitado a 100 chars. Sem sanitização HTML (o campo body é texto plain, não é renderizado como HTML).</td>
+  </tr>
+  <tr>
+    <td>clients_public_share RLS policy</td>
+    <td>Exposição acidental de clientes</td>
+    <td><span class="badge badge-yellow">Atenção</span> — a policy <code>clients_public_share</code> permite SELECT em clientes com <code>public_share_enabled = true</code> para qualquer utilizador (incluindo anónimo). Só expõe clientes onde a flag está activa, o que é intencional, mas é uma excepção ao padrão de autenticação.</td>
+  </tr>
+  <tr>
+    <td>Ausência de CSRF protection</td>
+    <td>Server Actions Next.js</td>
+    <td><span class="badge badge-green">Adequado</span> — Next.js Server Actions têm protecção CSRF nativa via verificação de origin e método POST.</td>
+  </tr>
+</table>
+
+<h3>Resumo de Segurança</h3>
+<div class="grid-2">
+  <div>
+    <h4 style="color:var(--accent2);">Pontos Fortes</h4>
+    <ul>
+      <li>RLS activo em todas as 34 tabelas</li>
+      <li>Funções helper SQL com <code>security definer</code></li>
+      <li>service_role nunca exposta ao browser</li>
+      <li>Token público gerado com CSPRNG (128 bits)</li>
+      <li>Validação Zod em todas as Server Actions</li>
+      <li>Middleware de sessão em todas as rotas</li>
+      <li>Activity log para auditoria</li>
+    </ul>
+  </div>
+  <div>
+    <h4 style="color:var(--accent3);">Pontos a Melhorar</h4>
+    <ul>
+      <li>Sem rate limiting no endpoint de feedback público</li>
+      <li><code>.secrets.local</code> com password em texto — confirmar .gitignore</li>
+      <li>Password de novo membro devolvida na network</li>
+      <li>Sem envio de email de convite (canal seguro)</li>
+      <li>Paginação financeira hardcoded (50 registos) — não é segurança mas é limitação</li>
+      <li>Tipos <code>types/database.ts</code> são placeholder — podem divergir do schema real</li>
+    </ul>
+  </div>
+</div>
+
+<div class="alert alert-info" style="margin-top:24px;">
+  <span class="alert-icon">ℹ️</span>
+  <span>Esta documentação foi gerada com base na análise estática do código-fonte em 19 Jun 2026. Para verificar o estado real da base de dados Supabase cloud (ref: <code>dsfzhrodcxtlayxcfjpx</code>), consultar o dashboard do Supabase.</span>
+</div>
+
+<div style="margin-top:48px;padding:20px 0;border-top:1px solid var(--border);text-align:center;">
+  <p style="color:var(--muted);font-size:12px;">
+    Outlier OS · Documentação Técnica · Gerada em 19 Jun 2026<br>
+    Daniel Godinho · Outlier Agency
+  </p>
+</div>
+
+</main>
+</div>
+</body>
+</html>

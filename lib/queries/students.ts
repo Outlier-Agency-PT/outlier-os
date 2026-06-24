@@ -46,8 +46,19 @@ export interface StudentNote {
   involvement: string;
   motivation: string;
   content: string;
+  reminder_date: string | null;
   created_at: string;
   author: { full_name: string };
+}
+
+export interface PendingReminder {
+  id: string;
+  student_id: string;
+  student_name: string;
+  contact_type: string;
+  content: string;
+  reminder_date: string;
+  urgency: "vencido" | "hoje" | "esta-semana";
 }
 
 export interface SessionType {
@@ -141,4 +152,41 @@ export async function getSessionTypes(): Promise<SessionType[]> {
     .eq("active", true)
     .order("sort_order");
   return (data ?? []) as SessionType[];
+}
+
+export async function getPendingReminders(): Promise<PendingReminder[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("student_notes")
+    .select(`id, student_id, contact_type, content, reminder_date, students(name)`)
+    .not("reminder_date", "is", null)
+    .order("reminder_date");
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return (data ?? []).map((note: any) => {
+    const reminderDate = new Date(note.reminder_date);
+    reminderDate.setHours(0, 0, 0, 0);
+
+    let urgency: "vencido" | "hoje" | "esta-semana";
+    if (reminderDate < today) {
+      urgency = "vencido";
+    } else if (reminderDate.getTime() === today.getTime()) {
+      urgency = "hoje";
+    } else {
+      const daysUntil = Math.ceil((reminderDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      urgency = daysUntil <= 7 ? "esta-semana" : "hoje";
+    }
+
+    return {
+      id: note.id,
+      student_id: note.student_id,
+      student_name: note.students.name,
+      contact_type: note.contact_type,
+      content: note.content,
+      reminder_date: note.reminder_date,
+      urgency,
+    };
+  }) as PendingReminder[];
 }

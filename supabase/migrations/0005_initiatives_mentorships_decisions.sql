@@ -191,6 +191,9 @@ create table decisions (
 
 create index idx_decisions_status on decisions(status);
 create index idx_decisions_impact on decisions(impact);
+create index idx_decisions_initiative on decisions(initiative_id);
+create index idx_decisions_client on decisions(client_id);
+create index idx_decisions_mentorship on decisions(mentorship_id);
 
 create trigger set_updated_at before update on decisions
   for each row execute function trg_set_updated_at();

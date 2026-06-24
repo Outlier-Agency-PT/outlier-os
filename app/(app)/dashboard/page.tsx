@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { Users, CheckSquare, Rocket, Target } from "lucide-react";
 import { getRecentActivity, describeActivity } from "@/lib/queries/activity";
+import { getInitiatives } from "@/lib/queries/initiatives";
+import { getDecisions } from "@/lib/queries/decisions";
+import { FocusWeek } from "@/components/dashboard/focus-week";
+import { PendingDecisions } from "@/components/dashboard/pending-decisions";
 import { formatRelative } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -10,11 +13,20 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const [taskClosedRes, launchClosedRes, clientActiveRes, activity] = await Promise.all([
+  const [
+    taskClosedRes,
+    launchClosedRes,
+    clientActiveRes,
+    activity,
+    focusInitiatives,
+    decisions,
+  ] = await Promise.all([
     supabase.from("task_statuses").select("id").eq("key", "concluido").maybeSingle(),
     supabase.from("launch_statuses").select("id").in("key", ["concluido", "cancelado"]),
     supabase.from("client_statuses").select("id").eq("key", "ativo").maybeSingle(),
     getRecentActivity(10),
+    getInitiatives({ focus: true }),
+    getDecisions(),
   ]);
 
   const [clientesRes, tarefasRes, lancamentosRes] = await Promise.all([
@@ -42,13 +54,18 @@ export default async function DashboardPage() {
       : supabase.from("launches").select("*", { count: "exact", head: true }),
   ]);
 
-  // OKR progresso médio
-  const { data: krs } = await supabase.from("key_results").select("initial_value, current_value, target_value");
+  const { data: krs } = await supabase
+    .from("key_results")
+    .select("initial_value, current_value, target_value");
   let okrAvg: number | null = null;
   if (krs && krs.length > 0) {
     let total = 0;
     let count = 0;
-    for (const kr of krs as { initial_value: number; current_value: number; target_value: number }[]) {
+    for (const kr of krs as {
+      initial_value: number;
+      current_value: number;
+      target_value: number;
+    }[]) {
       const range = kr.target_value - kr.initial_value;
       if (range === 0) continue;
       const p = ((kr.current_value - kr.initial_value) / range) * 100;
@@ -59,80 +76,102 @@ export default async function DashboardPage() {
   }
 
   const kpis = [
-    { label: "Clientes Ativos", value: clientesRes.count ?? 0, icon: Users, tone: "text-blue-500" },
-    { label: "Tarefas Abertas", value: tarefasRes.count ?? 0, icon: CheckSquare, tone: "text-orange-500" },
-    { label: "Lançamentos Ativos", value: lancamentosRes.count ?? 0, icon: Rocket, tone: "text-purple-500" },
-    { label: "Progresso OKRs", value: okrAvg !== null ? `${okrAvg.toFixed(0)}%` : "—", icon: Target, tone: "text-green-500" },
+    { label: "Clientes Ativos", value: clientesRes.count ?? 0, icon: Users },
+    { label: "Tarefas Abertas", value: tarefasRes.count ?? 0, icon: CheckSquare },
+    { label: "Lançamentos Ativos", value: lancamentosRes.count ?? 0, icon: Rocket },
+    {
+      label: "Progresso OKRs",
+      value: okrAvg !== null ? `${okrAvg.toFixed(0)}%` : "—",
+      icon: Target,
+    },
   ];
+
+  const focusCount = focusInitiatives.length;
+  const pendingCount = decisions.filter((d) => d.status === "pendente").length;
+
+  const todayLabel = new Date().toLocaleDateString("pt-PT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   return (
     <>
-      <PageHeader title="Dashboard" description="Visão geral da Outlier Agency" />
-      <div className="space-y-6 p-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <PageHeader
+        title="Dashboard"
+        description={`${todayLabel} · ${focusCount} no foco · ${pendingCount} decisões à tua espera`}
+      />
+      <div className="flex flex-col gap-6 p-4 md:p-8">
+
+        {/* Camada estratégica — dois painéis numa superfície unificada */}
+        <div className="grid w-full gap-px border border-border bg-border lg:grid-cols-2">
+          <div className="w-full overflow-hidden bg-card">
+            <FocusWeek initiatives={focusInitiatives} />
+          </div>
+          <div className="w-full overflow-hidden bg-card">
+            <PendingDecisions decisions={decisions} />
+          </div>
+        </div>
+
+        {/* KPIs — colunas de texto; o container é o único "card" */}
+        <div className="grid w-full grid-cols-2 gap-px border border-border bg-border lg:grid-cols-4">
           {kpis.map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <Card key={kpi.label}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <div key={kpi.label} className="bg-card px-4 py-4 md:px-6 md:py-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                     {kpi.label}
-                  </CardTitle>
-                  <Icon className={`size-5 ${kpi.tone}`} />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold">{kpi.value}</p>
-                </CardContent>
-              </Card>
+                  </span>
+                  <Icon className="size-3.5 text-muted-foreground/25" />
+                </div>
+                {/*
+                  font-light = 300 — testa no browser: se ficar fino demais para
+                  ler à distância, muda para font-normal (400) só aqui.
+                */}
+                <p className="text-[40px] font-light leading-none tracking-[-0.03em] tabular-nums">
+                  {kpi.value}
+                </p>
+              </div>
             );
           })}
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Atividade Recente</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activity.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Sem atividade ainda. Cria clientes, tarefas ou lançamentos para preencher o feed.
-                </p>
-              ) : (
-                <ul className="space-y-3">
-                  {activity.map((a) => (
-                    <li key={a.id} className="flex items-start justify-between gap-2 text-sm">
-                      <div>
-                        <p>
-                          <span className="font-medium">{a.member?.full_name ?? "Sistema"}</span>{" "}
-                          <span className="text-muted-foreground">{describeActivity(a)}</span>
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatRelative(a.created_at)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Próximos passos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>1. Cria os teus primeiros clientes em <strong className="text-foreground">Clientes</strong></li>
-                <li>2. Adiciona tarefas em <strong className="text-foreground">Tarefas</strong> e usa o Kanban</li>
-                <li>3. Convida membros em <strong className="text-foreground">Equipa</strong> (via Supabase Auth → trigger cria team_member)</li>
-                <li>4. Configura templates de lançamento em <strong className="text-foreground">Configurações</strong></li>
-                <li>5. Activa <strong className="text-foreground">Partilha</strong> em clientes para dashboards públicos</li>
-              </ul>
-            </CardContent>
-          </Card>
+        {/* Atividade — sem wrapper de card, lista editorial pura */}
+        <div>
+          <div className="border-b border-border pb-3">
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Atividade Recente
+            </h2>
+          </div>
+          {activity.length === 0 ? (
+            <p className="py-6 text-sm font-light text-muted-foreground">
+              Sem atividade ainda. Cria clientes, tarefas ou lançamentos para preencher o feed.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {activity.map((a) => (
+                <li
+                  key={a.id}
+                  className="flex items-baseline justify-between gap-4 py-3"
+                >
+                  <p className="min-w-0 flex-1 text-sm leading-snug">
+                    <span className="font-medium tracking-[-0.01em]">
+                      {a.member?.full_name ?? "Sistema"}
+                    </span>{" "}
+                    <span className="font-light text-muted-foreground">
+                      {describeActivity(a)}
+                    </span>
+                  </p>
+                  <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/45">
+                    {formatRelative(a.created_at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+
       </div>
     </>
   );

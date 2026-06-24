@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, calcularDiasRestantes } from "@/lib/utils";
 import {
   DECISION_STATUS_LABELS,
   DECISION_IMPACT_LABELS,
@@ -90,8 +90,8 @@ export function DecisionsList({
                             </Badge>
                           )}
                           {d.urgency && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              {d.urgency}
+                            <Badge variant="secondary" className="text-[11px]">
+                              {calcularDiasRestantes(d.urgency)}
                             </Badge>
                           )}
                           {d.initiative && (

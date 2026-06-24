@@ -9,6 +9,11 @@ import {
   getInitiativeById,
   getInitiativeUpdates,
 } from "@/lib/queries/initiatives";
+import { getTeamMembers } from "@/lib/queries/team";
+import { getClients } from "@/lib/queries/clients";
+import { getMentorships } from "@/lib/queries/mentorships";
+import { InitiativeEditButton } from "@/components/initiatives/initiative-edit-button";
+import { InitiativeToggles } from "@/components/initiatives/initiative-toggles";
 import {
   INITIATIVE_STATUS_LABELS,
   INITIATIVE_STATUS_COLORS,
@@ -24,9 +29,12 @@ export default async function IniciativaDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [initiative, updates] = await Promise.all([
+  const [initiative, updates, members, clients, mentorships] = await Promise.all([
     getInitiativeById(id),
     getInitiativeUpdates(id),
+    getTeamMembers(),
+    getClients(),
+    getMentorships(),
   ]);
 
   if (!initiative) notFound();
@@ -44,6 +52,43 @@ export default async function IniciativaDetailPage({
       <PageHeader
         title={initiative.title}
         description={initiative.description ?? undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <InitiativeToggles
+              id={initiative.id}
+              focusThisWeek={initiative.focus_this_week}
+              needsDecision={initiative.needs_decision}
+              size="md"
+            />
+            <InitiativeEditButton
+              initiative={{
+                id: initiative.id,
+                title: initiative.title,
+                description: initiative.description,
+                status: initiative.status,
+                priority: initiative.priority,
+                source: initiative.source,
+                health: initiative.health,
+                owner_id: initiative.owner_id,
+                next_step: initiative.next_step,
+                blocker: initiative.blocker,
+                focus_this_week: initiative.focus_this_week,
+                needs_decision: initiative.needs_decision,
+                decision_context: initiative.decision_context,
+                expected_impact: initiative.expected_impact,
+                expected_effort: initiative.expected_effort,
+                client_id: initiative.client_id,
+                mentorship_id: initiative.mentorship_id,
+                start_date: initiative.start_date,
+                target_date: initiative.target_date,
+                tags: initiative.tags,
+              }}
+              members={members.map((m) => ({ id: m.id, full_name: m.full_name }))}
+              clients={clients.map((c) => ({ id: c.id, name: c.name }))}
+              mentorships={mentorships.map((m) => ({ id: m.id, name: m.name }))}
+            />
+          </div>
+        }
       />
 
       <div className="grid gap-4 lg:grid-cols-3">

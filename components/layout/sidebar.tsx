@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Moon, Sun, LogOut } from "lucide-react";
@@ -13,10 +14,69 @@ import { useRouter } from "next/navigation";
 
 const SECTIONS: ModuleSection[] = ["dashboard", "estrategia", "operacional", "financeiro", "gestao"];
 
+function NavItem({
+  href,
+  label,
+  icon: Icon,
+  active,
+  collapsed,
+  resolvedTheme,
+}: {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  active: boolean;
+  collapsed: boolean;
+  resolvedTheme: string | undefined;
+}) {
+  const activeIcon = resolvedTheme === "dark" ? "/outtemaescuro.png" : "/outtemaclaro.png";
+
+  return (
+    <Link
+      href={href}
+      title={collapsed ? label : undefined}
+      className={cn(
+        "relative flex items-center gap-3 py-[7px] text-[14px] transition-colors",
+        collapsed ? "justify-center" : active ? "pl-8 pr-4" : "pl-4 pr-4",
+        active
+          ? "text-sidebar-accent-foreground"
+          : "text-sidebar-foreground/55 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground/90",
+      )}
+    >
+      {active && !collapsed && (
+        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2">
+          <Image
+            src={activeIcon}
+            alt=""
+            width={12}
+            height={12}
+            className="h-auto w-3"
+            style={{ filter: "invert(27%) sepia(100%) saturate(2000%) hue-rotate(330deg) brightness(90%)" }}
+          />
+        </span>
+      )}
+      {active && collapsed && (
+        <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2">
+          <Image
+            src={activeIcon}
+            alt=""
+            width={12}
+            height={12}
+            className="h-auto w-3"
+            style={{ filter: "invert(27%) sepia(100%) saturate(2000%) hue-rotate(330deg) brightness(90%)" }}
+          />
+        </span>
+      )}
+      <Icon className="size-3.5 shrink-0" />
+      {!collapsed && <span className="tracking-[-0.01em]">{label}</span>}
+    </Link>
+  );
+}
+
 export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?: string }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const router = useRouter();
 
   async function handleSignOut() {
@@ -29,112 +89,135 @@ export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?
   return (
     <aside
       className={cn(
-        "relative flex h-screen flex-col border-r bg-sidebar text-sidebar-foreground transition-[width]",
-        collapsed ? "w-16" : "w-60",
+        "relative flex h-screen flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-150",
+        collapsed ? "w-14" : "w-52",
       )}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        {!collapsed && (
-          <Link href="/dashboard" className="text-lg font-bold tracking-tight">
-            OUTLIER <span className="text-primary">OS</span>
-          </Link>
+      {/* ── Logotipo ── */}
+      <div
+        className={cn(
+          "flex h-14 shrink-0 items-center border-b border-border",
+          collapsed ? "justify-center" : "gap-3 px-4",
         )}
-        <button
-          onClick={() => setCollapsed((v) => !v)}
-          className="rounded-md p-1 hover:bg-accent"
-          aria-label={collapsed ? "Expandir menu" : "Colapsar menu"}
-        >
-          {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-        </button>
+      >
+        {collapsed ? (
+          <button
+            onClick={() => setCollapsed(false)}
+            aria-label="Expandir menu"
+            className="flex items-center justify-center p-1 text-sidebar-foreground/30 transition-colors hover:text-sidebar-foreground/70"
+          >
+            <ChevronRight className="size-3.5" />
+          </button>
+        ) : (
+          <>
+            <Link href="/dashboard" className="min-w-0 flex-1">
+              <Image
+                src={resolvedTheme === "dark" ? "/outlierlogoescuro.png" : "/logooutliermodoclaro.png"}
+                alt="Outlier Agency"
+                width={140}
+                height={28}
+                className="h-auto w-[140px]"
+                priority
+              />
+            </Link>
+            <button
+              onClick={() => setCollapsed(true)}
+              aria-label="Colapsar menu"
+              className="shrink-0 p-1 text-sidebar-foreground/25 transition-colors hover:text-sidebar-foreground/60"
+            >
+              <ChevronLeft className="size-3.5" />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Sections */}
-      <nav className="flex-1 overflow-y-auto px-2">
+      {/* ── Navegação ── */}
+      <nav className="flex-1 overflow-y-auto py-4">
         {SECTIONS.map((section) => {
           const items = modulesBySection(section);
           if (items.length === 0) return null;
-          // Configurações é renderizado no footer, não aqui
           const filtered = items.filter((m) => m.key !== "configuracoes");
           if (filtered.length === 0) return null;
 
           return (
-            <div key={section} className="mb-4">
+            <div key={section} className="mb-5">
               {!collapsed && (
-                <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="px-4 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-[0.18em] text-sidebar-foreground/40">
                   {SECTION_LABELS[section]}
                 </p>
               )}
-              <ul className="space-y-0.5">
-                {filtered.map((m) => {
-                  const Icon = m.icon;
-                  const active = pathname === m.href || pathname.startsWith(m.href + "/");
-                  return (
-                    <li key={m.key}>
-                      <Link
-                        href={m.href}
-                        className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                          active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "hover:bg-accent",
-                        )}
-                        title={collapsed ? m.label : undefined}
-                      >
-                        <Icon className="size-4 shrink-0" />
-                        {!collapsed && <span>{m.label}</span>}
-                      </Link>
-                    </li>
-                  );
-                })}
+              <ul>
+                {filtered.map((m) => (
+                  <li key={m.key}>
+                    <NavItem
+                      href={m.href}
+                      label={m.label}
+                      icon={m.icon}
+                      active={pathname === m.href || pathname.startsWith(m.href + "/")}
+                      collapsed={collapsed}
+                      resolvedTheme={resolvedTheme}
+                    />
+                  </li>
+                ))}
               </ul>
             </div>
           );
         })}
       </nav>
 
-      {/* Footer: Configurações + Modo Escuro + User */}
-      <div className="border-t p-2">
-        <Link
-          href="/configuracoes"
-          className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent",
-            pathname.startsWith("/configuracoes") && "bg-sidebar-accent text-sidebar-accent-foreground",
-          )}
-        >
-          {(() => {
-            const Cfg = MODULES.find((m) => m.key === "configuracoes")!.icon;
-            return <Cfg className="size-4 shrink-0" />;
-          })()}
-          {!collapsed && <span>Configurações</span>}
-        </Link>
+      {/* ── Rodapé ── */}
+      <div className="shrink-0 border-t border-border py-1">
+        {(() => {
+          const cfgModule = MODULES.find((m) => m.key === "configuracoes")!;
+          return (
+            <NavItem
+              href="/configuracoes"
+              label="Configurações"
+              icon={cfgModule.icon}
+              active={pathname.startsWith("/configuracoes")}
+              collapsed={collapsed}
+              resolvedTheme={resolvedTheme}
+            />
+          );
+        })()}
 
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+          className={cn(
+            "flex w-full items-center gap-3 py-[7px] text-[14px] text-sidebar-foreground/55 transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground/90",
+            collapsed ? "justify-center" : "pl-4 pr-4",
+          )}
         >
           {theme === "dark" ? (
-            <Sun className="size-4 shrink-0" />
+            <Sun className="size-3.5 shrink-0" />
           ) : (
-            <Moon className="size-4 shrink-0" />
+            <Moon className="size-3.5 shrink-0" />
           )}
-          {!collapsed && <span>{theme === "dark" ? "Modo Claro" : "Modo Escuro"}</span>}
+          {!collapsed && (
+            <span className="tracking-[-0.01em]">
+              {theme === "dark" ? "Modo Claro" : "Modo Escuro"}
+            </span>
+          )}
         </button>
 
         {!collapsed && userEmail && (
-          <div className="mt-2 flex items-center justify-between gap-2 rounded-md p-2">
+          <div className="mx-3 mb-2 mt-1 flex items-center gap-2 border-t border-border pt-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium">{userName ?? userEmail.split("@")[0]}</p>
-              <p className="truncate text-[10px] text-muted-foreground">{userEmail}</p>
+              <p className="truncate text-[11px] font-medium leading-tight text-sidebar-foreground/75">
+                {userName ?? userEmail.split("@")[0]}
+              </p>
+              <p className="truncate text-[10px] leading-tight text-sidebar-foreground/30">
+                {userEmail}
+              </p>
             </div>
             <Button
               size="icon"
               variant="ghost"
               onClick={handleSignOut}
               aria-label="Sair"
-              className="size-7"
+              className="size-6 shrink-0 text-sidebar-foreground/40 hover:bg-transparent hover:text-sidebar-foreground/70"
             >
-              <LogOut className="size-3.5" />
+              <LogOut className="size-3" />
             </Button>
           </div>
         )}

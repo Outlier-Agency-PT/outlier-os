@@ -197,6 +197,13 @@ export const INITIATIVE_PRIORITY_LABELS: Record<InitiativePriority, string> = {
   critica: "Crítica",
 };
 
+export const INITIATIVE_PRIORITY_COLORS: Record<InitiativePriority, string> = {
+  baixa: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+  media: "bg-yellow-500/10 text-yellow-600 border-yellow-500/25 dark:text-yellow-400",
+  alta: "bg-orange-500/10 text-orange-600 border-orange-500/30 dark:text-orange-400",
+  critica: "bg-red-500/15 text-red-600 border-red-500/40 font-semibold dark:text-red-400",
+};
+
 export const INITIATIVE_SOURCE_LABELS: Record<InitiativeSource, string> = {
   interno: "Interno",
   cliente: "Cliente",

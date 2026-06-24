@@ -44,3 +44,42 @@ export function formatDuration(minutes: number) {
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
 }
+
+export function calcularDiasRestantes(dataAlvo: string | Date): string {
+  let d: Date;
+
+  if (typeof dataAlvo === "string") {
+    // Try as ISO/parseable date first (must contain a digit-dash pattern)
+    const parsed = new Date(dataAlvo);
+    if (!isNaN(parsed.getTime()) && /\d{4}-\d{2}-\d{2}/.test(dataAlvo)) {
+      d = parsed;
+    } else {
+      // Text-based urgency phrase
+      const lower = dataAlvo.toLowerCase().trim();
+      const hoje = new Date();
+
+      if (lower === "esta semana") {
+        const daysLeft = 7 - hoje.getDay() || 7;
+        return `em ${daysLeft} dias`;
+      }
+      if (lower === "próxima semana" || lower === "proxima semana") {
+        return "em 14 dias";
+      }
+      const semanas = lower.match(/^(\d+)\s*semanas?$/);
+      if (semanas) return `em ${parseInt(semanas[1]) * 7} dias`;
+      const dias = lower.match(/^(\d+)\s*dias?$/);
+      if (dias) return `em ${parseInt(dias[1])} dias`;
+
+      return dataAlvo;
+    }
+  } else {
+    d = dataAlvo;
+  }
+
+  const diff = d.getTime() - Date.now();
+  const days = Math.ceil(diff / 86400000);
+  if (days < 0) return "atrasado";
+  if (days === 0) return "hoje";
+  if (days === 1) return "amanhã";
+  return `em ${days} dias`;
+}

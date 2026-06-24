@@ -196,6 +196,7 @@ export async function createStudentNoteAction(
     involvement: string;
     motivation: string;
     content: string;
+    reminder_date?: string | null;
   },
 ) {
   const supabase = await createClient();
@@ -209,7 +210,51 @@ export async function createStudentNoteAction(
     involvement: data.involvement,
     motivation: data.motivation,
     content: data.content,
+    reminder_date: data.reminder_date || null,
   });
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
+  return { success: true };
+}
+
+export async function updateStudentNoteAction(
+  noteId: string,
+  studentId: string,
+  data: {
+    contact_type?: string;
+    involvement?: string;
+    motivation?: string;
+    content?: string;
+    reminder_date?: string | null;
+  },
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("student_notes")
+    .update(data)
+    .eq("id", noteId);
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
+  return { success: true };
+}
+
+export async function deleteStudentNoteAction(noteId: string, studentId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("student_notes")
+    .delete()
+    .eq("id", noteId);
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
+  return { success: true };
+}
+
+export async function completeReminderAction(noteId: string, studentId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("student_notes")
+    .update({ reminder_date: null })
+    .eq("id", noteId);
   if (error) return { error: error.message };
   revalidatePath(`/incubadora/${studentId}`);
   return { success: true };

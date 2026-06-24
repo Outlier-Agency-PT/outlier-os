@@ -25,9 +25,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createStudentAction, type StudentInput } from "@/lib/actions/students";
+import { createStudentAction, type StudentInput, completeReminderAction } from "@/lib/actions/students";
+import { ActivityBadge } from "@/components/incubadora/incubadora-components";
 import { toast } from "sonner";
-import type { Student } from "@/lib/queries/students";
+import type { Student, PendingReminder } from "@/lib/queries/students";
+import type { StudentProgressSummary, DetailedStudentProgress } from "@/lib/queries/incubadora";
 
 const LEVEL_LABELS = {
   aprendiz: "Aprendiz",
@@ -48,9 +50,12 @@ const LEVEL_COLORS = {
 interface Props {
   students: Student[];
   members: { id: string; full_name: string }[];
+  progressMap?: Map<string, StudentProgressSummary>;
+  detailedProgressMap?: Map<string, DetailedStudentProgress>;
+  pendingReminders?: PendingReminder[];
 }
 
-export function StudentsView({ students, members }: Props) {
+export function StudentsView({ students, members, progressMap, detailedProgressMap, pendingReminders }: Props) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -114,26 +119,117 @@ export function StudentsView({ students, members }: Props) {
                 {byLevel.get(level)?.length === 0 ? (
                   <p className="text-xs text-muted-foreground">—</p>
                 ) : (
-                  byLevel.get(level)!.map((s) => (
-                    <Link key={s.id} href={`/incubadora/${s.id}`}>
-                      <Card className="transition-shadow hover:shadow-md">
-                        <CardContent className="p-3">
-                          <p className="text-sm font-medium">{s.name}</p>
-                          {s.coach && (
-                            <p className="text-[10px] text-muted-foreground">Coach: {s.coach.full_name}</p>
-                          )}
-                          {s.nicho && (
-                            <p className="text-[10px] text-muted-foreground">{s.nicho}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))
+                  byLevel.get(level)!.map((s) => {
+                    const detailed = detailedProgressMap?.get(s.id);
+                    const progressPercent = detailed?.progress_pct ?? 0;
+                    const progressColor =
+                      progressPercent <= 33
+                        ? "#9CA3AF"
+                        : progressPercent <= 66
+                          ? "#3B82F6"
+                          : "#10B981";
+
+                    return (
+                      <Link key={s.id} href={`/incubadora/${s.id}`}>
+                        <Card className="transition-shadow hover:shadow-md">
+                          <CardContent className="p-3 space-y-1.5">
+                            <p className="text-sm font-medium">{s.name}</p>
+                            {s.coach && (
+                              <p className="text-[10px] text-muted-foreground">Coach: {s.coach.full_name}</p>
+                            )}
+                            {s.nicho && (
+                              <p className="text-[10px] text-muted-foreground">{s.nicho}</p>
+                            )}
+
+                            {detailed && (
+                              <>
+                                <div className="h-1 w-full overflow-hidden rounded-full bg-muted mt-2">
+                                  <div
+                                    className="h-full transition-all"
+                                    style={{
+                                      width: `${Math.min(progressPercent, 100)}%`,
+                                      backgroundColor: progressColor,
+                                    }}
+                                  />
+                                </div>
+
+                                <div className="space-y-0.5">
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {detailed.modules_completed}/5 módulos · {detailed.challenges_completed}/4 desafios
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {detailed.track_steps_completed}/7 passos
+                                  </p>
+
+                                  {detailed.last_activity_at === null ? (
+                                    <p className="text-[10px] text-muted-foreground">Sem início</p>
+                                  ) : detailed.days_since_activity !== null && detailed.days_since_activity >= 14 ? (
+                                    <p className="text-[10px] font-medium text-red-600">
+                                      {detailed.days_since_activity}d sem atividade
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </>
+                            )}
+
+                            {progressMap && (
+                              <ActivityBadge summary={progressMap.get(s.id)} />
+                            )}
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })
                 )}
               </div>
             </div>
           ))}
         </div>
+
+        {/* Lembretes pendentes */}
+        {pendingReminders && pendingReminders.length > 0 && (
+          <div className="space-y-3 border-t pt-6">
+            <h2 className="text-lg font-semibold">Lembretes</h2>
+            {["vencido", "hoje", "esta-semana"].map((urgency) => {
+              const group = pendingReminders.filter((r) => r.urgency === urgency);
+              if (group.length === 0) return null;
+
+              const urgencyLabel = urgency === "vencido" ? "🔴 Vencidos" : urgency === "hoje" ? "🟡 Hoje" : "🟠 Esta semana";
+              return (
+                <div key={urgency} className="space-y-2">
+                  <h3 className="text-sm font-medium">{urgencyLabel}</h3>
+                  <div className="space-y-2">
+                    {group.map((reminder) => (
+                      <div key={reminder.id} className="flex items-start gap-3 rounded-lg border bg-muted/50 p-3">
+                        <div className="flex-1">
+                          <Link href={`/incubadora/${reminder.student_id}`} className="hover:underline">
+                            <p className="text-sm font-medium">{reminder.student_name}</p>
+                          </Link>
+                          <p className="text-xs text-muted-foreground">{reminder.contact_type}</p>
+                          <p className="mt-1 text-sm">{reminder.content}</p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const result = await completeReminderAction(reminder.id, reminder.student_id);
+                            if ("error" in result && result.error) {
+                              toast.error(result.error);
+                            } else {
+                              toast.success("Lembrete concluído");
+                              window.location.reload();
+                            }
+                          }}
+                          className="whitespace-nowrap rounded px-2 py-1 text-xs font-medium hover:bg-muted"
+                        >
+                          ✓
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <CreateStudentDialog open={open} onOpenChange={setOpen} members={members} />
@@ -163,6 +259,7 @@ function CreateStudentDialog({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
   const [form, setForm] = useState<StudentInput>({
     name: "",
     level: "aprendiz",
@@ -182,10 +279,71 @@ function CreateStudentDialog({
       toast.error(msg ?? "Erro");
       return;
     }
+
+    // Se tem password, mostrar credenciais
+    if ("data" in result && result.data && result.data.password && form.email) {
+      setCredentials({
+        email: form.email,
+        password: result.data.password,
+      });
+      setForm({ name: "", level: "aprendiz" });
+      return;
+    }
+
     toast.success("Aluno criado com 6 sessões pré-criadas");
     onOpenChange(false);
     router.refresh();
     setForm({ name: "", level: "aprendiz" });
+  }
+
+  // Dialog de credenciais
+  if (credentials) {
+    return (
+      <Dialog open={!!credentials} onOpenChange={() => setCredentials(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Aluno Criado! 🎉</DialogTitle>
+            <DialogDescription>
+              Partilha estas credenciais de acesso com o aluno
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 rounded-lg bg-blue-50 p-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-blue-900">Email</p>
+              <p className="font-mono text-sm text-blue-700">{credentials.email}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-blue-900">Palavra-passe</p>
+              <p className="font-mono text-sm text-blue-700">{credentials.password}</p>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => {
+              navigator.clipboard.writeText(`Email: ${credentials.email}\nPalavra-passe: ${credentials.password}`);
+              toast.success("Credenciais copiadas!");
+            }}
+            className="w-full"
+          >
+            Copiar Credenciais
+          </Button>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCredentials(null);
+                onOpenChange(false);
+                router.refresh();
+              }}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
   }
 
   return (

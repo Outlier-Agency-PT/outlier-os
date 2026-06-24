@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Sidebar } from "@/components/layout/sidebar";
+import { getUserRoles } from "@/lib/supabase/roles";
+import { AppShell } from "@/components/layout/app-shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -10,7 +11,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user) redirect("/login");
 
-  // Carregar perfil do team_member
+  const roles = await getUserRoles();
+  const isAluno = roles.includes("aluno") && !roles.includes("admin") && !roles.includes("funcionario");
+
+  if (isAluno) {
+    return <>{children}</>;
+  }
+
   const { data: member } = await supabase
     .from("team_members")
     .select("full_name, email")
@@ -18,12 +25,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .single();
 
   return (
-    <div className="flex h-screen">
-      <Sidebar
-        userEmail={member?.email ?? user.email ?? undefined}
-        userName={member?.full_name ?? undefined}
-      />
-      <main className="flex-1 overflow-y-auto bg-background">{children}</main>
-    </div>
+    <AppShell
+      userEmail={member?.email ?? user.email ?? undefined}
+      userName={member?.full_name ?? undefined}
+    >
+      {children}
+    </AppShell>
   );
 }

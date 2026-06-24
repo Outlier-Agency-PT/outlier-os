@@ -4,58 +4,74 @@
 
 @layer base {
   :root {
-    --background: 36 29% 95%;          /* bege Outlier OS */
-    --foreground: 20 14% 14%;
+    /*
+     * Outlier OS — Design tokens
+     *
+     * Canvas   #F8F8F8  background
+     * Surface  #FFFFFF  card
+     * Hairline #E3E3E3  border
+     * Muted    #6E6E6E  muted-foreground
+     * Ink      #111111  foreground
+     * Void     #0F0F0F  sidebar
+     * Brand    #A12B2B  hsl(0 58% 40%) — único acento cromático
+     */
+    --background: 0 0% 97%;
+    --foreground: 0 0% 7%;
     --card: 0 0% 100%;
-    --card-foreground: 20 14% 14%;
+    --card-foreground: 0 0% 7%;
     --popover: 0 0% 100%;
-    --popover-foreground: 20 14% 14%;
-    --primary: 174 65% 30%;            /* teal escuro Outlier */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 36 20% 88%;
-    --secondary-foreground: 20 14% 14%;
-    --muted: 36 20% 90%;
-    --muted-foreground: 25 5% 45%;
-    --accent: 36 20% 88%;
-    --accent-foreground: 20 14% 14%;
-    --destructive: 0 75% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 36 15% 85%;
-    --input: 36 15% 85%;
-    --ring: 174 65% 30%;
-    --radius: 0.5rem;
+    --popover-foreground: 0 0% 7%;
+    --primary: 0 0% 7%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 93%;
+    --secondary-foreground: 0 0% 7%;
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 43%;
+    --accent: 0 0% 92%;
+    --accent-foreground: 0 0% 7%;
+    --destructive: 0 58% 40%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89%;
+    --input: 0 0% 89%;
+    --ring: 0 0% 7%;
+    --radius: 3px;
 
+    /* modo claro: sidebar segue o tema (fundo branco, texto escuro) */
     --sidebar: 0 0% 100%;
-    --sidebar-foreground: 20 14% 14%;
-    --sidebar-accent: 174 65% 95%;
-    --sidebar-accent-foreground: 174 65% 30%;
+    --sidebar-foreground: 0 0% 7%;
+    --sidebar-accent: 0 0% 92%;
+    --sidebar-accent-foreground: 0 0% 7%;
+
+    --brand: 0 58% 40%;
   }
 
   .dark {
-    --background: 20 14% 8%;
-    --foreground: 36 20% 92%;
-    --card: 20 14% 12%;
-    --card-foreground: 36 20% 92%;
-    --popover: 20 14% 12%;
-    --popover-foreground: 36 20% 92%;
-    --primary: 174 50% 50%;
-    --primary-foreground: 20 14% 8%;
-    --secondary: 20 14% 18%;
-    --secondary-foreground: 36 20% 92%;
-    --muted: 20 14% 18%;
-    --muted-foreground: 36 10% 60%;
-    --accent: 20 14% 18%;
-    --accent-foreground: 36 20% 92%;
-    --destructive: 0 65% 50%;
-    --destructive-foreground: 36 20% 92%;
-    --border: 20 14% 20%;
-    --input: 20 14% 20%;
-    --ring: 174 50% 50%;
+    --background: 0 0% 8%;
+    --foreground: 0 0% 93%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 93%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 93%;
+    --primary: 0 0% 93%;
+    --primary-foreground: 0 0% 8%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 93%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 52%;
+    --accent: 0 0% 18%;
+    --accent-foreground: 0 0% 93%;
+    --destructive: 0 58% 52%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 0 0% 93%;
 
-    --sidebar: 20 14% 10%;
-    --sidebar-foreground: 36 20% 92%;
-    --sidebar-accent: 174 50% 18%;
-    --sidebar-accent-foreground: 174 50% 70%;
+    --sidebar: 0 0% 4%;
+    --sidebar-foreground: 0 0% 72%;
+    --sidebar-accent: 0 0% 11%;
+    --sidebar-accent-foreground: 0 0% 98%;
+
+    --brand: 0 58% 52%;
   }
 }
 
@@ -63,8 +79,12 @@
   * {
     @apply border-border;
   }
+  html {
+    overflow-x: hidden;
+  }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    overflow-x: hidden;
   }
 }

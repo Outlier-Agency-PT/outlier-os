@@ -50,3 +50,5 @@ supabase/.temp
 !.vscode/extensions.json
 .idea/
 .secrets.local
+
+.vercel

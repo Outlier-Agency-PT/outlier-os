@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import {
   createInitiativeAction,
+  updateInitiativeAction,
   type InitiativeInput,
 } from "@/lib/actions/initiatives";
 import {
@@ -39,20 +40,26 @@ interface Props {
   members: { id: string; full_name: string }[];
   clients: { id: string; name: string }[];
   mentorships: { id: string; name: string }[];
+  existing?: { id: string } & Partial<InitiativeInput>;
 }
 
-export function InitiativeForm({ open, onOpenChange, members, clients, mentorships }: Props) {
+const EMPTY: InitiativeInput = {
+  title: "",
+  status: "ideia",
+  priority: "media",
+  source: "interno",
+  focus_this_week: false,
+  needs_decision: false,
+  tags: [],
+};
+
+export function InitiativeForm({ open, onOpenChange, members, clients, mentorships, existing }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<InitiativeInput>({
-    title: "",
-    status: "ideia",
-    priority: "media",
-    source: "interno",
-    focus_this_week: false,
-    needs_decision: false,
-    tags: [],
-  });
+  const isEdit = !!existing;
+  const [form, setForm] = useState<InitiativeInput>(
+    existing ? { ...EMPTY, ...existing, tags: existing.tags ?? [] } : EMPTY,
+  );
 
   function update<K extends keyof InitiativeInput>(key: K, value: InitiativeInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -61,32 +68,31 @@ export function InitiativeForm({ open, onOpenChange, members, clients, mentorshi
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const result = await createInitiativeAction(form);
+    const result = isEdit
+      ? await updateInitiativeAction(existing!.id, form)
+      : await createInitiativeAction(form);
     setLoading(false);
     if ("error" in result && result.error) {
-      const msg = "_form" in result.error ? result.error._form?.[0] : "Erro";
+      const msg =
+        typeof result.error === "string"
+          ? result.error
+          : "_form" in result.error
+            ? result.error._form?.[0]
+            : "Erro";
       toast.error(msg ?? "Erro");
       return;
     }
-    toast.success("Iniciativa criada");
+    toast.success(isEdit ? "Iniciativa atualizada" : "Iniciativa criada");
     onOpenChange(false);
     router.refresh();
-    setForm({
-      title: "",
-      status: "ideia",
-      priority: "media",
-      source: "interno",
-      focus_this_week: false,
-      needs_decision: false,
-      tags: [],
-    });
+    if (!isEdit) setForm(EMPTY);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Nova Iniciativa</DialogTitle>
+          <DialogTitle>{isEdit ? "Editar Iniciativa" : "Nova Iniciativa"}</DialogTitle>
           <DialogDescription>
             Projeto estratégico com horizonte de meses. Define owner e métrica.
           </DialogDescription>

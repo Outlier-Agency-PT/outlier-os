@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Mail, Phone, AtSign, Plus } from "lucide-react";
+import { Mail, Phone, AtSign, Plus, Edit2, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
@@ -14,6 +15,8 @@ import {
   updateStudentFinancialAction,
   upsertStudentChecklistAction,
   createStudentNoteAction,
+  updateStudentNoteAction,
+  deleteStudentNoteAction,
 } from "@/lib/actions/students";
 import type { Student, StudentChecklist, StudentNote, StudentSession } from "@/lib/queries/students";
 
@@ -50,11 +53,14 @@ export function StudentDetailClient({
   const [checklist, setChecklist] = useState(initialChecklist);
   const [notes, setNotes] = useState(initialNotes);
   const [showNoteDialog, setShowNoteDialog] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [noteForm, setNoteForm] = useState({
     contact_type: "Call" as const,
     involvement: "",
     motivation: "",
     content: "",
+    reminder_date: null as string | null,
   });
   const [checklistNotes, setChecklistNotes] = useState(initialChecklist?.notes ?? "");
   const checklistTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -119,16 +125,56 @@ export function StudentDetailClient({
     }, 1000);
   }
 
-  async function handleCreateNote() {
+  async function handleSaveNote() {
     setLoadingNote(true);
-    const result = await createStudentNoteAction(studentId, noteForm);
+    let result;
+
+    if (editingNoteId) {
+      result = await updateStudentNoteAction(editingNoteId, studentId, noteForm);
+    } else {
+      result = await createStudentNoteAction(studentId, noteForm as any);
+    }
+
     setLoadingNote(false);
     if ("error" in result) {
       toast.error(result.error);
     } else {
-      toast.success("Nota criada");
+      toast.success(editingNoteId ? "Nota actualizada" : "Nota criada");
       setShowNoteDialog(false);
+      setEditingNoteId(null);
       setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "" });
+    }
+  }
+
+  function openNoteDialog(noteId?: string) {
+    if (noteId) {
+      const note = notes.find(n => n.id === noteId);
+      if (note) {
+        setEditingNoteId(noteId);
+        setNoteForm({
+          contact_type: note.contact_type as any,
+          involvement: note.involvement,
+          motivation: note.motivation,
+          content: note.content,
+          reminder_date: note.reminder_date || null,
+        });
+      }
+    } else {
+      setEditingNoteId(null);
+      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "", reminder_date: null });
+    }
+    setShowNoteDialog(true);
+  }
+
+  async function handleDeleteNote(noteId: string) {
+    setLoadingNote(true);
+    const result = await deleteStudentNoteAction(noteId, studentId);
+    setLoadingNote(false);
+    if ("error" in result) {
+      toast.error(result.error);
+    } else {
+      toast.success("Nota apagada");
+      setDeletingNoteId(null);
     }
   }
 
@@ -365,7 +411,7 @@ export function StudentDetailClient({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Notas e Contactos</CardTitle>
-          <Button size="sm" onClick={() => setShowNoteDialog(true)}>
+          <Button size="sm" onClick={() => openNoteDialog()}>
             <Plus className="mr-1 size-3" />
             Nota
           </Button>
@@ -397,6 +443,24 @@ export function StudentDetailClient({
                           {formatDate(note.created_at)} · {note.involvement} · {note.motivation}
                         </p>
                       </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openNoteDialog(note.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit2 className="size-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeletingNoteId(note.id)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
                     </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm">{note.content}</p>
                   </div>
@@ -421,22 +485,36 @@ export function StudentDetailClient({
       <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova Nota</DialogTitle>
+            <DialogTitle>{editingNoteId ? "Editar Nota" : "Nova Nota"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Tipo de Contacto</label>
-              <select
+              <Input
                 value={noteForm.contact_type}
-                onChange={(e) => setNoteForm({ ...noteForm, contact_type: e.target.value as any })}
-                className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
-              >
-                <option value="Call">Call</option>
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="Email">Email</option>
-                <option value="Sessão quinzenal">Sessão quinzenal</option>
-                <option value="Outro">Outro</option>
-              </select>
+                onChange={(e) => setNoteForm({ ...noteForm, contact_type: e.target.value })}
+                list="contact-types"
+                className="mt-1"
+                placeholder="Call, WhatsApp, Email..."
+              />
+              <datalist id="contact-types">
+                <option value="Call" />
+                <option value="WhatsApp" />
+                <option value="Email" />
+                <option value="Sessão quinzenal" />
+                <option value="Reunião" />
+                <option value="Follow-up" />
+                <option value="Outro" />
+              </datalist>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Lembrete (opcional)</label>
+              <Input
+                type="date"
+                value={noteForm.reminder_date || ""}
+                onChange={(e) => setNoteForm({ ...noteForm, reminder_date: e.target.value || null })}
+                className="mt-1"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Envolvimento</label>
@@ -468,8 +546,31 @@ export function StudentDetailClient({
             <Button variant="outline" onClick={() => setShowNoteDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateNote} disabled={loadingNote}>
-              {loadingNote ? "A criar..." : "Criar"}
+            <Button onClick={handleSaveNote} disabled={loadingNote}>
+              {loadingNote ? (editingNoteId ? "A guardar..." : "A criar...") : (editingNoteId ? "Guardar" : "Criar")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingNoteId} onOpenChange={() => setDeletingNoteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apagar Nota</DialogTitle>
+            <DialogDescription>
+              Tem a certeza que quer apagar esta nota? Esta ação é irreversível.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingNoteId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deletingNoteId && handleDeleteNote(deletingNoteId)}
+              disabled={loadingNote}
+            >
+              {loadingNote ? "A apagar..." : "Apagar"}
             </Button>
           </DialogFooter>
         </DialogContent>
