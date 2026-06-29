@@ -334,7 +334,11 @@ function TaskCard({
       ref={setNodeRef}
       style={style}
       {...attributes}
-      onClick={onClick}
+      onClick={(e) => {
+        if (!isDragging) {
+          onClick();
+        }
+      }}
       className={cn(
         "rounded-md border bg-card p-3 shadow-sm transition-shadow hover:shadow-md hover:bg-accent/50 flex gap-2 select-none",
         isDragging && "opacity-50",
