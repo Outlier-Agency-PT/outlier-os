@@ -24,6 +24,7 @@ import {
 import { PRIORITY_LABELS, type TaskPriority } from "@/lib/types";
 import { createTaskAction, type TaskInput } from "@/lib/actions/tasks";
 import { toast } from "sonner";
+import { AvatarDisplay } from "@/components/avatar-display";
 
 interface Option {
   id: string;
@@ -37,6 +38,11 @@ interface TaskFormProps {
   clients: Option[];
   members: Option[];
   defaultStatusId?: string;
+  defaultListId?: string;
+}
+
+interface MemberOption extends Option {
+  email?: string;
 }
 
 export function TaskForm({
@@ -46,13 +52,16 @@ export function TaskForm({
   clients,
   members,
   defaultStatusId,
+  defaultListId,
 }: TaskFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [assignees, setAssignees] = useState<string[]>([]);
   const [form, setForm] = useState<TaskInput>({
     title: "",
     priority: "sem_prioridade",
     status_id: defaultStatusId ?? statuses.find((s) => s.label.toLowerCase() === "a fazer")?.id ?? statuses[0]?.id ?? null,
+    list_id: defaultListId ?? "00000000-0000-0000-0000-000000000011", // Backlog por defeito
   });
 
   function update<K extends keyof TaskInput>(key: K, value: TaskInput[K]) {
@@ -62,7 +71,15 @@ export function TaskForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const result = await createTaskAction(form);
+
+    // Manter compatibilidade: assignee_id = primeiro assignee
+    const assigneeId = assignees[0] ?? null;
+
+    const result = await createTaskAction({
+      ...form,
+      assignee_id: assigneeId,
+      assignees,
+    });
     setLoading(false);
 
     if ("error" in result && result.error) {
@@ -76,7 +93,14 @@ export function TaskForm({
     toast.success("Tarefa criada");
     onOpenChange(false);
     router.refresh();
-    setForm({ title: "", priority: "sem_prioridade", status_id: defaultStatusId ?? statuses[0]?.id ?? null });
+    setForm({
+      title: "",
+      priority: "sem_prioridade",
+      status_id: defaultStatusId ?? statuses[0]?.id ?? null,
+      list_id: defaultListId ?? "00000000-0000-0000-0000-000000000011",
+      estimate_points: null,
+    });
+    setAssignees([]);
   }
 
   return (
@@ -84,7 +108,7 @@ export function TaskForm({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nova Tarefa</DialogTitle>
-          <DialogDescription>Cria uma tarefa nova com cliente, prioridade e responsável.</DialogDescription>
+          <DialogDescription>Cria uma tarefa nova com cliente, prioridade e responsáveis.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -166,21 +190,80 @@ export function TaskForm({
               </Select>
             </div>
 
+            <div className="col-span-2 space-y-1.5">
+              <Label>Responsáveis</Label>
+              <div className="rounded-md border p-3 space-y-3">
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {members.map((m) => (
+                    <label
+                      key={m.id}
+                      className="flex items-center gap-2 cursor-pointer text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={assignees.includes(m.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAssignees((prev) => [...prev, m.id]);
+                          } else {
+                            setAssignees((prev) => prev.filter((id) => id !== m.id));
+                          }
+                        }}
+                        className="size-4 rounded"
+                      />
+                      <span>{m.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {assignees.length > 0 && (
+                  <div className="border-t pt-2 space-y-2">
+                    <p className="text-xs text-muted-foreground">Seleccionados ({assignees.length})</p>
+                    <div className="flex flex-wrap gap-2">
+                      {assignees.map((id) => {
+                        const member = members.find((m) => m.id === id);
+                        if (!member) return null;
+                        return (
+                          <div
+                            key={id}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs"
+                          >
+                            <AvatarDisplay name={member.label} size="xs" />
+                            <span>{member.label}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAssignees((prev) => prev.filter((aid) => aid !== id))
+                              }
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="assignee">Responsável</Label>
+              <Label htmlFor="estimate">Estimativa (pontos)</Label>
               <Select
-                value={form.assignee_id ?? ""}
-                onValueChange={(v) => update("assignee_id", v || null)}
+                value={form.estimate_points?.toString() ?? ""}
+                onValueChange={(v) => update("estimate_points", v ? parseInt(v) : null)}
               >
-                <SelectTrigger id="assignee">
-                  <SelectValue placeholder="Sem responsável" />
+                <SelectTrigger id="estimate">
+                  <SelectValue placeholder="Sem estimativa" />
                 </SelectTrigger>
                 <SelectContent>
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="">Sem estimativa</SelectItem>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="8">8</SelectItem>
+                  <SelectItem value="13">13</SelectItem>
                 </SelectContent>
               </Select>
             </div>

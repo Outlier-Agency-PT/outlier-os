@@ -58,6 +58,7 @@ export interface Task {
   launch_id: string | null;
   assignee_id: string | null;
   due_date: string | null;
+  estimate_points: number | null;
   completed_at: string | null;
   created_by: string | null;
   created_at: string;
@@ -118,6 +119,20 @@ export const MODULE_LABELS: Record<string, string> = {
 };
 
 export const ALL_MODULE_KEYS = Object.keys(MODULE_LABELS);
+
+export const MODULE_GROUPS: Record<string, string[]> = {
+  estrategia: ["iniciativas", "decisoes", "mentorias"],
+  operacional: ["clientes", "tarefas", "lancamentos", "conteudo", "incubadora", "relatorios"],
+  financeiro: ["financeiro"],
+  gestao: ["okrs", "processos", "reunioes"],
+};
+
+export const MODULE_GROUP_LABELS: Record<string, string> = {
+  estrategia: "Estratégia",
+  operacional: "Operacional",
+  financeiro: "Financeiro",
+  gestao: "Gestão",
+};
 
 // ============================================================
 // Iniciativas, Mentorias e Decisões (migration 0005)

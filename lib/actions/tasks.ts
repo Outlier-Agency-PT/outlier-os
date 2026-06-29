@@ -1,5 +1,11 @@
 "use server";
 
+// MIGRAÇÃO: Para atualizar tarefas existentes com list_id null para Backlog,
+// execute no Supabase Studio:
+// update tasks
+// set list_id = '00000000-0000-0000-0000-000000000011'
+// where list_id is null;
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
@@ -13,6 +19,11 @@ const taskSchema = z.object({
   launch_id: z.string().uuid().nullable().optional(),
   assignee_id: z.string().uuid().nullable().optional(),
   due_date: z.string().nullable().optional(),
+  estimate_points: z.number().nullable().optional(),
+  list_id: z.string().uuid().nullable().optional(),
+  parent_task_id: z.string().uuid().nullable().optional(),
+  assignees: z.array(z.string().uuid()).optional(),
+  position: z.number().optional(),
 });
 
 export type TaskInput = z.infer<typeof taskSchema>;
@@ -187,4 +198,111 @@ export async function logTimeManualAction(
   if (error) return { error: error.message };
   revalidatePath("/tarefas");
   return { data };
+}
+
+// Hierarchy actions
+
+export async function createTaskSpaceAction(
+  name: string,
+  color: string = "#6366f1",
+  isPrivate: boolean = false
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error, data } = await supabase
+    .from("task_spaces")
+    .insert({
+      name,
+      color,
+      is_private: isPrivate,
+      owner_id: isPrivate ? user?.id : null,
+    })
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { data };
+}
+
+export async function createTaskListAction(spaceId: string, name: string, color: string = "#8b5cf6") {
+  const supabase = await createClient();
+  const { error, data } = await supabase
+    .from("task_lists")
+    .insert({ space_id: spaceId, name, color })
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { data };
+}
+
+export async function createSubtaskAction(parentTaskId: string, title: string) {
+  const parsed = taskSchema.safeParse({ title });
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: { _form: ["Não autenticado"] } };
+
+  // Buscar tarefa pai para obter list_id
+  const { data: parentTask } = await supabase
+    .from("tasks")
+    .select("list_id")
+    .eq("id", parentTaskId)
+    .single();
+
+  if (!parentTask) return { error: { _form: ["Tarefa pai não encontrada"] } };
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({
+      title,
+      parent_task_id: parentTaskId,
+      list_id: parentTask.list_id,
+      created_by: user.id,
+    })
+    .select()
+    .single();
+
+  if (error) return { error: { _form: [error.message] } };
+
+  revalidatePath("/tarefas");
+  return { data };
+}
+
+export async function getTaskDetailAction(taskId: string) {
+  const supabase = await createClient();
+
+  const [{ data: task }, { data: comments }] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select(
+        `
+        *,
+        estimate_points,
+        status:task_statuses(id, key, label, color),
+        client:clients(id, name),
+        assignee:team_members!tasks_assignee_id_fkey(id, full_name, email),
+        list:task_lists(id, name)
+        `,
+      )
+      .eq("id", taskId)
+      .maybeSingle(),
+    supabase
+      .from("task_comments")
+      .select(`*, author:team_members(id, full_name)`)
+      .eq("task_id", taskId)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  return { task, comments: comments ?? [] };
 }
