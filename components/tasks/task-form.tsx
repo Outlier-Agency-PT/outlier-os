@@ -250,14 +250,14 @@ export function TaskForm({
             <div className="space-y-1.5">
               <Label htmlFor="estimate">Estimativa (pontos)</Label>
               <Select
-                value={form.estimate_points?.toString() ?? ""}
-                onValueChange={(v) => update("estimate_points", v ? parseInt(v) : null)}
+                value={form.estimate_points?.toString() ?? "0"}
+                onValueChange={(v) => update("estimate_points", v === "0" ? null : parseInt(v))}
               >
                 <SelectTrigger id="estimate">
                   <SelectValue placeholder="Sem estimativa" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sem estimativa</SelectItem>
+                  <SelectItem value="0">Sem estimativa</SelectItem>
                   <SelectItem value="1">1</SelectItem>
                   <SelectItem value="2">2</SelectItem>
                   <SelectItem value="3">3</SelectItem>
