@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,7 @@ import {
 import { StatusBadge } from "@/components/status-badge";
 import { TaskComments } from "./task-comments";
 import { SubtasksList } from "./subtasks-list";
-import { updateTaskAction } from "@/lib/actions/tasks";
+import { updateTaskAction, deleteTaskAction } from "@/lib/actions/tasks";
 import { toast } from "sonner";
 import type { TaskWithHierarchy } from "@/lib/queries/tasks";
 import type { TaskComment } from "@/lib/queries/task-detail";
@@ -38,6 +39,7 @@ export function TaskDetailPanel({
   members,
   onClose,
 }: TaskDetailPanelProps) {
+  const router = useRouter();
   const [form, setForm] = useState(task ? { ...task } : null);
   const [loading, setLoading] = useState(false);
 
@@ -58,6 +60,23 @@ export function TaskDetailPanel({
     }
   }
 
+  async function handleDelete() {
+    const confirmed = window.confirm("Tens a certeza que queres apagar esta tarefa?");
+    if (!confirmed) return;
+
+    setLoading(true);
+    const result = await deleteTaskAction(task.id);
+    setLoading(false);
+
+    if ("error" in result && result.error) {
+      toast.error("Erro ao apagar tarefa");
+    } else {
+      toast.success("Tarefa apagada");
+      onClose();
+      router.refresh();
+    }
+  }
+
   return (
     <>
       {/* Overlay */}
@@ -71,9 +90,21 @@ export function TaskDetailPanel({
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="font-semibold truncate">Detalhes da Tarefa</h2>
-          <Button size="sm" variant="ghost" onClick={onClose} className="h-6 w-6 p-0">
-            <X className="size-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleDelete}
+              disabled={loading}
+              className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+              title="Apagar tarefa"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClose} className="h-6 w-6 p-0">
+              <X className="size-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Content */}
@@ -160,14 +191,14 @@ export function TaskDetailPanel({
           <div>
             <Label className="text-xs font-semibold">Estimativa (pontos)</Label>
             <Select
-              value={form.estimate_points?.toString() ?? ""}
-              onValueChange={(v) => handleUpdate("estimate_points", v ? parseInt(v) : null)}
+              value={form.estimate_points?.toString() ?? "0"}
+              onValueChange={(v) => handleUpdate("estimate_points", v === "0" ? null : parseInt(v))}
             >
               <SelectTrigger className="mt-1.5 h-8 text-xs">
                 <SelectValue placeholder="Sem estimativa" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sem estimativa</SelectItem>
+                <SelectItem value="0">Sem estimativa</SelectItem>
                 <SelectItem value="1">1</SelectItem>
                 <SelectItem value="2">2</SelectItem>
                 <SelectItem value="3">3</SelectItem>
