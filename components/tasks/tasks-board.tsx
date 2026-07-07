@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   closestCorners,
@@ -47,6 +47,7 @@ export function TasksBoard({
   selectedListId,
 }: TasksBoardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState(initialTasks);
   const [view, setView] = useState<"kanban" | "tabela">("kanban");
   const [search, setSearch] = useState("");
@@ -168,6 +169,15 @@ export function TasksBoard({
       }
     });
   }
+
+  // Abre o painel lateral automaticamente quando se navega com ?taskId= (ex: busca global)
+  const taskIdParam = searchParams.get("taskId");
+  useEffect(() => {
+    if (taskIdParam) {
+      handleSelectTask(taskIdParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskIdParam]);
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height))]">

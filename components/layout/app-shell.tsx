@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, X, Search } from "lucide-react";
 import { Sidebar } from "./sidebar";
+import { GlobalSearchDialog } from "./global-search-dialog";
 
 export function AppShell({
   children,
@@ -18,6 +19,18 @@ export function AppShell({
   permissionsModules?: string[];
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <div className="flex h-screen w-full overflow-x-hidden">
@@ -28,11 +41,12 @@ export function AppShell({
           userName={userName}
           role={role}
           permissionsModules={permissionsModules}
+          onSearchClick={() => setSearchOpen(true)}
         />
       </div>
 
       {/* Mobile top header */}
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center border-b border-border bg-background px-4 md:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background px-4 md:hidden">
         <button
           onClick={() => setMobileOpen((v) => !v)}
           aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
@@ -40,7 +54,16 @@ export function AppShell({
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
+        <button
+          onClick={() => setSearchOpen(true)}
+          aria-label="Pesquisar"
+          className="ml-auto flex items-center justify-center rounded-md p-1 text-foreground transition-colors hover:bg-accent"
+        >
+          <Search size={20} />
+        </button>
       </header>
+
+      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
       {/* Mobile drawer */}
       {mobileOpen && (
@@ -56,6 +79,7 @@ export function AppShell({
               userName={userName}
               role={role}
               permissionsModules={permissionsModules}
+              onSearchClick={() => setSearchOpen(true)}
             />
           </div>
         </>

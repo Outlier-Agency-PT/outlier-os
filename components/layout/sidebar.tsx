@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Moon, Sun, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Moon, Sun, LogOut, Search } from "lucide-react";
 import { useTheme } from "next-themes";
 import { MODULES, SECTION_LABELS, modulesBySection, type ModuleSection } from "@/lib/modules";
 import { cn } from "@/lib/utils";
@@ -78,11 +78,13 @@ export function Sidebar({
   userName,
   role,
   permissionsModules,
+  onSearchClick,
 }: {
   userEmail?: string;
   userName?: string;
   role?: string;
   permissionsModules?: string[];
+  onSearchClick?: () => void;
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -140,6 +142,24 @@ export function Sidebar({
           </>
         )}
       </div>
+
+      {/* ── Pesquisa ── */}
+      <button
+        onClick={onSearchClick}
+        title={collapsed ? "Pesquisar (Ctrl+K)" : undefined}
+        className={cn(
+          "flex items-center gap-3 border-b border-border py-[9px] text-[14px] text-sidebar-foreground/55 transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground/90",
+          collapsed ? "justify-center" : "px-4",
+        )}
+      >
+        <Search className="size-3.5 shrink-0" />
+        {!collapsed && (
+          <>
+            <span className="tracking-[-0.01em]">Pesquisar</span>
+            <span className="ml-auto text-[11px] text-sidebar-foreground/30">Ctrl+K</span>
+          </>
+        )}
+      </button>
 
       {/* ── Navegação ── */}
       <nav className="flex-1 overflow-y-auto py-4">
