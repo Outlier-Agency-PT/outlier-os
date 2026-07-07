@@ -7,6 +7,7 @@ import { getDecisions } from "@/lib/queries/decisions";
 import { FocusWeek } from "@/components/dashboard/focus-week";
 import { PendingDecisions } from "@/components/dashboard/pending-decisions";
 import { ColaboradorDashboard } from "@/components/dashboard/colaborador/colaborador-dashboard";
+import { DepartmentMetrics } from "@/components/dashboard/department-metrics";
 import {
   getMyOpenTasks,
   getConcludedStatusId,
@@ -15,6 +16,11 @@ import {
   getMyRunningTimeLog,
   getMyRecentTimeLogs,
 } from "@/lib/queries/dashboard-colaborador";
+import {
+  getDepartmentTaskCounts,
+  getContentsPublishedThisMonth,
+  getLaunchesDeliveredThisMonth,
+} from "@/lib/queries/dashboard-departments";
 import { formatRelative } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -33,10 +39,6 @@ export default async function DashboardPage() {
     .maybeSingle();
 
   const isAdmin = member?.role === "admin";
-
-  console.log("user.id:", user?.id);
-  console.log("member:", member);
-  console.log("isAdmin:", isAdmin);
 
   if (!isAdmin) {
     const [tasks, concludedStatusId, standup, weekMinutes, runningLog, recentLogs] =
@@ -137,6 +139,12 @@ export default async function DashboardPage() {
     },
   ];
 
+  const [departmentTaskCounts, contentsPublished, launchesDelivered] = await Promise.all([
+    getDepartmentTaskCounts(),
+    getContentsPublishedThisMonth(),
+    getLaunchesDeliveredThisMonth(),
+  ]);
+
   const focusCount = focusInitiatives.length;
   const pendingCount = decisions.filter((d) => d.status === "pendente").length;
 
@@ -187,6 +195,26 @@ export default async function DashboardPage() {
             );
           })}
         </div>
+
+        {/* Métricas por Departamento */}
+        <DepartmentMetrics
+          vendas={{
+            openTasks: departmentTaskCounts.vendas,
+            activeLaunches: lancamentosRes.count ?? 0,
+            activeClients: clientesRes.count ?? 0,
+          }}
+          marketing={{
+            openTasks: departmentTaskCounts.marketing,
+            contentsPublished,
+          }}
+          operacoesDesign={{
+            openTasks: departmentTaskCounts.operacoesDesign,
+            launchesDelivered,
+          }}
+          desenvolvimento={{
+            openTasks: departmentTaskCounts.desenvolvimento,
+          }}
+        />
 
         {/* Atividade — sem wrapper de card, lista editorial pura */}
         <div>
