@@ -1,18 +1,29 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { TasksBoard } from "@/components/tasks/tasks-board";
-import { getTasks } from "@/lib/queries/tasks";
+import { getTasks, getTaskSpaces, getTasksByList } from "@/lib/queries/tasks";
 import { getStatuses } from "@/lib/queries/statuses";
 import { getClients } from "@/lib/queries/clients";
 import { getTeamMembers } from "@/lib/queries/team";
 
 export const dynamic = "force-dynamic";
 
-export default async function TarefasPage() {
-  const [tasks, statuses, clients, members] = await Promise.all([
+export default async function TarefasPage(props: {
+  searchParams: Promise<{ list?: string }>;
+}) {
+  const searchParams = await props.searchParams;
+  const selectedListId = searchParams.list;
+
+  // UUID da lista padrão "Backlog"
+  const DEFAULT_LIST_ID = "00000000-0000-0000-0000-000000000011";
+  const listId = selectedListId || DEFAULT_LIST_ID;
+
+  const [tasks, statuses, clients, members, spaces, listTasks] = await Promise.all([
     getTasks(),
     getStatuses("task_statuses"),
     getClients(),
     getTeamMembers(),
+    getTaskSpaces(),
+    getTasksByList(listId),
   ]);
 
   return (
@@ -22,10 +33,14 @@ export default async function TarefasPage() {
         description={`${tasks.length} ${tasks.length === 1 ? "tarefa" : "tarefas"}`}
       />
       <TasksBoard
-        tasks={tasks}
+        key={listId}
+        initialTasks={listTasks}
+        allTasks={tasks}
         statuses={statuses}
         clients={clients.map((c) => ({ id: c.id, label: c.name }))}
-        members={members.map((m) => ({ id: m.id, label: m.full_name }))}
+        members={members.map((m) => ({ id: m.id, label: m.full_name, email: m.email ?? "" }))}
+        spaces={spaces}
+        selectedListId={listId}
       />
     </>
   );

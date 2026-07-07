@@ -6,7 +6,7 @@ import { ModulesPanel } from "@/components/incubadora/incubadora-components";
 import { StudentView } from "@/components/incubadora/student-view";
 import { getStudents, getPendingReminders } from "@/lib/queries/students";
 import { getTeamMembers } from "@/lib/queries/team";
-import { getModulesWithLessonCount, getAllStudentsProgress, getStudentProgressDetail, getChallenges, getSuccessTracks, getStudentsDetailedProgress } from "@/lib/queries/incubadora";
+import { getModulesWithLessonCount, getAllStudentsProgress, getStudentProgressDetail, getChallenges, getSuccessTracks, getStudentsDetailedProgress, getStudentProfile as getStudentProfileQuery } from "@/lib/queries/incubadora";
 
 export const dynamic = "force-dynamic";
 
@@ -23,46 +23,47 @@ export default async function IncubadoraPage(props: {
   const isAluno = roles.includes("aluno") && !roles.includes("admin") && !roles.includes("funcionario");
 
   if (isAluno && user) {
-    if (section === "metodo") {
-      const progressDetail = await getStudentProgressDetail(user.id);
-      const challenges = await getChallenges(user.id);
-      const successTracks = await getSuccessTracks(user.id, progressDetail, challenges);
-      return (
-        <>
-          <PageHeader title="Incubadora" description="Minha área de aprendizagem" />
-          <StudentView
-            modules={progressDetail.modules}
-            emergencyCalls={progressDetail.emergency_calls}
-            progressPct={progressDetail.progress_pct}
-            studentId={user.id}
-            challenges={challenges}
-            successTracks={successTracks}
-          />
-        </>
-      );
-    }
+    const progressDetail = await getStudentProgressDetail(user.id);
+    const challenges = await getChallenges(user.id);
+    const successTracks = await getSuccessTracks(user.id, progressDetail, challenges);
+    const studentProfile = await getStudentProfileQuery(user.id);
 
-    if (section === "ferramentas") {
-      return (
-        <>
-          <PageHeader title="Ferramentas" description="Recursos e ferramentas" />
-          <div className="flex items-center justify-center min-h-96">
-            <p className="text-muted-foreground">Em breve...</p>
-          </div>
-        </>
-      );
-    }
+    const headerConfig = {
+      metodo: { title: "Incubadora", description: "Minha área de aprendizagem" },
+      ferramentas: { title: "Ferramentas", description: "Calculadora de Potencial de Lançamento" },
+      assistentes: { title: "Assistentes", description: "Seu assistente de aprendizagem" },
+    };
+
+    const config = headerConfig[section as keyof typeof headerConfig] || headerConfig.metodo;
 
     if (section === "assistentes") {
       return (
         <>
-          <PageHeader title="Assistentes" description="Seu assistente de aprendizagem" />
-          <div className="flex items-center justify-center min-h-96">
-            <p className="text-muted-foreground">Em breve...</p>
+          <PageHeader title={config.title} description={config.description} />
+          <div style={{ padding: "2rem" }}>
+            <h2>Assistentes</h2>
+            <p>Newton o teu assistente de IA estará disponível em breve.</p>
           </div>
         </>
       );
     }
+
+    return (
+      <>
+        <PageHeader title={config.title} description={config.description} />
+        <StudentView
+          modules={progressDetail.modules}
+          emergencyCalls={progressDetail.emergency_calls}
+          progressPct={progressDetail.progress_pct}
+          studentId={user.id}
+          challenges={challenges}
+          successTracks={successTracks}
+          section={section as "metodo" | "ferramentas" | "assistentes"}
+          initialTicket={studentProfile.product_ticket ?? undefined}
+          initialBudget={studentProfile.investment_budget ?? undefined}
+        />
+      </>
+    );
   }
 
   const [students, members, modules, pendingReminders] = await Promise.all([

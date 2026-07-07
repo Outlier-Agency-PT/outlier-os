@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ALL_MODULE_KEYS, MODULE_LABELS, type MemberRole } from "@/lib/types";
+import { ALL_MODULE_KEYS, MODULE_LABELS, MODULE_GROUPS, MODULE_GROUP_LABELS, type MemberRole } from "@/lib/types";
 import { updateMemberAction } from "@/lib/actions/team";
 import { toast } from "sonner";
 import type { TeamMember } from "@/lib/types";
@@ -43,6 +43,15 @@ export function PermissionsEditor({ member, open, onOpenChange }: Props) {
     setPerms((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
     );
+  }
+
+  function selectAll() {
+    const allModules = ALL_MODULE_KEYS.filter((k) => k !== "configuracoes" && k !== "equipa");
+    setPerms(allModules);
+  }
+
+  function clearAll() {
+    setPerms([]);
   }
 
   async function handleSave() {
@@ -86,6 +95,11 @@ export function PermissionsEditor({ member, open, onOpenChange }: Props) {
                   <SelectItem value="membro">Membro</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                {role === "admin"
+                  ? "Acesso total a todos os módulos"
+                  : "Acesso apenas aos módulos seleccionados"}
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="dept">Departamento</Label>
@@ -108,25 +122,50 @@ export function PermissionsEditor({ member, open, onOpenChange }: Props) {
           </div>
 
           {role === "membro" && (
-            <div className="space-y-2">
-              <Label>Permissões por módulo</Label>
-              <p className="text-xs text-muted-foreground">
-                Admin tem acesso a tudo. Para Membros, escolhe os módulos visíveis.
-              </p>
-              <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
-                {ALL_MODULE_KEYS.filter((k) => k !== "configuracoes" && k !== "equipa").map((key) => (
-                  <label
-                    key={key}
-                    className="flex cursor-pointer items-center gap-2 text-sm"
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Permissões por módulo</Label>
+                <div className="flex gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={selectAll}
+                    className="text-brand hover:underline font-medium"
                   >
-                    <input
-                      type="checkbox"
-                      checked={perms.includes(key)}
-                      onChange={() => togglePerm(key)}
-                      className="size-4 accent-primary"
-                    />
-                    <span>{MODULE_LABELS[key]}</span>
-                  </label>
+                    Seleccionar todos
+                  </button>
+                  <span className="text-muted-foreground">|</span>
+                  <button
+                    type="button"
+                    onClick={clearAll}
+                    className="text-brand hover:underline font-medium"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-3 rounded-md border p-3">
+                {Object.entries(MODULE_GROUPS).map(([groupKey, modules]) => (
+                  <div key={groupKey} className="space-y-2">
+                    <h4 className="text-xs font-semibold text-foreground">
+                      {MODULE_GROUP_LABELS[groupKey]}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 pl-2">
+                      {modules.map((key) => (
+                        <label
+                          key={key}
+                          className="flex cursor-pointer items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={perms.includes(key)}
+                            onChange={() => togglePerm(key)}
+                            className="size-4 accent-primary"
+                          />
+                          <span>{MODULE_LABELS[key]}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

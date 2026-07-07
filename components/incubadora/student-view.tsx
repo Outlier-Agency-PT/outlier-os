@@ -23,6 +23,7 @@ import {
   uncompleteTrackStepAction,
   updateStudentProfileAction,
 } from "@/lib/actions/incubadora";
+import { ToolsView } from "./tools-view";
 import type { ModuleWithLessons, Challenge, SuccessTrack } from "@/lib/queries/incubadora";
 
 const WELCOME_VIDEO_URL = ""; // Será preenchido pelo admin
@@ -34,6 +35,9 @@ interface StudentViewProps {
   studentId: string;
   challenges: Challenge[];
   successTracks: SuccessTrack[];
+  section?: "metodo" | "ferramentas" | "assistentes";
+  initialTicket?: number;
+  initialBudget?: number;
 }
 
 export function StudentView({
@@ -43,6 +47,9 @@ export function StudentView({
   studentId,
   challenges,
   successTracks,
+  section = "metodo",
+  initialTicket,
+  initialBudget,
 }: StudentViewProps) {
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
@@ -269,6 +276,10 @@ export function StudentView({
     highlightTimeoutRef.current = setTimeout(() => {
       setHighlightedChallengeId(null);
     }, 2000);
+  }
+
+  if (section === "ferramentas") {
+    return <ToolsView initialTicket={initialTicket} initialBudget={initialBudget} />;
   }
 
   return (

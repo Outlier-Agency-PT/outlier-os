@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { inviteMemberAction, type InviteInput } from "@/lib/actions/team";
-import { ALL_MODULE_KEYS, MODULE_LABELS, type MemberRole } from "@/lib/types";
+import { ALL_MODULE_KEYS, MODULE_LABELS, MODULE_GROUPS, MODULE_GROUP_LABELS, type MemberRole } from "@/lib/types";
 import { toast } from "sonner";
 
 interface Props {
@@ -49,6 +49,15 @@ export function InviteMemberDialog({ open, onOpenChange }: Props) {
       ...f,
       permissions_modules: curr.includes(key) ? curr.filter((k) => k !== key) : [...curr, key],
     }));
+  }
+
+  function selectAll() {
+    const allModules = ALL_MODULE_KEYS.filter((k) => k !== "configuracoes" && k !== "equipa");
+    setForm((f) => ({ ...f, permissions_modules: allModules }));
+  }
+
+  function clearAll() {
+    setForm((f) => ({ ...f, permissions_modules: [] }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -147,10 +156,15 @@ export function InviteMemberDialog({ open, onOpenChange }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin (acesso total)</SelectItem>
-                    <SelectItem value="membro">Membro (com permissões)</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="membro">Membro</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  {form.role === "admin"
+                    ? "Acesso total a todos os módulos"
+                    : "Acesso apenas aos módulos seleccionados"}
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="dept">Departamento</Label>
@@ -171,19 +185,50 @@ export function InviteMemberDialog({ open, onOpenChange }: Props) {
             </div>
 
             {form.role === "membro" && (
-              <div className="space-y-2">
-                <Label>Permissões por módulo</Label>
-                <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
-                  {ALL_MODULE_KEYS.filter((k) => k !== "configuracoes" && k !== "equipa").map((key) => (
-                    <label key={key} className="flex cursor-pointer items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={form.permissions_modules?.includes(key) ?? false}
-                        onChange={() => togglePerm(key)}
-                        className="size-4 accent-primary"
-                      />
-                      <span>{MODULE_LABELS[key]}</span>
-                    </label>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Permissões por módulo</Label>
+                  <div className="flex gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={selectAll}
+                      className="text-brand hover:underline font-medium"
+                    >
+                      Seleccionar todos
+                    </button>
+                    <span className="text-muted-foreground">|</span>
+                    <button
+                      type="button"
+                      onClick={clearAll}
+                      className="text-brand hover:underline font-medium"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-3 rounded-md border p-3">
+                  {Object.entries(MODULE_GROUPS).map(([groupKey, modules]) => (
+                    <div key={groupKey} className="space-y-2">
+                      <h4 className="text-xs font-semibold text-foreground">
+                        {MODULE_GROUP_LABELS[groupKey]}
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 pl-2">
+                        {modules.map((key) => (
+                          <label
+                            key={key}
+                            className="flex cursor-pointer items-center gap-2 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={form.permissions_modules?.includes(key) ?? false}
+                              onChange={() => togglePerm(key)}
+                              className="size-4 accent-primary"
+                            />
+                            <span>{MODULE_LABELS[key]}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>

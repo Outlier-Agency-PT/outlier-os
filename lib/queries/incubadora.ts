@@ -301,6 +301,31 @@ export async function getSuccessTracks(
   })) as SuccessTrack[];
 }
 
+export interface StudentProfile {
+  product_ticket: number | null;
+  investment_budget: number | null;
+}
+
+export async function getStudentProfile(studentId: string): Promise<StudentProfile> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("students")
+    .select("product_ticket, investment_budget")
+    .eq("user_id", studentId)
+    .single();
+
+  let productTicket: number | null = null;
+  if (data?.product_ticket) {
+    const parsed = parseFloat(data.product_ticket.replace(/[^\d.,]/g, "").replace(",", "."));
+    productTicket = isNaN(parsed) ? null : parsed;
+  }
+
+  return {
+    product_ticket: productTicket,
+    investment_budget: data?.investment_budget ?? null,
+  };
+}
+
 export async function getStudentsDetailedProgress(): Promise<Map<string, DetailedStudentProgress>> {
   const supabase = await createClient();
   const now = Date.now();
