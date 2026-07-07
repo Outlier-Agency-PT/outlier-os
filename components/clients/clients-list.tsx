@@ -150,6 +150,8 @@ function KanbanView({ clients }: { clients: ClientWithStatus[] }) {
     one_shot: [],
     long_term: [],
     interno: [],
+    incubadora: [],
+    mentoria: [],
   };
   for (const c of clients) {
     groups[c.client_type as ClientType].push(c);

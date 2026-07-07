@@ -8,6 +8,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getTaskTimeLogs } from "@/lib/queries/task-detail";
 import { z } from "zod";
 
 const taskSchema = z.object({
@@ -27,6 +29,37 @@ const taskSchema = z.object({
 });
 
 export type TaskInput = z.infer<typeof taskSchema>;
+
+// Notifica cada novo assignee de uma tarefa. Usa o service role porque
+// quem cria/edita a tarefa não é o destinatário — a RLS de notifications
+// só permite a cada utilizador ler/marcar as suas próprias notificações,
+// não inserir notificações para outros.
+async function notifyNewAssignees(
+  taskId: string,
+  taskTitle: string,
+  listId: string | null | undefined,
+  newAssigneeIds: string[],
+) {
+  console.log("[notifyNewAssignees] antes:", { taskId, taskTitle, listId, newAssigneeIds });
+
+  if (newAssigneeIds.length === 0) {
+    console.log("[notifyNewAssignees] sem novos assignees — não vai inserir nada");
+    return;
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("notifications").insert(
+    newAssigneeIds.map((userId) => ({
+      user_id: userId,
+      type: "task_assigned",
+      title: "Nova tarefa atribuída",
+      body: taskTitle,
+      link: `/tarefas?taskId=${taskId}${listId ? `&list=${listId}` : ""}`,
+    })),
+  );
+
+  console.log("[notifyNewAssignees] depois — erro do insert:", error);
+}
 
 function cleanInput(input: TaskInput) {
   const cleaned: Record<string, unknown> = {};
@@ -57,6 +90,13 @@ export async function createTaskAction(input: TaskInput) {
 
   if (error) return { error: { _form: [error.message] } };
 
+  const initialAssignees = [...new Set([...(parsed.data.assignees ?? []), parsed.data.assignee_id].filter(
+    (v): v is string => Boolean(v),
+  ))];
+  console.log("[createTaskAction] antes de criar notificações, initialAssignees:", initialAssignees);
+  await notifyNewAssignees(data.id, data.title, data.list_id, initialAssignees);
+  console.log("[createTaskAction] depois de criar notificações");
+
   revalidatePath("/tarefas");
   return { data };
 }
@@ -69,6 +109,17 @@ export async function updateTaskAction(id: string, input: Partial<TaskInput>) {
     cleaned[k] = v === "" ? null : v;
   }
 
+  const touchesAssignees = "assignees" in input || "assignee_id" in input;
+  let previousTask: { assignee_id: string | null; assignees: string[] | null } | null = null;
+  if (touchesAssignees) {
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("assignee_id, assignees")
+      .eq("id", id)
+      .maybeSingle();
+    previousTask = existing;
+  }
+
   const { data, error } = await supabase
     .from("tasks")
     .update(cleaned)
@@ -77,6 +128,27 @@ export async function updateTaskAction(id: string, input: Partial<TaskInput>) {
     .single();
 
   if (error) return { error: { _form: [error.message] } };
+
+  if (touchesAssignees) {
+    const oldSet = new Set(
+      [...(previousTask?.assignees ?? []), previousTask?.assignee_id].filter(
+        (v): v is string => Boolean(v),
+      ),
+    );
+    const newSet = [...new Set([...(data.assignees ?? []), data.assignee_id].filter(
+      (v): v is string => Boolean(v),
+    ))];
+    const newlyAdded = newSet.filter((assigneeId) => !oldSet.has(assigneeId));
+    console.log("[updateTaskAction] antes de criar notificações, oldSet/newSet/newlyAdded:", {
+      oldSet: [...oldSet],
+      newSet,
+      newlyAdded,
+    });
+    await notifyNewAssignees(data.id, data.title, data.list_id, newlyAdded);
+    console.log("[updateTaskAction] depois de criar notificações");
+  } else {
+    console.log("[updateTaskAction] update não mexeu em assignees/assignee_id — não verifica notificações");
+  }
 
   revalidatePath("/tarefas");
   return { data };
@@ -198,6 +270,10 @@ export async function logTimeManualAction(
   if (error) return { error: error.message };
   revalidatePath("/tarefas");
   return { data };
+}
+
+export async function getTaskTimeLogsAction(taskId: string) {
+  return getTaskTimeLogs(taskId);
 }
 
 // Hierarchy actions

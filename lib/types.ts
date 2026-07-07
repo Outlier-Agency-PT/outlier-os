@@ -1,7 +1,7 @@
 // Tipos de domínio do Outlier OS — replicam o schema Postgres.
 // Quando regenerares tipos com `npm run db:types`, podes substituir por imports daqui.
 
-export type ClientType = "one_shot" | "long_term" | "interno";
+export type ClientType = "one_shot" | "long_term" | "interno" | "incubadora" | "mentoria";
 export type TaskPriority = "sem_prioridade" | "baixa" | "media" | "alta" | "urgente";
 export type MemberRole = "admin" | "membro";
 export type TransactionType = "receita" | "despesa";
@@ -78,9 +78,11 @@ export interface TimeLog {
 }
 
 export const CLIENT_TYPE_LABELS: Record<ClientType, string> = {
-  one_shot: "One Shot",
-  long_term: "Long Term",
+  one_shot: "Projecto Único (One Shot)",
+  long_term: "Contrato Recorrente (Long Term)",
   interno: "Interno",
+  incubadora: "Incubadora",
+  mentoria: "Mentoria",
 };
 
 export const PRIORITY_LABELS: Record<TaskPriority, string> = {

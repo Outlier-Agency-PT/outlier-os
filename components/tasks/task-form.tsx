@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { PRIORITY_LABELS, type TaskPriority } from "@/lib/types";
 import { createTaskAction, type TaskInput } from "@/lib/actions/tasks";
 import { toast } from "sonner";
@@ -248,7 +255,21 @@ export function TaskForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="estimate">Estimativa (pontos)</Label>
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="estimate">Estimativa (pontos)</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger type="button">
+                      <Info className="size-3.5 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Pontos representam complexidade, não horas.
+                      <br />
+                      1 = trivial · 2 = pequeno · 3 = médio · 5 = significativo · 8 = grande · 13 = muito grande
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Select
                 value={form.estimate_points?.toString() ?? "0"}
                 onValueChange={(v) => update("estimate_points", v === "0" ? null : parseInt(v))}

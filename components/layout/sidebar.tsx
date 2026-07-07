@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { NotificationsBell } from "./notifications-bell";
 
 const SECTIONS: ModuleSection[] = ["dashboard", "estrategia", "operacional", "financeiro", "gestao"];
 
@@ -79,12 +80,14 @@ export function Sidebar({
   role,
   permissionsModules,
   onSearchClick,
+  initialUnreadCount = 0,
 }: {
   userEmail?: string;
   userName?: string;
   role?: string;
   permissionsModules?: string[];
   onSearchClick?: () => void;
+  initialUnreadCount?: number;
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -160,6 +163,9 @@ export function Sidebar({
           </>
         )}
       </button>
+
+      {/* ── Notificações ── */}
+      <NotificationsBell role={role} initialUnreadCount={initialUnreadCount} collapsed={collapsed} />
 
       {/* ── Navegação ── */}
       <nav className="flex-1 overflow-y-auto py-4">

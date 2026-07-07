@@ -13,17 +13,24 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, LayoutGrid, Table as TableIcon, GripVertical } from "lucide-react";
+import { Plus, LayoutGrid, Table as TableIcon, GripVertical, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TaskForm } from "./task-form";
 import { TaskSidebar } from "./task-sidebar";
 import { TaskDetailPanel } from "./task-detail-panel";
 import { moveTaskStatusAction, getTaskDetailAction } from "@/lib/actions/tasks";
 import { PRIORITY_LABELS, PRIORITY_COLORS, type TaskPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { buildExportRows, exportTasksToCSV, exportTasksToPDF } from "@/lib/export-tasks";
 import { toast } from "sonner";
 import type { TaskWithRelations, TaskSpace } from "@/lib/queries/tasks";
 
@@ -170,6 +177,22 @@ export function TasksBoard({
     });
   }
 
+  function handleExportCSV() {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const spaceName = currentSpace?.space.name ?? "—";
+    const listName = currentSpace?.list.name ?? "—";
+    const rows = buildExportRows(filtered, members, spaceName, listName);
+    exportTasksToCSV(rows, `tarefas-${dateStr}.csv`);
+  }
+
+  function handleExportPDF() {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const spaceName = currentSpace?.space.name ?? "—";
+    const listName = currentSpace?.list.name ?? "—";
+    const rows = buildExportRows(filtered, members, spaceName, listName);
+    exportTasksToPDF(rows, `Tarefas — ${spaceName} / ${listName}`, `tarefas-${dateStr}.pdf`);
+  }
+
   // Abre o painel lateral automaticamente quando se navega com ?taskId= (ex: busca global)
   const taskIdParam = searchParams.get("taskId");
   useEffect(() => {
@@ -238,6 +261,18 @@ export function TasksBoard({
                 );
               })}
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="size-4" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportCSV}>Exportar CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>Exportar PDF</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={() => setOpen(true)}>
               <Plus className="size-4" />
               Nova Tarefa

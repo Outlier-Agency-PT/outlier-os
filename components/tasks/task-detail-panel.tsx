@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,10 +17,26 @@ import {
 import { StatusBadge } from "@/components/status-badge";
 import { TaskComments } from "./task-comments";
 import { SubtasksList } from "./subtasks-list";
-import { updateTaskAction, deleteTaskAction } from "@/lib/actions/tasks";
+import {
+  updateTaskAction,
+  deleteTaskAction,
+  startTimerAction,
+  stopTimerAction,
+  logTimeManualAction,
+  getTaskTimeLogsAction,
+} from "@/lib/actions/tasks";
+import { formatDuration, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
 import type { TaskWithHierarchy } from "@/lib/queries/tasks";
-import type { TaskComment } from "@/lib/queries/task-detail";
+import type { TaskComment, TimeLogWithMember } from "@/lib/queries/task-detail";
+
+function formatElapsed(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
 
 interface TaskDetailPanelProps {
   task: any; // TaskWithHierarchy or TaskWithRelations
@@ -47,7 +63,90 @@ export function TaskDetailPanel({
     setForm(task ? { ...task } : null);
   }, [task]);
 
+  const [timeLogs, setTimeLogs] = useState<TimeLogWithMember[]>([]);
+  const [manualTime, setManualTime] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
+  const [timeLoading, setTimeLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!task) return;
+    let cancelled = false;
+    getTaskTimeLogsAction(task.id).then((logs) => {
+      if (!cancelled) setTimeLogs(logs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [task?.id]);
+
+  const runningLog = timeLogs.find((l) => !l.end_at) ?? null;
+
+  useEffect(() => {
+    if (!runningLog) return;
+    const start = new Date(runningLog.start_at).getTime();
+    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [runningLog]);
+
   if (!task || !form) return null;
+
+  async function refreshTimeLogs() {
+    const logs = await getTaskTimeLogsAction(task.id);
+    setTimeLogs(logs);
+  }
+
+  async function handleStartTimer() {
+    setTimeLoading(true);
+    const result = await startTimerAction(task.id);
+    setTimeLoading(false);
+    if ("error" in result && result.error) {
+      toast.error("Erro ao iniciar timer");
+      return;
+    }
+    await refreshTimeLogs();
+  }
+
+  async function handleStopTimer() {
+    if (!runningLog) return;
+    setTimeLoading(true);
+    const result = await stopTimerAction(runningLog.id);
+    setTimeLoading(false);
+    if ("error" in result && result.error) {
+      toast.error("Erro ao parar timer");
+      return;
+    }
+    toast.success(`Tempo registado: ${formatDuration(result.durationMinutes ?? 0)}`);
+    await refreshTimeLogs();
+  }
+
+  function parseHHMM(value: string): number | null {
+    const match = value.trim().match(/^(\d{1,3}):([0-5]?\d)$/);
+    if (!match) return null;
+    const totalMinutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+    return totalMinutes > 0 ? totalMinutes : null;
+  }
+
+  async function handleAddManualTime() {
+    const minutes = parseHHMM(manualTime);
+    if (minutes === null) {
+      toast.error("Formato inválido. Usa hh:mm (ex: 1:30)");
+      return;
+    }
+    setTimeLoading(true);
+    const result = await logTimeManualAction(task.id, minutes, manualDescription || undefined);
+    setTimeLoading(false);
+    if ("error" in result && result.error) {
+      toast.error("Erro ao registar tempo");
+      return;
+    }
+    toast.success("Tempo registado");
+    setManualTime("");
+    setManualDescription("");
+    await refreshTimeLogs();
+  }
 
   async function handleUpdate(key: string, value: any) {
     setForm((prev) => prev ? { ...prev, [key]: value } : null);
@@ -267,6 +366,93 @@ export function TaskDetailPanel({
           {/* Comentários */}
           <div className="border-t pt-4">
             <TaskComments taskId={task.id} comments={comments} />
+          </div>
+
+          {/* Registo de Tempo */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">Registo de Tempo</Label>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatDuration(timeLogs.reduce((sum, l) => sum + (l.duration_minutes ?? 0), 0))}
+              </span>
+            </div>
+
+            <div className="mt-2">
+              {runningLog ? (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleStopTimer}
+                  disabled={timeLoading}
+                  className="w-full"
+                >
+                  <Square className="size-3.5" />
+                  Parar timer ({formatElapsed(elapsed)})
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={handleStartTimer}
+                  disabled={timeLoading}
+                  className="w-full"
+                >
+                  <Play className="size-3.5" />
+                  Iniciar timer
+                </Button>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-end gap-2">
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="manual-time" className="text-[11px] text-muted-foreground">
+                  hh:mm
+                </Label>
+                <Input
+                  id="manual-time"
+                  value={manualTime}
+                  onChange={(e) => setManualTime(e.target.value)}
+                  placeholder="1:30"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="manual-desc" className="text-[11px] text-muted-foreground">
+                  Descrição (opcional)
+                </Label>
+                <Input
+                  id="manual-desc"
+                  value={manualDescription}
+                  onChange={(e) => setManualDescription(e.target.value)}
+                  placeholder="O que fizeste"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <Button size="sm" variant="outline" onClick={handleAddManualTime} disabled={timeLoading}>
+                Registar
+              </Button>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {timeLogs.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sem registos de tempo.</p>
+              ) : (
+                timeLogs.slice(0, 5).map((log) => (
+                  <div key={log.id} className="flex items-center justify-between text-xs">
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {log.duration_minutes !== null ? formatDuration(log.duration_minutes) : "A correr..."}
+                        {log.description && (
+                          <span className="ml-1.5 font-normal text-muted-foreground">— {log.description}</span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {log.member?.full_name ?? "—"} · {formatRelative(log.start_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

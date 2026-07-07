@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Menu, X, Search } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { GlobalSearchDialog } from "./global-search-dialog";
+import { NotificationsBell } from "./notifications-bell";
 
 export function AppShell({
   children,
@@ -11,12 +12,14 @@ export function AppShell({
   userName,
   role,
   permissionsModules,
+  initialUnreadCount = 0,
 }: {
   children: React.ReactNode;
   userEmail?: string;
   userName?: string;
   role?: string;
   permissionsModules?: string[];
+  initialUnreadCount?: number;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -42,6 +45,7 @@ export function AppShell({
           role={role}
           permissionsModules={permissionsModules}
           onSearchClick={() => setSearchOpen(true)}
+          initialUnreadCount={initialUnreadCount}
         />
       </div>
 
@@ -54,13 +58,16 @@ export function AppShell({
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
-        <button
-          onClick={() => setSearchOpen(true)}
-          aria-label="Pesquisar"
-          className="ml-auto flex items-center justify-center rounded-md p-1 text-foreground transition-colors hover:bg-accent"
-        >
-          <Search size={20} />
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          <NotificationsBell role={role} initialUnreadCount={initialUnreadCount} variant="icon" />
+          <button
+            onClick={() => setSearchOpen(true)}
+            aria-label="Pesquisar"
+            className="flex items-center justify-center rounded-md p-1 text-foreground transition-colors hover:bg-accent"
+          >
+            <Search size={20} />
+          </button>
+        </div>
       </header>
 
       <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
@@ -80,6 +87,7 @@ export function AppShell({
               role={role}
               permissionsModules={permissionsModules}
               onSearchClick={() => setSearchOpen(true)}
+              initialUnreadCount={initialUnreadCount}
             />
           </div>
         </>

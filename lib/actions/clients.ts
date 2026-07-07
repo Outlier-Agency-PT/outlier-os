@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  client_type: z.enum(["one_shot", "long_term", "interno"]),
+  client_type: z.enum(["one_shot", "long_term", "interno", "incubadora", "mentoria"]),
   status_id: z.string().uuid().nullable().optional(),
   responsible_id: z.string().uuid().nullable().optional(),
   contact_name: z.string().nullable().optional(),
