@@ -8,10 +8,14 @@ export function AppShell({
   children,
   userEmail,
   userName,
+  role,
+  permissionsModules,
 }: {
   children: React.ReactNode;
   userEmail?: string;
   userName?: string;
+  role?: string;
+  permissionsModules?: string[];
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -19,7 +23,12 @@ export function AppShell({
     <div className="flex h-screen w-full overflow-x-hidden">
       {/* Desktop sidebar */}
       <div className="hidden md:flex">
-        <Sidebar userEmail={userEmail} userName={userName} />
+        <Sidebar
+          userEmail={userEmail}
+          userName={userName}
+          role={role}
+          permissionsModules={permissionsModules}
+        />
       </div>
 
       {/* Mobile top header */}
@@ -42,7 +51,12 @@ export function AppShell({
             aria-hidden="true"
           />
           <div className="fixed inset-y-0 left-0 z-50 md:hidden">
-            <Sidebar userEmail={userEmail} userName={userName} />
+            <Sidebar
+              userEmail={userEmail}
+              userName={userName}
+              role={role}
+              permissionsModules={permissionsModules}
+            />
           </div>
         </>
       )}

@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { data: member } = await supabase
     .from("team_members")
-    .select("full_name, email")
+    .select("full_name, email, role, permissions_modules")
     .eq("id", user.id)
     .single();
 
@@ -28,6 +28,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <AppShell
       userEmail={member?.email ?? user.email ?? undefined}
       userName={member?.full_name ?? undefined}
+      role={member?.role}
+      permissionsModules={member?.permissions_modules ?? []}
     >
       {children}
     </AppShell>

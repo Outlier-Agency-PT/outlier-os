@@ -73,7 +73,17 @@ function NavItem({
   );
 }
 
-export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?: string }) {
+export function Sidebar({
+  userEmail,
+  userName,
+  role,
+  permissionsModules,
+}: {
+  userEmail?: string;
+  userName?: string;
+  role?: string;
+  permissionsModules?: string[];
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -136,7 +146,13 @@ export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?
         {SECTIONS.map((section) => {
           const items = modulesBySection(section);
           if (items.length === 0) return null;
-          const filtered = items.filter((m) => m.key !== "configuracoes");
+          const filtered = items.filter(
+            (m) =>
+              m.key !== "configuracoes" &&
+              (m.key === "dashboard" ||
+                role === "admin" ||
+                (permissionsModules ?? []).includes(m.key)),
+          );
           if (filtered.length === 0) return null;
 
           return (

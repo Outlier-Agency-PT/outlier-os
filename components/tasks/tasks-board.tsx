@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -57,6 +57,8 @@ export function TasksBoard({
     comments: any[];
   }>({ task: null, comments: [] });
   const [isPending, startTransition] = useTransition();
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -235,18 +237,20 @@ export function TasksBoard({
 
         <div className="flex-1 overflow-auto p-8 bg-canvas">
           {view === "kanban" ? (
-            <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-              <div className="flex gap-4 overflow-x-auto pb-4">
-                {statuses.map((status) => (
-                  <Column
-                    key={status.id}
-                    status={status}
-                    tasks={grouped.get(status.id) ?? []}
-                    onTaskClick={handleSelectTask}
-                  />
-                ))}
-              </div>
-            </DndContext>
+            isMounted ? (
+              <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+                <div className="flex gap-4 overflow-x-auto pb-4">
+                  {statuses.map((status) => (
+                    <Column
+                      key={status.id}
+                      status={status}
+                      tasks={grouped.get(status.id) ?? []}
+                      onTaskClick={handleSelectTask}
+                    />
+                  ))}
+                </div>
+              </DndContext>
+            ) : null
           ) : (
             <TasksTable tasks={filtered} onTaskClick={handleSelectTask} />
           )}

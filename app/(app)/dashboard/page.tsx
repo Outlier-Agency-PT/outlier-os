@@ -6,12 +6,63 @@ import { getInitiatives } from "@/lib/queries/initiatives";
 import { getDecisions } from "@/lib/queries/decisions";
 import { FocusWeek } from "@/components/dashboard/focus-week";
 import { PendingDecisions } from "@/components/dashboard/pending-decisions";
+import { ColaboradorDashboard } from "@/components/dashboard/colaborador/colaborador-dashboard";
+import {
+  getMyOpenTasks,
+  getConcludedStatusId,
+  getTodayStandup,
+  getWeekTimeMinutes,
+  getMyRunningTimeLog,
+  getMyRecentTimeLogs,
+} from "@/lib/queries/dashboard-colaborador";
 import { formatRelative } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: member } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+
+  const isAdmin = member?.role === "admin";
+
+  console.log("user.id:", user?.id);
+  console.log("member:", member);
+  console.log("isAdmin:", isAdmin);
+
+  if (!isAdmin) {
+    const [tasks, concludedStatusId, standup, weekMinutes, runningLog, recentLogs] =
+      await Promise.all([
+        user ? getMyOpenTasks(user.id) : Promise.resolve([]),
+        getConcludedStatusId(),
+        user ? getTodayStandup(user.id) : Promise.resolve(null),
+        user ? getWeekTimeMinutes(user.id) : Promise.resolve(0),
+        user ? getMyRunningTimeLog(user.id) : Promise.resolve(null),
+        user ? getMyRecentTimeLogs(user.id) : Promise.resolve([]),
+      ]);
+
+    return (
+      <>
+        <PageHeader title="Dashboard" description="O teu dia, resumido." />
+        <ColaboradorDashboard
+          tasks={tasks}
+          concludedStatusId={concludedStatusId}
+          standup={standup}
+          weekMinutes={weekMinutes}
+          runningLog={runningLog}
+          recentLogs={recentLogs}
+        />
+      </>
+    );
+  }
 
   const [
     taskClosedRes,

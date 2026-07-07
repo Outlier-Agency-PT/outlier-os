@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,10 @@ export function TaskDetailPanel({
   const router = useRouter();
   const [form, setForm] = useState(task ? { ...task } : null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setForm(task ? { ...task } : null);
+  }, [task]);
 
   if (!task || !form) return null;
 
