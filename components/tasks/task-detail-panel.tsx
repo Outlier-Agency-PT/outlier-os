@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Trash2, Play, Square } from "lucide-react";
+import { X, Trash2, Play, Square, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import {
 import { StatusBadge } from "@/components/status-badge";
 import { TaskComments } from "./task-comments";
 import { SubtasksList } from "./subtasks-list";
+import { TaskDependencies } from "./task-dependencies";
 import {
   updateTaskAction,
   deleteTaskAction,
@@ -58,6 +59,7 @@ export function TaskDetailPanel({
   const router = useRouter();
   const [form, setForm] = useState(task ? { ...task } : null);
   const [loading, setLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     setForm(task ? { ...task } : null);
@@ -180,6 +182,302 @@ export function TaskDetailPanel({
     }
   }
 
+  const titleField = (
+    <div>
+      <Label className="text-xs font-semibold">Título</Label>
+      <Input
+        value={form.title}
+        onChange={(e) => handleUpdate("title", e.target.value)}
+        className="mt-1.5 h-8 text-sm"
+      />
+    </div>
+  );
+
+  const descriptionField = (
+    <div>
+      <Label className="text-xs font-semibold">Descrição</Label>
+      <Textarea
+        value={form.description ?? ""}
+        onChange={(e) => handleUpdate("description", e.target.value)}
+        rows={3}
+        className="mt-1.5 text-sm"
+      />
+    </div>
+  );
+
+  const statusField = (
+    <div>
+      <Label className="text-xs font-semibold">Estado</Label>
+      <Select
+        value={form.status_id ?? ""}
+        onValueChange={(v) => handleUpdate("status_id", v || null)}
+      >
+        <SelectTrigger className="mt-1.5 h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {statuses.map((s) => (
+            <SelectItem key={s.id} value={s.id}>
+              {s.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const priorityField = (
+    <div>
+      <Label className="text-xs font-semibold">Prioridade</Label>
+      <Select
+        value={form.priority}
+        onValueChange={(v) =>
+          handleUpdate(
+            "priority",
+            v as "sem_prioridade" | "baixa" | "media" | "alta" | "urgente"
+          )
+        }
+      >
+        <SelectTrigger className="mt-1.5 h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="sem_prioridade">Sem Prioridade</SelectItem>
+          <SelectItem value="baixa">Baixa</SelectItem>
+          <SelectItem value="media">Média</SelectItem>
+          <SelectItem value="alta">Alta</SelectItem>
+          <SelectItem value="urgente">Urgente</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const statusPriorityGrid = (
+    <div className="grid grid-cols-2 gap-4">
+      {statusField}
+      {priorityField}
+    </div>
+  );
+
+  const dueDateField = (
+    <div>
+      <Label className="text-xs font-semibold">Data Limite</Label>
+      <Input
+        type="date"
+        value={form.due_date ?? ""}
+        onChange={(e) => handleUpdate("due_date", e.target.value)}
+        className="mt-1.5 h-8 text-xs"
+      />
+    </div>
+  );
+
+  const estimateField = (
+    <div>
+      <Label className="text-xs font-semibold">Estimativa (pontos)</Label>
+      <Select
+        value={form.estimate_points?.toString() ?? "0"}
+        onValueChange={(v) => handleUpdate("estimate_points", v === "0" ? null : parseInt(v))}
+      >
+        <SelectTrigger className="mt-1.5 h-8 text-xs">
+          <SelectValue placeholder="Sem estimativa" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="0">Sem estimativa</SelectItem>
+          <SelectItem value="1">1</SelectItem>
+          <SelectItem value="2">2</SelectItem>
+          <SelectItem value="3">3</SelectItem>
+          <SelectItem value="5">5</SelectItem>
+          <SelectItem value="8">8</SelectItem>
+          <SelectItem value="13">13</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const listField = (
+    <div>
+      <Label className="text-xs font-semibold">Lista</Label>
+      <Select
+        value={form.list_id ?? ""}
+        onValueChange={(v) => handleUpdate("list_id", v || null)}
+      >
+        <SelectTrigger className="mt-1.5 h-8 text-xs">
+          <SelectValue placeholder="Sem lista" />
+        </SelectTrigger>
+        <SelectContent>
+          {lists.map((l) => (
+            <SelectItem key={l.id} value={l.id}>
+              {l.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const assigneesField = (
+    <div>
+      <Label className="text-xs font-semibold">Responsáveis</Label>
+      <div className="mt-1.5 space-y-1">
+        {members.map((member) => {
+          const isAssigned = form.assignees?.includes(member.id) ?? false;
+          return (
+            <label key={member.id} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isAssigned}
+                onChange={(e) => {
+                  const newAssignees = isAssigned
+                    ? (form.assignees ?? []).filter((id) => id !== member.id)
+                    : [...(form.assignees ?? []), member.id];
+                  handleUpdate("assignees", newAssignees);
+                }}
+                className="size-4 rounded"
+              />
+              <span className="text-sm">{member.full_name}</span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const subtasksSection = (
+    <div className="border-t pt-4">
+      <SubtasksList task={form} statuses={statuses} />
+    </div>
+  );
+
+  const dependenciesSection = (
+    <div className="border-t pt-4">
+      <TaskDependencies taskId={task.id} />
+    </div>
+  );
+
+  const commentsSection = (
+    <div className="border-t pt-4">
+      <TaskComments taskId={task.id} comments={comments} />
+    </div>
+  );
+
+  const timeTrackingSection = (
+    <div className="border-t pt-4">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold">Registo de Tempo</Label>
+        <span className="text-xs text-muted-foreground">
+          Total: {formatDuration(timeLogs.reduce((sum, l) => sum + (l.duration_minutes ?? 0), 0))}
+        </span>
+      </div>
+
+      <div className="mt-2">
+        {runningLog ? (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleStopTimer}
+            disabled={timeLoading}
+            className="w-full"
+          >
+            <Square className="size-3.5" />
+            Parar timer ({formatElapsed(elapsed)})
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleStartTimer}
+            disabled={timeLoading}
+            className="w-full"
+          >
+            <Play className="size-3.5" />
+            Iniciar timer
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-end gap-2">
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="manual-time" className="text-[11px] text-muted-foreground">
+            hh:mm
+          </Label>
+          <Input
+            id="manual-time"
+            value={manualTime}
+            onChange={(e) => setManualTime(e.target.value)}
+            placeholder="1:30"
+            className="h-8 text-xs"
+          />
+        </div>
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="manual-desc" className="text-[11px] text-muted-foreground">
+            Descrição (opcional)
+          </Label>
+          <Input
+            id="manual-desc"
+            value={manualDescription}
+            onChange={(e) => setManualDescription(e.target.value)}
+            placeholder="O que fizeste"
+            className="h-8 text-xs"
+          />
+        </div>
+        <Button size="sm" variant="outline" onClick={handleAddManualTime} disabled={timeLoading}>
+          Registar
+        </Button>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {timeLogs.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Sem registos de tempo.</p>
+        ) : (
+          timeLogs.slice(0, 5).map((log) => (
+            <div key={log.id} className="flex items-center justify-between text-xs">
+              <div className="min-w-0">
+                <p className="font-medium">
+                  {log.duration_minutes !== null ? formatDuration(log.duration_minutes) : "A correr..."}
+                  {log.description && (
+                    <span className="ml-1.5 font-normal text-muted-foreground">— {log.description}</span>
+                  )}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {log.member?.full_name ?? "—"} · {formatRelative(log.start_at)}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  const headerNode = (
+    <div className="flex items-center justify-between border-b px-6 py-4">
+      <h2 className="font-semibold truncate">Detalhes da Tarefa</h2>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="h-6 w-6 p-0"
+          title={isExpanded ? "Modo lateral" : "Ecrã completo"}
+        >
+          {isExpanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleDelete}
+          disabled={loading}
+          className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+          title="Apagar tarefa"
+        >
+          <Trash2 className="size-4" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClose} className="h-6 w-6 p-0">
+          <X className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <>
       {/* Overlay */}
@@ -188,274 +486,50 @@ export function TaskDetailPanel({
         onClick={onClose}
       />
 
-      {/* Panel */}
-      <div className="fixed right-0 top-0 h-screen w-96 bg-background border-l shadow-lg z-50 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="font-semibold truncate">Detalhes da Tarefa</h2>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleDelete}
-              disabled={loading}
-              className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-              title="Apagar tarefa"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={onClose} className="h-6 w-6 p-0">
-              <X className="size-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto space-y-6 px-6 py-4">
-          {/* Título */}
-          <div>
-            <Label className="text-xs font-semibold">Título</Label>
-            <Input
-              value={form.title}
-              onChange={(e) => handleUpdate("title", e.target.value)}
-              className="mt-1.5 h-8 text-sm"
-            />
-          </div>
-
-          {/* Descrição */}
-          <div>
-            <Label className="text-xs font-semibold">Descrição</Label>
-            <Textarea
-              value={form.description ?? ""}
-              onChange={(e) => handleUpdate("description", e.target.value)}
-              rows={3}
-              className="mt-1.5 text-sm"
-            />
-          </div>
-
-          {/* Estado e Prioridade */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs font-semibold">Estado</Label>
-              <Select
-                value={form.status_id ?? ""}
-                onValueChange={(v) => handleUpdate("status_id", v || null)}
-              >
-                <SelectTrigger className="mt-1.5 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold">Prioridade</Label>
-              <Select
-                value={form.priority}
-                onValueChange={(v) =>
-                  handleUpdate(
-                    "priority",
-                    v as "sem_prioridade" | "baixa" | "media" | "alta" | "urgente"
-                  )
-                }
-              >
-                <SelectTrigger className="mt-1.5 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sem_prioridade">Sem Prioridade</SelectItem>
-                  <SelectItem value="baixa">Baixa</SelectItem>
-                  <SelectItem value="media">Média</SelectItem>
-                  <SelectItem value="alta">Alta</SelectItem>
-                  <SelectItem value="urgente">Urgente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Data Limite */}
-          <div>
-            <Label className="text-xs font-semibold">Data Limite</Label>
-            <Input
-              type="date"
-              value={form.due_date ?? ""}
-              onChange={(e) => handleUpdate("due_date", e.target.value)}
-              className="mt-1.5 h-8 text-xs"
-            />
-          </div>
-
-          {/* Estimativa */}
-          <div>
-            <Label className="text-xs font-semibold">Estimativa (pontos)</Label>
-            <Select
-              value={form.estimate_points?.toString() ?? "0"}
-              onValueChange={(v) => handleUpdate("estimate_points", v === "0" ? null : parseInt(v))}
-            >
-              <SelectTrigger className="mt-1.5 h-8 text-xs">
-                <SelectValue placeholder="Sem estimativa" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">Sem estimativa</SelectItem>
-                <SelectItem value="1">1</SelectItem>
-                <SelectItem value="2">2</SelectItem>
-                <SelectItem value="3">3</SelectItem>
-                <SelectItem value="5">5</SelectItem>
-                <SelectItem value="8">8</SelectItem>
-                <SelectItem value="13">13</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Lista */}
-          <div>
-            <Label className="text-xs font-semibold">Lista</Label>
-            <Select
-              value={form.list_id ?? ""}
-              onValueChange={(v) => handleUpdate("list_id", v || null)}
-            >
-              <SelectTrigger className="mt-1.5 h-8 text-xs">
-                <SelectValue placeholder="Sem lista" />
-              </SelectTrigger>
-              <SelectContent>
-                {lists.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Responsáveis */}
-          <div>
-            <Label className="text-xs font-semibold">Responsáveis</Label>
-            <div className="mt-1.5 space-y-1">
-              {members.map((member) => {
-                const isAssigned = form.assignees?.includes(member.id) ?? false;
-                return (
-                  <label key={member.id} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isAssigned}
-                      onChange={(e) => {
-                        const newAssignees = isAssigned
-                          ? (form.assignees ?? []).filter((id) => id !== member.id)
-                          : [...(form.assignees ?? []), member.id];
-                        handleUpdate("assignees", newAssignees);
-                      }}
-                      className="size-4 rounded"
-                    />
-                    <span className="text-sm">{member.full_name}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Subtarefas */}
-          <div className="border-t pt-4">
-            <SubtasksList task={form} statuses={statuses} />
-          </div>
-
-          {/* Comentários */}
-          <div className="border-t pt-4">
-            <TaskComments taskId={task.id} comments={comments} />
-          </div>
-
-          {/* Registo de Tempo */}
-          <div className="border-t pt-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">Registo de Tempo</Label>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatDuration(timeLogs.reduce((sum, l) => sum + (l.duration_minutes ?? 0), 0))}
-              </span>
-            </div>
-
-            <div className="mt-2">
-              {runningLog ? (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={handleStopTimer}
-                  disabled={timeLoading}
-                  className="w-full"
-                >
-                  <Square className="size-3.5" />
-                  Parar timer ({formatElapsed(elapsed)})
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={handleStartTimer}
-                  disabled={timeLoading}
-                  className="w-full"
-                >
-                  <Play className="size-3.5" />
-                  Iniciar timer
-                </Button>
-              )}
-            </div>
-
-            <div className="mt-3 flex items-end gap-2">
-              <div className="flex-1 space-y-1.5">
-                <Label htmlFor="manual-time" className="text-[11px] text-muted-foreground">
-                  hh:mm
-                </Label>
-                <Input
-                  id="manual-time"
-                  value={manualTime}
-                  onChange={(e) => setManualTime(e.target.value)}
-                  placeholder="1:30"
-                  className="h-8 text-xs"
-                />
+      {isExpanded ? (
+        /* Modo ecrã completo */
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="flex h-[85vh] w-full max-w-[900px] flex-col overflow-hidden rounded-lg border bg-background shadow-lg">
+            {headerNode}
+            <div className="grid flex-1 grid-cols-[60%_40%] divide-x overflow-hidden">
+              <div className="space-y-6 overflow-y-auto px-6 py-4">
+                {titleField}
+                {descriptionField}
+                {subtasksSection}
+                {dependenciesSection}
+                {commentsSection}
               </div>
-              <div className="flex-1 space-y-1.5">
-                <Label htmlFor="manual-desc" className="text-[11px] text-muted-foreground">
-                  Descrição (opcional)
-                </Label>
-                <Input
-                  id="manual-desc"
-                  value={manualDescription}
-                  onChange={(e) => setManualDescription(e.target.value)}
-                  placeholder="O que fizeste"
-                  className="h-8 text-xs"
-                />
+              <div className="space-y-6 overflow-y-auto px-6 py-4">
+                {statusField}
+                {priorityField}
+                {assigneesField}
+                {dueDateField}
+                {estimateField}
+                {listField}
+                {timeTrackingSection}
               </div>
-              <Button size="sm" variant="outline" onClick={handleAddManualTime} disabled={timeLoading}>
-                Registar
-              </Button>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              {timeLogs.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Sem registos de tempo.</p>
-              ) : (
-                timeLogs.slice(0, 5).map((log) => (
-                  <div key={log.id} className="flex items-center justify-between text-xs">
-                    <div className="min-w-0">
-                      <p className="font-medium">
-                        {log.duration_minutes !== null ? formatDuration(log.duration_minutes) : "A correr..."}
-                        {log.description && (
-                          <span className="ml-1.5 font-normal text-muted-foreground">— {log.description}</span>
-                        )}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {log.member?.full_name ?? "—"} · {formatRelative(log.start_at)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        /* Modo lateral */
+        <div className="fixed right-0 top-0 h-screen w-96 bg-background border-l shadow-lg z-50 flex flex-col overflow-hidden">
+          {headerNode}
+          <div className="flex-1 overflow-y-auto space-y-6 px-6 py-4">
+            {titleField}
+            {descriptionField}
+            {statusPriorityGrid}
+            {dueDateField}
+            {estimateField}
+            {listField}
+            {assigneesField}
+            {subtasksSection}
+            {dependenciesSection}
+            {commentsSection}
+            {timeTrackingSection}
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,8 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, History, Info } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as ChartTooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,15 +34,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   createObjectiveAction,
   createKeyResultAction,
   updateKeyResultProgressAction,
   deleteObjectiveAction,
   deleteKeyResultAction,
+  getKeyResultHistoryAction,
   type ObjectiveInput,
 } from "@/lib/actions/okrs";
 import { toast } from "sonner";
-import type { Objective, KeyResult } from "@/lib/queries/okrs";
+import type { Objective, KeyResult, KeyResultHistoryEntry } from "@/lib/queries/okrs";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
 const CURRENT_YEAR = new Date().getFullYear();
@@ -97,6 +113,31 @@ export function OkrsView({ objectives, selectedQuarter, selectedYear }: Props) {
             ))}
           </SelectContent>
         </Select>
+
+        <TooltipProvider>
+          <Tooltip delayDuration={100}>
+            <TooltipTrigger type="button" className="flex items-center text-muted-foreground hover:text-foreground transition-colors">
+              <Info className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              align="start"
+              className="max-w-[300px] bg-[#111111] text-white border-[#111111] text-sm leading-relaxed"
+            >
+              <p className="mb-1 font-semibold">Como funcionam os OKRs</p>
+              <p className="mb-2">
+                Um Objective é uma meta qualitativa (ex: &ldquo;Crescer receita em 40%&rdquo;).
+                Cada Objective tem Key Results — métricas numéricas que provam se a meta foi
+                atingida. O progresso do Objective é a média dos seus Key Results.
+              </p>
+              <p>
+                Os OKRs são definidos por trimestre (Q1–Q4) e ano. Usa este filtro para ver
+                ou planear objetivos de períodos diferentes.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <Button onClick={() => setCreateOpen(true)} className="ml-auto">
           <Plus />
           Novo Objetivo
@@ -214,8 +255,10 @@ function KeyResultRow({ kr }: { kr: KeyResult }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(kr.current_value);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const range = kr.target_value - kr.initial_value;
   const progress = range === 0 ? 0 : Math.max(0, Math.min(100, ((kr.current_value - kr.initial_value) / range) * 100));
+  const isDirty = value !== kr.current_value;
 
   async function save() {
     const result = await updateKeyResultProgressAction(kr.id, value);
@@ -227,6 +270,11 @@ function KeyResultRow({ kr }: { kr: KeyResult }) {
     router.refresh();
   }
 
+  function cancel() {
+    setValue(kr.current_value);
+    setEditing(false);
+  }
+
   async function handleDelete() {
     if (!confirm(`Eliminar Key Result "${kr.title}"?`)) return;
     await deleteKeyResultAction(kr.id);
@@ -234,49 +282,74 @@ function KeyResultRow({ kr }: { kr: KeyResult }) {
   }
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium">{kr.title}</p>
-        <Button size="icon" variant="ghost" className="-mt-1" onClick={handleDelete}>
-          <Trash2 className="size-3.5" />
-        </Button>
-      </div>
-      <div className="mt-2 flex items-center gap-3 text-xs">
-        <span className="text-muted-foreground">Início: {kr.initial_value}</span>
-        {editing ? (
-          <>
-            <Input
-              type="number"
-              value={value}
-              onChange={(e) => setValue(Number(e.target.value))}
-              className="h-7 w-24"
-            />
-            <Button size="sm" onClick={save}>Guardar</Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setEditing(true)}
-              className="font-medium hover:underline"
+    <>
+      <div className="rounded-md border bg-muted/30 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium">{kr.title}</p>
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="-mt-1"
+              title="Ver histórico"
+              onClick={() => setHistoryOpen(true)}
             >
-              Atual: {kr.current_value}
-            </button>
+              <History className="size-3.5" />
+            </Button>
+            <Button size="icon" variant="ghost" className="-mt-1" onClick={handleDelete}>
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+        <div className="mt-2 flex flex-col gap-1.5 text-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground">Início: {kr.initial_value}</span>
+            {editing ? (
+              <Input
+                type="number"
+                value={value}
+                onChange={(e) => setValue(Number(e.target.value))}
+                onBlur={() => { if (!isDirty) setEditing(false); }}
+                className="h-7 w-24"
+                autoFocus
+              />
+            ) : (
+              <button
+                onClick={() => setEditing(true)}
+                title="Clicar para editar"
+                className="cursor-pointer font-medium underline underline-offset-4 decoration-dashed hover:text-[#A12B2B] transition-colors"
+              >
+                Atual: {kr.current_value}
+              </button>
+            )}
             <span className="text-muted-foreground">Meta: {kr.target_value}</span>
             <span className="ml-auto font-medium">{progress.toFixed(0)}%</span>
-          </>
-        )}
+          </div>
+          {editing && isDirty && (
+            <div className="flex gap-1.5">
+              <Button size="sm" onClick={save}>Guardar</Button>
+              <Button size="sm" variant="ghost" onClick={cancel}>Cancelar</Button>
+            </div>
+          )}
+        </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full transition-all"
+            style={{
+              width: `${progress}%`,
+              backgroundColor: progress >= 70 ? "#10B981" : progress >= 30 ? "#F59E0B" : "#EF4444",
+            }}
+          />
+        </div>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full transition-all"
-          style={{
-            width: `${progress}%`,
-            backgroundColor: progress >= 70 ? "#10B981" : progress >= 30 ? "#F59E0B" : "#EF4444",
-          }}
-        />
-      </div>
-    </div>
+
+      <KrHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        krId={kr.id}
+        krTitle={kr.title}
+      />
+    </>
   );
 }
 
@@ -376,6 +449,100 @@ function CreateObjectiveDialog({
             <Button type="submit" disabled={loading}>{loading ? "A criar..." : "Criar"}</Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function KrHistoryDialog({
+  open,
+  onOpenChange,
+  krId,
+  krTitle,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  krId: string;
+  krTitle: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [entries, setEntries] = useState<KeyResultHistoryEntry[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    setEntries([]);
+    getKeyResultHistoryAction(krId)
+      .then((data) => setEntries(data))
+      .catch(() => toast.error("Erro ao carregar histórico"))
+      .finally(() => setLoading(false));
+  }, [open, krId]);
+
+  const chartData = entries.map((e) => ({
+    date: format(new Date(e.recorded_at), "dd/MM"),
+    value: e.value,
+  }));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Histórico — {krTitle}</DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">A carregar...</p>
+        ) : entries.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            Ainda sem histórico registado.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <ChartTooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 3 }}
+                  formatter={(v: number) => [v, "Valor"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#A12B2B"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "#A12B2B", strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+
+            <div className="max-h-52 overflow-y-auto rounded-md border">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Data</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">Valor</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Registado por</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...entries].reverse().map((e) => (
+                    <tr key={e.id} className="border-t">
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {format(new Date(e.recorded_at), "dd MMM yyyy, HH:mm")}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium">{e.value}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {e.recorded_by_name ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

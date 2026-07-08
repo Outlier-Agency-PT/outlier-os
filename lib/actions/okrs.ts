@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { getKeyResultHistory, type KeyResultHistoryEntry } from "@/lib/queries/okrs";
+
+export async function getKeyResultHistoryAction(krId: string): Promise<KeyResultHistoryEntry[]> {
+  return getKeyResultHistory(krId);
+}
 
 const objectiveSchema = z.object({
   title: z.string().min(1),

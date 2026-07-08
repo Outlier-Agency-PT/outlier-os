@@ -13,7 +13,7 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, LayoutGrid, Table as TableIcon, GripVertical, Download } from "lucide-react";
+import { Plus, LayoutGrid, Table as TableIcon, GripVertical, Download, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,10 +27,10 @@ import {
 import { TaskForm } from "./task-form";
 import { TaskSidebar } from "./task-sidebar";
 import { TaskDetailPanel } from "./task-detail-panel";
+import { ExportFilterModal } from "./export-filter-modal";
 import { moveTaskStatusAction, getTaskDetailAction } from "@/lib/actions/tasks";
 import { PRIORITY_LABELS, PRIORITY_COLORS, type TaskPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { buildExportRows, exportTasksToCSV, exportTasksToPDF } from "@/lib/export-tasks";
 import { toast } from "sonner";
 import type { TaskWithRelations, TaskSpace } from "@/lib/queries/tasks";
 
@@ -59,6 +59,10 @@ export function TasksBoard({
   const [view, setView] = useState<"kanban" | "tabela">("kanban");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [exportModal, setExportModal] = useState<{ open: boolean; format: "csv" | "pdf" | null }>({
+    open: false,
+    format: null,
+  });
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTaskData, setSelectedTaskData] = useState<{
     task: TaskWithRelations | null;
@@ -177,20 +181,8 @@ export function TasksBoard({
     });
   }
 
-  function handleExportCSV() {
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const spaceName = currentSpace?.space.name ?? "—";
-    const listName = currentSpace?.list.name ?? "—";
-    const rows = buildExportRows(filtered, members, spaceName, listName);
-    exportTasksToCSV(rows, `tarefas-${dateStr}.csv`);
-  }
-
-  function handleExportPDF() {
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const spaceName = currentSpace?.space.name ?? "—";
-    const listName = currentSpace?.list.name ?? "—";
-    const rows = buildExportRows(filtered, members, spaceName, listName);
-    exportTasksToPDF(rows, `Tarefas — ${spaceName} / ${listName}`, `tarefas-${dateStr}.pdf`);
+  function openExportModal(format: "csv" | "pdf") {
+    setExportModal({ open: true, format });
   }
 
   // Abre o painel lateral automaticamente quando se navega com ?taskId= (ex: busca global)
@@ -269,8 +261,8 @@ export function TasksBoard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleExportCSV}>Exportar CSV</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportPDF}>Exportar PDF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openExportModal("csv")}>Exportar CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openExportModal("pdf")}>Exportar PDF</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button onClick={() => setOpen(true)}>
@@ -324,6 +316,16 @@ export function TasksBoard({
         clients={clients}
         members={members.map((m) => ({ id: m.id, label: m.label }))}
         defaultListId={selectedListId}
+      />
+
+      <ExportFilterModal
+        open={exportModal.open}
+        onOpenChange={(isOpen) => setExportModal((prev) => ({ ...prev, open: isOpen }))}
+        format={exportModal.format}
+        tasks={filtered}
+        members={members}
+        spaceName={currentSpace?.space.name ?? "—"}
+        listName={currentSpace?.list.name ?? "—"}
       />
     </div>
   );
@@ -405,7 +407,12 @@ function TaskCard({
       </div>
       <div className="flex-1 min-w-0 flex flex-col justify-between">
         <div>
-          <p className="text-sm font-medium leading-tight">{task.title}</p>
+          <div className="flex items-center gap-1.5">
+            {task.isBlocked && (
+              <Lock className="size-3 shrink-0 text-red-500" aria-label="Bloqueada por dependência" />
+            )}
+            <p className="text-sm font-medium leading-tight truncate">{task.title}</p>
+          </div>
           <div className="mt-2 flex items-center justify-between gap-2 text-xs">
             {task.priority !== "sem_prioridade" && (
               <span className={PRIORITY_COLORS[task.priority as TaskPriority]}>

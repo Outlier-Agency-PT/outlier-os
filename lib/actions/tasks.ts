@@ -9,7 +9,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getTaskTimeLogs } from "@/lib/queries/task-detail";
+import { getTaskTimeLogs, getTaskDependencies } from "@/lib/queries/task-detail";
 import { z } from "zod";
 
 const taskSchema = z.object({
@@ -353,6 +353,43 @@ export async function createSubtaskAction(parentTaskId: string, title: string) {
 
   revalidatePath("/tarefas");
   return { data };
+}
+
+// Dependências entre tarefas
+
+const dependencyTypeSchema = z.enum(["blocks", "blocked_by", "related"]);
+
+export async function addTaskDependencyAction(
+  taskId: string,
+  dependsOnId: string,
+  type: "blocks" | "blocked_by" | "related",
+) {
+  const parsedType = dependencyTypeSchema.safeParse(type);
+  if (!parsedType.success) return { error: "Tipo de dependência inválido" };
+  if (taskId === dependsOnId) return { error: "Uma tarefa não pode depender de si própria" };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("task_dependencies")
+    .insert({ task_id: taskId, depends_on_id: dependsOnId, type: parsedType.data })
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { data };
+}
+
+export async function removeTaskDependencyAction(dependencyId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("task_dependencies").delete().eq("id", dependencyId);
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { success: true };
+}
+
+export async function getTaskDependenciesAction(taskId: string) {
+  return getTaskDependencies(taskId);
 }
 
 export async function getTaskDetailAction(taskId: string) {

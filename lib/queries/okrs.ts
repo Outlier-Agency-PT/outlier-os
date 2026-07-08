@@ -1,5 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 
+export interface KeyResultHistoryEntry {
+  id: string;
+  value: number;
+  recorded_at: string;
+  recorded_by: string | null;
+  recorded_by_name: string | null;
+}
+
 export interface KeyResult {
   id: string;
   objective_id: string;
@@ -72,4 +80,24 @@ export async function getObjectives(filters?: {
       progress,
     };
   });
+}
+
+export async function getKeyResultHistory(krId: string): Promise<KeyResultHistoryEntry[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("key_result_history")
+    .select("id, value, recorded_at, recorded_by, team_members(full_name)")
+    .eq("key_result_id", krId)
+    .order("recorded_at", { ascending: true });
+
+  if (!data) return [];
+
+  return (data as any[]).map((row) => ({
+    id: row.id as string,
+    value: row.value as number,
+    recorded_at: row.recorded_at as string,
+    recorded_by: row.recorded_by as string | null,
+    recorded_by_name:
+      (row.team_members as { full_name: string } | null)?.full_name ?? null,
+  }));
 }

@@ -15,7 +15,7 @@ const EXPORT_HEADERS = [
   "Criado em",
 ];
 
-interface ExportableTask {
+export interface ExportableTask {
   title: string;
   status?: { label: string } | null;
   priority: string;
@@ -24,11 +24,129 @@ interface ExportableTask {
   due_date?: string | null;
   estimate_points?: number | null;
   created_at: string;
+  subtasks?: ExportableTask[] | null;
 }
 
 interface ExportMember {
   id: string;
   label: string;
+}
+
+export type ExportDueDateFilter = "hoje" | "semana" | "mes" | "todas";
+
+export interface ExportFilters {
+  assigneeId: string; // id do membro ou "all"
+  priorities: TaskPriority[];
+  dueDate: ExportDueDateFilter;
+  includeSubtasks: boolean;
+}
+
+export const ALL_EXPORT_PRIORITIES: TaskPriority[] = [
+  "urgente",
+  "alta",
+  "media",
+  "baixa",
+  "sem_prioridade",
+];
+
+export const DEFAULT_EXPORT_FILTERS: ExportFilters = {
+  assigneeId: "all",
+  priorities: ALL_EXPORT_PRIORITIES,
+  dueDate: "todas",
+  includeSubtasks: false,
+};
+
+function toISODate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function matchesDueDateFilter(dueDate: string | null | undefined, filter: ExportDueDateFilter): boolean {
+  if (filter === "todas") return true;
+  if (!dueDate) return false;
+
+  const today = new Date();
+  const todayISO = toISODate(today);
+
+  if (filter === "hoje") {
+    return dueDate === todayISO;
+  }
+
+  if (filter === "semana") {
+    const diffToMonday = (today.getDay() + 6) % 7; // segunda como início da semana
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return dueDate >= toISODate(monday) && dueDate <= toISODate(sunday);
+  }
+
+  // mes
+  return dueDate.slice(0, 7) === todayISO.slice(0, 7);
+}
+
+function taskMatchesFilters(task: ExportableTask, filters: ExportFilters): boolean {
+  if (filters.assigneeId !== "all") {
+    const assigneeIds = task.assignees && task.assignees.length > 0
+      ? task.assignees
+      : task.assignee_id
+        ? [task.assignee_id]
+        : [];
+    if (!assigneeIds.includes(filters.assigneeId)) return false;
+  }
+
+  if (!filters.priorities.includes(task.priority as TaskPriority)) return false;
+
+  if (!matchesDueDateFilter(task.due_date, filters.dueDate)) return false;
+
+  return true;
+}
+
+/** Filtra as tarefas e, se pedido, junta as subtarefas de cada tarefa incluída (com indentação no título). */
+export function applyExportFilters(tasks: ExportableTask[], filters: ExportFilters): ExportableTask[] {
+  const result: ExportableTask[] = [];
+
+  for (const task of tasks) {
+    if (!taskMatchesFilters(task, filters)) continue;
+
+    result.push(task);
+
+    if (filters.includeSubtasks && task.subtasks && task.subtasks.length > 0) {
+      for (const subtask of task.subtasks) {
+        result.push({ ...subtask, title: `  → ${subtask.title}` });
+      }
+    }
+  }
+
+  return result;
+}
+
+function slugify(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Gera o nome do ficheiro incluindo o filtro dominante (responsável > data). */
+export function buildExportFilename(
+  extension: "csv" | "pdf",
+  filters: ExportFilters,
+  members: ExportMember[],
+): string {
+  const dateStr = toISODate(new Date());
+
+  let scope = "tarefas";
+  if (filters.assigneeId !== "all") {
+    const memberName = members.find((m) => m.id === filters.assigneeId)?.label ?? "responsavel";
+    scope = `tarefas-${slugify(memberName)}`;
+  } else if (filters.dueDate !== "todas") {
+    scope = `tarefas-${filters.dueDate}`;
+  }
+
+  return `${scope}-${dateStr}.${extension}`;
 }
 
 export function buildExportRows(

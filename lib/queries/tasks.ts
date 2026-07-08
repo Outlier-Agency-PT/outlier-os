@@ -5,6 +5,7 @@ export interface TaskWithRelations extends Task {
   status: { id: string; key: string; label: string; color: string } | null;
   client: { id: string; name: string } | null;
   assignee: { id: string; full_name: string; email: string } | null;
+  isBlocked?: boolean;
 }
 
 export interface TaskSpace {
@@ -153,6 +154,27 @@ export async function getTasksByList(listId: string): Promise<TaskWithHierarchy[
       ...rootTask,
       subtasks: (subtasks ?? []) as TaskWithHierarchy[],
     });
+  }
+
+  // Marcar tarefas bloqueadas por dependências 'blocked_by' cuja tarefa
+  // bloqueadora ainda não foi concluída (para o cadeado no card do kanban)
+  const allTaskIds = tasksWithSubtasks.map((t) => t.id);
+  if (allTaskIds.length > 0) {
+    const { data: blockingDeps } = await supabase
+      .from("task_dependencies")
+      .select("task_id, depends_on:tasks!task_dependencies_depends_on_id_fkey(completed_at)")
+      .in("task_id", allTaskIds)
+      .eq("type", "blocked_by");
+
+    const blockedIds = new Set(
+      (blockingDeps ?? [])
+        .filter((d: any) => !d.depends_on?.completed_at)
+        .map((d: any) => d.task_id as string),
+    );
+
+    for (const task of tasksWithSubtasks) {
+      task.isBlocked = blockedIds.has(task.id);
+    }
   }
 
   return tasksWithSubtasks as TaskWithHierarchy[];
