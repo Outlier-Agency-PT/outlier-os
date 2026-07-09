@@ -2,7 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckSquare, Users, Rocket } from "lucide-react";
+import {
+  CheckSquare,
+  Users,
+  Rocket,
+  LayoutDashboard,
+  CalendarDays,
+  Copy,
+  Target,
+  GraduationCap,
+  Plus,
+  UserPlus,
+  PlusCircle,
+} from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -28,6 +40,23 @@ interface Props {
 }
 
 const EMPTY_RESULTS: GlobalSearchResults = { tasks: [], clients: [], launches: [] };
+
+const NAV_ACTIONS = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Tarefas", href: "/tarefas", icon: CheckSquare },
+  { label: "Calendário", href: "/tarefas/calendario", icon: CalendarDays },
+  { label: "Templates", href: "/tarefas/templates", icon: Copy },
+  { label: "Clientes", href: "/clientes", icon: Users },
+  { label: "OKRs", href: "/okrs", icon: Target },
+  { label: "Incubadora", href: "/incubadora", icon: GraduationCap },
+  { label: "Lançamentos", href: "/lancamentos", icon: Rocket },
+] as const;
+
+const CREATE_ACTIONS = [
+  { label: "Nova Tarefa", href: "/tarefas?new=task", icon: Plus },
+  { label: "Novo Cliente", href: "/clientes?new=true", icon: UserPlus },
+  { label: "Novo Objetivo (OKR)", href: "/okrs?new=true", icon: PlusCircle },
+] as const;
 
 export function GlobalSearchDialog({ open, onOpenChange }: Props) {
   const router = useRouter();
@@ -65,6 +94,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: Props) {
     return () => clearTimeout(timeout);
   }, [query]);
 
+  function navigate(href: string) {
+    router.push(href);
+    onOpenChange(false);
+  }
+
   function handleSelectTask(task: TaskSearchResult) {
     const params = new URLSearchParams({ taskId: task.id });
     if (task.list?.id) params.set("list", task.list.id);
@@ -82,25 +116,62 @@ export function GlobalSearchDialog({ open, onOpenChange }: Props) {
     onOpenChange(false);
   }
 
-  const showEmptyState = query.trim() === "";
-  const showLoading = !showEmptyState && loading;
-  const hasResults = results.tasks.length > 0 || results.clients.length > 0 || results.launches.length > 0;
-  const showNoResults = !showEmptyState && !loading && !hasResults;
+  const isEmpty = query.trim() === "";
+  const showLoading = !isEmpty && loading;
+  const hasResults =
+    results.tasks.length > 0 || results.clients.length > 0 || results.launches.length > 0;
+  const showNoResults = !isEmpty && !loading && !hasResults;
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
         value={query}
         onValueChange={setQuery}
-        placeholder="Pesquisar tarefas, clientes, lançamentos..."
+        placeholder="Pesquisar ou navegar..."
       />
       <CommandList>
-        {showEmptyState && (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Pesquisar tarefas, clientes, lançamentos...
-          </p>
+        {/* ── Estado vazio: grupos de navegação e criação ── */}
+        {isEmpty && (
+          <>
+            <CommandGroup heading="Navegar para">
+              {NAV_ACTIONS.map(({ label, href, icon: Icon }) => (
+                <CommandItem
+                  key={href}
+                  value={`nav-${href}`}
+                  onSelect={() => navigate(href)}
+                  className="flex items-center gap-2"
+                >
+                  <Icon className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 text-sm">{label}</span>
+                  <kbd className="hidden sm:inline-flex items-center rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    ↵
+                  </kbd>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+
+            <div className="-mx-1 my-1 h-px bg-border" />
+
+            <CommandGroup heading="Criar">
+              {CREATE_ACTIONS.map(({ label, href, icon: Icon }) => (
+                <CommandItem
+                  key={href}
+                  value={`create-${href}`}
+                  onSelect={() => navigate(href)}
+                  className="flex items-center gap-2"
+                >
+                  <Icon className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 text-sm">{label}</span>
+                  <kbd className="hidden sm:inline-flex items-center rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    ↵
+                  </kbd>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
         )}
 
+        {/* ── A carregar ── */}
         {showLoading && (
           <div className="space-y-2 p-2">
             {[0, 1, 2].map((i) => (
@@ -109,9 +180,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: Props) {
           </div>
         )}
 
+        {/* ── Sem resultados ── */}
         {showNoResults && <CommandEmpty>Nenhum resultado encontrado</CommandEmpty>}
 
-        {!showEmptyState && !loading && results.tasks.length > 0 && (
+        {/* ── Resultados: Tarefas ── */}
+        {!isEmpty && !loading && results.tasks.length > 0 && (
           <CommandGroup heading="Tarefas">
             {results.tasks.map((task) => (
               <CommandItem
@@ -136,7 +209,9 @@ export function GlobalSearchDialog({ open, onOpenChange }: Props) {
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {task.status && <StatusBadge label={task.status.label} color={task.status.color} />}
+                    {task.status && (
+                      <StatusBadge label={task.status.label} color={task.status.color} />
+                    )}
                     {task.list && (
                       <span className="truncate">
                         {task.list.space ? `${task.list.space.name} / ` : ""}
@@ -155,7 +230,8 @@ export function GlobalSearchDialog({ open, onOpenChange }: Props) {
           </CommandGroup>
         )}
 
-        {!showEmptyState && !loading && results.clients.length > 0 && (
+        {/* ── Resultados: Clientes ── */}
+        {!isEmpty && !loading && results.clients.length > 0 && (
           <CommandGroup heading="Clientes">
             {results.clients.map((client) => (
               <CommandItem
@@ -167,14 +243,19 @@ export function GlobalSearchDialog({ open, onOpenChange }: Props) {
                 <Users className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="truncate text-sm font-medium">{client.name}</span>
                 {client.status && (
-                  <StatusBadge label={client.status.label} color={client.status.color} className="ml-auto shrink-0" />
+                  <StatusBadge
+                    label={client.status.label}
+                    color={client.status.color}
+                    className="ml-auto shrink-0"
+                  />
                 )}
               </CommandItem>
             ))}
           </CommandGroup>
         )}
 
-        {!showEmptyState && !loading && results.launches.length > 0 && (
+        {/* ── Resultados: Lançamentos ── */}
+        {!isEmpty && !loading && results.launches.length > 0 && (
           <CommandGroup heading="Lançamentos">
             {results.launches.map((launch) => (
               <CommandItem
@@ -186,7 +267,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: Props) {
                 <Rocket className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="truncate text-sm font-medium">{launch.name}</span>
                 {launch.status && (
-                  <StatusBadge label={launch.status.label} color={launch.status.color} className="ml-auto shrink-0" />
+                  <StatusBadge
+                    label={launch.status.label}
+                    color={launch.status.color}
+                    className="ml-auto shrink-0"
+                  />
                 )}
               </CommandItem>
             ))}

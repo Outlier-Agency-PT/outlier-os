@@ -9,7 +9,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getTaskTimeLogs, getTaskDependencies } from "@/lib/queries/task-detail";
+import { getTaskTimeLogs, getTaskDependencies, getActivityForTask } from "@/lib/queries/task-detail";
 import { z } from "zod";
 
 const taskSchema = z.object({
@@ -274,6 +274,10 @@ export async function logTimeManualAction(
 
 export async function getTaskTimeLogsAction(taskId: string) {
   return getTaskTimeLogs(taskId);
+}
+
+export async function getTaskActivityAction(taskId: string) {
+  return getActivityForTask(taskId);
 }
 
 // Hierarchy actions

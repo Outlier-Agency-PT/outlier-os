@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Plus, Trash2, Lock } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { ChevronDown, ChevronRight, Plus, Trash2, Lock, LayoutTemplate, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createTaskSpaceAction, createTaskListAction } from "@/lib/actions/tasks";
@@ -17,6 +17,7 @@ interface TaskSidebarProps {
 
 export function TaskSidebar({ spaces, selectedListId }: TaskSidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [expandedSpaces, setExpandedSpaces] = useState<Set<string>>(
     new Set([spaces[0]?.id]) // Abrir primeiro espaço por defeito
   );
@@ -74,6 +75,36 @@ export function TaskSidebar({ spaces, selectedListId }: TaskSidebarProps) {
 
   return (
     <div className="w-56 border-r bg-muted/20 p-4 space-y-3">
+      {/* Link para templates */}
+      <button
+        onClick={() => router.push("/tarefas/templates")}
+        className={cn(
+          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
+          pathname === "/tarefas/templates"
+            ? "bg-brand text-white"
+            : "hover:bg-accent text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <LayoutTemplate className="size-3.5 shrink-0" />
+        Templates
+      </button>
+
+      {/* Link para calendário global */}
+      <button
+        onClick={() => router.push("/tarefas/calendario")}
+        className={cn(
+          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
+          pathname === "/tarefas/calendario"
+            ? "bg-brand text-white"
+            : "hover:bg-accent text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <CalendarDays className="size-3.5 shrink-0" />
+        Calendário
+      </button>
+
+      <div className="border-t" />
+
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Espaços</h3>
         <Button

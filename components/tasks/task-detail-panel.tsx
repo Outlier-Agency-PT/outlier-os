@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Trash2, Play, Square, Maximize2, Minimize2 } from "lucide-react";
+import { X, Trash2, Play, Square, Maximize2, Minimize2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,11 +25,12 @@ import {
   stopTimerAction,
   logTimeManualAction,
   getTaskTimeLogsAction,
+  getTaskActivityAction,
 } from "@/lib/actions/tasks";
 import { formatDuration, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
 import type { TaskWithHierarchy } from "@/lib/queries/tasks";
-import type { TaskComment, TimeLogWithMember } from "@/lib/queries/task-detail";
+import type { TaskComment, TimeLogWithMember, TaskActivity } from "@/lib/queries/task-detail";
 
 function formatElapsed(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -83,6 +84,24 @@ export function TaskDetailPanel({
   }, [task?.id]);
 
   const runningLog = timeLogs.find((l) => !l.end_at) ?? null;
+
+  const [activityLog, setActivityLog] = useState<TaskActivity[]>([]);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  async function loadActivity() {
+    if (activityLog.length > 0) return;
+    setActivityLoading(true);
+    const entries = await getTaskActivityAction(task.id);
+    setActivityLog(entries);
+    setActivityLoading(false);
+  }
+
+  function handleActivityToggle() {
+    const next = !activityOpen;
+    setActivityOpen(next);
+    if (next) loadActivity();
+  }
 
   useEffect(() => {
     if (!runningLog) return;
@@ -342,6 +361,38 @@ export function TaskDetailPanel({
     </div>
   );
 
+  const historySection = (
+    <div className="border-t pt-4">
+      <button
+        type="button"
+        onClick={handleActivityToggle}
+        className="flex w-full items-center justify-between text-xs font-semibold"
+      >
+        <span>Histórico</span>
+        {activityOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+      </button>
+
+      {activityOpen && (
+        <div className="mt-3 space-y-3">
+          {activityLoading ? (
+            <p className="text-xs text-muted-foreground">A carregar…</p>
+          ) : activityLog.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Sem actividade registada.</p>
+          ) : (
+            activityLog.map((entry) => (
+              <div key={entry.id} className="text-xs leading-snug">
+                <span className="font-medium">{entry.member?.full_name ?? "Alguém"}</span>
+                {" "}
+                <span className="text-muted-foreground">{entry.description}</span>
+                <span className="text-muted-foreground"> · {formatRelative(entry.created_at)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   const subtasksSection = (
     <div className="border-t pt-4">
       <SubtasksList task={form} statuses={statuses} />
@@ -498,6 +549,7 @@ export function TaskDetailPanel({
                 {subtasksSection}
                 {dependenciesSection}
                 {commentsSection}
+                {historySection}
               </div>
               <div className="space-y-6 overflow-y-auto px-6 py-4">
                 {statusField}
@@ -526,6 +578,7 @@ export function TaskDetailPanel({
             {subtasksSection}
             {dependenciesSection}
             {commentsSection}
+            {historySection}
             {timeTrackingSection}
           </div>
         </div>

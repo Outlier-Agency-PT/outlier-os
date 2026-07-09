@@ -8,6 +8,7 @@ import { FocusWeek } from "@/components/dashboard/focus-week";
 import { PendingDecisions } from "@/components/dashboard/pending-decisions";
 import { ColaboradorDashboard } from "@/components/dashboard/colaborador/colaborador-dashboard";
 import { DepartmentMetrics } from "@/components/dashboard/department-metrics";
+import { AdminCheckpoints } from "@/components/dashboard/admin-checkpoints";
 import {
   getMyOpenTasks,
   getConcludedStatusId,
@@ -21,6 +22,11 @@ import {
   getContentsPublishedThisMonth,
   getLaunchesDeliveredThisMonth,
 } from "@/lib/queries/dashboard-departments";
+import {
+  getThisWeekCheckpoint,
+  getCheckpointStatus,
+  getCurrentWeekStart,
+} from "@/lib/queries/checkpoints";
 import { formatRelative } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +47,9 @@ export default async function DashboardPage() {
   const isAdmin = member?.role === "admin";
 
   if (!isAdmin) {
-    const [tasks, concludedStatusId, standup, weekMinutes, runningLog, recentLogs] =
+    const weekStart = getCurrentWeekStart();
+
+    const [tasks, concludedStatusId, standup, weekMinutes, runningLog, recentLogs, checkpoint] =
       await Promise.all([
         user ? getMyOpenTasks(user.id) : Promise.resolve([]),
         getConcludedStatusId(),
@@ -49,7 +57,15 @@ export default async function DashboardPage() {
         user ? getWeekTimeMinutes(user.id) : Promise.resolve(0),
         user ? getMyRunningTimeLog(user.id) : Promise.resolve(null),
         user ? getMyRecentTimeLogs(user.id) : Promise.resolve([]),
+        user ? getThisWeekCheckpoint(user.id) : Promise.resolve(null),
       ]);
+
+    const monday = new Date(weekStart + "T12:00:00Z");
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("pt-PT", { day: "numeric", month: "long", timeZone: "UTC" });
+    const weekLabel = `Semana de ${fmt(monday)} a ${fmt(friday)}`;
 
     return (
       <>
@@ -61,6 +77,8 @@ export default async function DashboardPage() {
           weekMinutes={weekMinutes}
           runningLog={runningLog}
           recentLogs={recentLogs}
+          checkpoint={checkpoint}
+          weekLabel={weekLabel}
         />
       </>
     );
@@ -139,11 +157,14 @@ export default async function DashboardPage() {
     },
   ];
 
-  const [departmentTaskCounts, contentsPublished, launchesDelivered] = await Promise.all([
-    getDepartmentTaskCounts(),
-    getContentsPublishedThisMonth(),
-    getLaunchesDeliveredThisMonth(),
-  ]);
+  const adminWeekStart = getCurrentWeekStart();
+  const [departmentTaskCounts, contentsPublished, launchesDelivered, adminCheckpointStatuses] =
+    await Promise.all([
+      getDepartmentTaskCounts(),
+      getContentsPublishedThisMonth(),
+      getLaunchesDeliveredThisMonth(),
+      getCheckpointStatus(adminWeekStart),
+    ]);
 
   const focusCount = focusInitiatives.length;
   const pendingCount = decisions.filter((d) => d.status === "pendente").length;
@@ -249,6 +270,14 @@ export default async function DashboardPage() {
               ))}
             </ul>
           )}
+        </div>
+
+        {/* Checkpoints da Equipa */}
+        <div className="w-full border border-border bg-card px-4 py-1 md:px-6">
+          <AdminCheckpoints
+            initialWeekStart={adminWeekStart}
+            initialStatuses={adminCheckpointStatuses}
+          />
         </div>
 
       </div>

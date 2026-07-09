@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Trash2, History, Info } from "lucide-react";
 import {
   LineChart,
@@ -62,7 +62,16 @@ interface Props {
 
 export function OkrsView({ objectives, selectedQuarter, selectedYear }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+
+  // Abre o dialog de novo objetivo quando vem do Command Palette (?new=true)
+  useEffect(() => {
+    if (searchParams.get("new") !== "true") return;
+    setCreateOpen(true);
+    router.replace(`/okrs?q=${selectedQuarter}&y=${selectedYear}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function setQuarter(q: string) {
     const params = new URLSearchParams();

@@ -4,6 +4,7 @@ import { getTasks, getTaskSpaces, getTasksByList } from "@/lib/queries/tasks";
 import { getStatuses } from "@/lib/queries/statuses";
 import { getClients } from "@/lib/queries/clients";
 import { getTeamMembers } from "@/lib/queries/team";
+import { getTaskTemplates } from "@/lib/queries/templates";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +18,14 @@ export default async function TarefasPage(props: {
   const DEFAULT_LIST_ID = "00000000-0000-0000-0000-000000000011";
   const listId = selectedListId || DEFAULT_LIST_ID;
 
-  const [tasks, statuses, clients, members, spaces, listTasks] = await Promise.all([
+  const [tasks, statuses, clients, members, spaces, listTasks, templates] = await Promise.all([
     getTasks(),
     getStatuses("task_statuses"),
     getClients(),
     getTeamMembers(),
     getTaskSpaces(),
     getTasksByList(listId),
+    getTaskTemplates(),
   ]);
 
   return (
@@ -41,6 +43,7 @@ export default async function TarefasPage(props: {
         members={members.map((m) => ({ id: m.id, label: m.full_name, email: m.email ?? "" }))}
         spaces={spaces}
         selectedListId={listId}
+        templates={templates}
       />
     </>
   );

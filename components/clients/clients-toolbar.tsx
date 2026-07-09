@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, LayoutGrid, Table as TableIcon, Columns3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +27,17 @@ export function ClientsToolbar({
   statuses,
   members,
 }: ToolbarProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
+
+  // Abre o form de novo cliente quando vem do Command Palette (?new=true)
+  useEffect(() => {
+    if (searchParams.get("new") !== "true") return;
+    setOpen(true);
+    router.replace("/clientes", { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

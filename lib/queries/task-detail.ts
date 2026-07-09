@@ -1,6 +1,67 @@
 import { createClient } from "@/lib/supabase/server";
 import type { TimeLog } from "@/lib/types";
 
+export interface TaskActivity {
+  id: string;
+  member_id: string | null;
+  action: string;
+  entity_label: string | null;
+  metadata: Record<string, string> | null;
+  created_at: string;
+  member: { full_name: string } | null;
+  description: string;
+}
+
+const PRIORITY_LABELS: Record<string, string> = {
+  sem_prioridade: "sem prioridade",
+  baixa: "baixa",
+  media: "média",
+  alta: "alta",
+  urgente: "urgente",
+};
+
+function describeTaskActivity(action: string, metadata: Record<string, string> | null): string {
+  if (action === "created") return "criou a tarefa";
+  if (action === "deleted") return "eliminou a tarefa";
+  if (action === "updated" && metadata?.field) {
+    const from = metadata.from ?? "—";
+    const to = metadata.to ?? "—";
+    switch (metadata.field) {
+      case "status_id":
+        return `mudou o estado de "${from}" para "${to}"`;
+      case "priority":
+        return `mudou a prioridade de "${PRIORITY_LABELS[from] ?? from}" para "${PRIORITY_LABELS[to] ?? to}"`;
+      case "due_date":
+        return `mudou a data limite de ${from === "null" || !from ? "nenhuma" : from} para ${to === "null" || !to ? "nenhuma" : to}`;
+      case "estimate_points":
+        return `mudou a estimativa de ${from} para ${to}`;
+      case "assignees":
+        return "actualizou os responsáveis";
+      case "list_id":
+        return "moveu a tarefa para outra lista";
+      default:
+        return `actualizou ${metadata.field}`;
+    }
+  }
+  return "actualizou a tarefa";
+}
+
+export async function getActivityForTask(taskId: string): Promise<TaskActivity[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("activity_log")
+    .select(`*, member:team_members(full_name)`)
+    .eq("entity_type", "tasks")
+    .eq("entity_id", taskId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  return ((data ?? []) as any[]).map((row) => ({
+    ...row,
+    description: describeTaskActivity(row.action, row.metadata),
+  })) as TaskActivity[];
+}
+
 export interface TaskComment {
   id: string;
   task_id: string;
