@@ -25,9 +25,10 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/login");
   const isPublicShare = pathname.startsWith("/share");
+  const isConvite = pathname.startsWith("/convite");
 
   // Sem user → /login
-  if (!user && !isAuthRoute && !isPublicShare && pathname !== "/") {
+  if (!user && !isAuthRoute && !isPublicShare && !isConvite && pathname !== "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
