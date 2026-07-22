@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRoles } from "@/lib/supabase/roles";
 import { getUnreadNotificationCount } from "@/lib/queries/notifications";
 import { AppShell } from "@/components/layout/app-shell";
 
@@ -12,8 +11,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user) redirect("/login");
 
-  const roles = await getUserRoles();
-  const isAluno = roles.includes("aluno") && !roles.includes("admin") && !roles.includes("funcionario");
+  const { data: student } = await supabase
+    .from("students")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const isAluno = !!student;
 
   if (isAluno) {
     return <>{children}</>;
