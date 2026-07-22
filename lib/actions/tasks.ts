@@ -26,6 +26,7 @@ const taskSchema = z.object({
   parent_task_id: z.string().uuid().nullable().optional(),
   assignees: z.array(z.string().uuid()).optional(),
   position: z.number().optional(),
+  completed_at: z.string().nullable().optional(),
 });
 
 export type TaskInput = z.infer<typeof taskSchema>;

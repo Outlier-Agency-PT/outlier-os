@@ -41,7 +41,7 @@ export function SubtasksList({ task, statuses }: SubtasksListProps) {
   async function handleToggleComplete(subtaskId: string, isCompleted: boolean) {
     setLoadingIds((prev) => new Set([...prev, subtaskId]));
     const completedAt = isCompleted ? null : new Date().toISOString();
-    const result = await updateTaskAction(subtaskId, { completed_at: completedAt });
+    const result = await updateTaskAction(subtaskId, { completed_at: completedAt } as any);
     setLoadingIds((prev) => {
       const next = new Set(prev);
       next.delete(subtaskId);
