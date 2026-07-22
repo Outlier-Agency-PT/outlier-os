@@ -227,7 +227,7 @@ export function TaskForm({
                             key={id}
                             className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs"
                           >
-                            <AvatarDisplay name={member.label} size="xs" />
+                            <AvatarDisplay name={member.label} size={"xs" as any} />
                             <span>{member.label}</span>
                             <button
                               type="button"

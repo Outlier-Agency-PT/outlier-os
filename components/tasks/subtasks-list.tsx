@@ -104,7 +104,7 @@ export function SubtasksList({ task, statuses }: SubtasksListProps) {
 
       {expanded && (
         <div className="ml-2 space-y-2 border-l pl-3">
-          {subtasks.map((subtask) => {
+          {subtasks.map((subtask: any) => {
             const isCompleted = !!subtask.completed_at;
             const isLoading = loadingIds.has(subtask.id);
 

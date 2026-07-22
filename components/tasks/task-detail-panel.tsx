@@ -173,7 +173,7 @@ export function TaskDetailPanel({
   }
 
   async function handleUpdate(key: string, value: any) {
-    setForm((prev) => prev ? { ...prev, [key]: value } : null);
+    setForm((prev: any) => prev ? { ...prev, [key]: value } : null);
 
     setLoading(true);
     const result = await updateTaskAction(task.id, { [key]: value } as any);
@@ -181,7 +181,7 @@ export function TaskDetailPanel({
 
     if ("error" in result && result.error) {
       toast.error("Erro ao atualizar tarefa");
-      setForm((prev) => prev ? { ...prev, [key]: (task as any)[key] } : null);
+      setForm((prev: any) => prev ? { ...prev, [key]: (task as any)[key] } : null);
     } else {
       toast.success("Tarefa atualizada");
       onTaskUpdate?.(key, value);
@@ -369,7 +369,7 @@ export function TaskDetailPanel({
                 checked={isAssigned}
                 onChange={(e) => {
                   const newAssignees = isAssigned
-                    ? (form.assignees ?? []).filter((id) => id !== member.id)
+                    ? (form.assignees ?? []).filter((id: any) => id !== member.id)
                     : [...(form.assignees ?? []), member.id];
                   handleUpdate("assignees", newAssignees);
                 }}
