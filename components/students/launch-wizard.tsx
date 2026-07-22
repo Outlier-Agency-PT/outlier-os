@@ -785,7 +785,7 @@ export function LaunchWizard({
                           [form.cart_open_date, "Abertura"],
                           [form.cart_close_date, "Fecho"],
                           form.has_downsell ? [form.downsell_start_date, "Downsell"] : null,
-                        ].filter(Boolean).filter(([d]) => !!d).map(([date, label], i) => (
+                        ].filter((item): item is [string, string] => Array.isArray(item) && !!item[0]).map(([date, label], i) => (
                           <span key={i} className="flex items-center gap-1.5">
                             {i > 0 && <span className="text-muted-foreground/40">→</span>}
                             <span className="rounded bg-muted px-1.5 py-0.5">
