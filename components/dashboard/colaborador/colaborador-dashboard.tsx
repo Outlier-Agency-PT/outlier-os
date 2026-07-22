@@ -1,10 +1,9 @@
 import { MyDay } from "./my-day";
 import { DailyStandupCard } from "./daily-standup";
 import { MyHours } from "./my-hours";
-import { WeeklyCheckpointCard } from "./weekly-checkpoint";
+import { CheckpointSummaryCard } from "./weekly-checkpoint";
 import type { TaskWithRelations } from "@/lib/queries/tasks";
 import type { DailyStandup, TimeLogWithTask } from "@/lib/queries/dashboard-colaborador";
-import type { WeeklyCheckpoint } from "@/lib/queries/checkpoints";
 
 interface Props {
   tasks: TaskWithRelations[];
@@ -13,8 +12,6 @@ interface Props {
   weekMinutes: number;
   runningLog: TimeLogWithTask | null;
   recentLogs: TimeLogWithTask[];
-  checkpoint: WeeklyCheckpoint | null;
-  weekLabel: string;
 }
 
 export function ColaboradorDashboard({
@@ -24,8 +21,6 @@ export function ColaboradorDashboard({
   weekMinutes,
   runningLog,
   recentLogs,
-  checkpoint,
-  weekLabel,
 }: Props) {
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8">
@@ -34,7 +29,7 @@ export function ColaboradorDashboard({
           <MyDay tasks={tasks} concludedStatusId={concludedStatusId} />
         </div>
         <div className="w-full overflow-hidden bg-card px-4 py-1 md:px-6">
-          <WeeklyCheckpointCard checkpoint={checkpoint} weekLabel={weekLabel} />
+          <CheckpointSummaryCard />
         </div>
       </div>
 

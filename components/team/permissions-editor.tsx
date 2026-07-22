@@ -35,7 +35,7 @@ export function PermissionsEditor({ member, open, onOpenChange }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<MemberRole>(member.role);
-  const [department, setDepartment] = useState(member.department ?? "");
+  const [department, setDepartment] = useState(member.department ?? "none");
   const [jobTitle, setJobTitle] = useState(member.job_title ?? "");
   const [perms, setPerms] = useState<string[]>(member.permissions_modules ?? []);
 
@@ -58,7 +58,7 @@ export function PermissionsEditor({ member, open, onOpenChange }: Props) {
     setLoading(true);
     const result = await updateMemberAction(member.id, {
       role,
-      department: department || null,
+      department: department === "none" ? null : department || null,
       job_title: jobTitle || null,
       permissions_modules: role === "admin" ? [] : perms,
     });
@@ -103,12 +103,21 @@ export function PermissionsEditor({ member, open, onOpenChange }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="dept">Departamento</Label>
-              <Input
-                id="dept"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                placeholder="Operações, Conteúdo, etc"
-              />
+              <Select value={department} onValueChange={setDepartment}>
+                <SelectTrigger id="dept">
+                  <SelectValue placeholder="Sem departamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem departamento</SelectItem>
+                  <SelectItem value="trafego">Tráfego</SelectItem>
+                  <SelectItem value="incubadora">Incubadora</SelectItem>
+                  <SelectItem value="vendas">Vendas e Leads</SelectItem>
+                  <SelectItem value="desenvolvimento">Desenvolvimento</SelectItem>
+                  <SelectItem value="gestao">Gestão</SelectItem>
+                  <SelectItem value="operacoes">Operações</SelectItem>
+                  <SelectItem value="conteudo">Conteúdo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="col-span-2 space-y-1.5">
               <Label htmlFor="job">Cargo</Label>

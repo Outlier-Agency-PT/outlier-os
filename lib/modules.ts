@@ -16,6 +16,7 @@ import {
   Lightbulb,
   Gauge,
   PenLine,
+  CalendarCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +25,7 @@ export type ModuleKey =
   | "iniciativas"
   | "decisoes"
   | "mentorias"
+  | "reuniao-semanal"
   | "clientes"
   | "tarefas"
   | "whiteboard"
@@ -63,6 +65,7 @@ export const MODULES: ModuleDef[] = [
   { key: "mentorias", label: "Mentorias", href: "/mentorias", icon: Lightbulb, section: "estrategia" },
 
   // OPERACIONAL
+  { key: "reuniao-semanal", label: "Reunião Semanal", href: "/reuniao-semanal", icon: CalendarCheck, section: "operacional" },
   { key: "clientes", label: "Clientes", href: "/clientes", icon: Users, section: "operacional" },
   { key: "tarefas", label: "Tarefas", href: "/tarefas", icon: CheckSquare, section: "operacional" },
   { key: "whiteboard", label: "Whiteboard", href: "/whiteboard", icon: PenLine, section: "operacional" },

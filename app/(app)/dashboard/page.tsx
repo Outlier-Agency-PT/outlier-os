@@ -22,11 +22,8 @@ import {
   getContentsPublishedThisMonth,
   getLaunchesDeliveredThisMonth,
 } from "@/lib/queries/dashboard-departments";
-import {
-  getThisWeekCheckpoint,
-  getCheckpointStatus,
-  getCurrentWeekStart,
-} from "@/lib/queries/checkpoints";
+import { getWeeklyCheckpoints } from "@/lib/actions/checkpoints";
+import { getWeekStart } from "@/lib/utils/week-utils";
 import { getStudentsWithRenewalAlerts } from "@/lib/queries/students";
 import { formatRelative } from "@/lib/utils";
 import Link from "next/link";
@@ -49,9 +46,7 @@ export default async function DashboardPage() {
   const isAdmin = member?.role === "admin";
 
   if (!isAdmin) {
-    const weekStart = getCurrentWeekStart();
-
-    const [tasks, concludedStatusId, standup, weekMinutes, runningLog, recentLogs, checkpoint] =
+    const [tasks, concludedStatusId, standup, weekMinutes, runningLog, recentLogs] =
       await Promise.all([
         user ? getMyOpenTasks(user.id) : Promise.resolve([]),
         getConcludedStatusId(),
@@ -59,15 +54,7 @@ export default async function DashboardPage() {
         user ? getWeekTimeMinutes(user.id) : Promise.resolve(0),
         user ? getMyRunningTimeLog(user.id) : Promise.resolve(null),
         user ? getMyRecentTimeLogs(user.id) : Promise.resolve([]),
-        user ? getThisWeekCheckpoint(user.id) : Promise.resolve(null),
       ]);
-
-    const monday = new Date(weekStart + "T12:00:00Z");
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const fmt = (d: Date) =>
-      d.toLocaleDateString("pt-PT", { day: "numeric", month: "long", timeZone: "UTC" });
-    const weekLabel = `Semana de ${fmt(monday)} a ${fmt(friday)}`;
 
     return (
       <>
@@ -79,8 +66,6 @@ export default async function DashboardPage() {
           weekMinutes={weekMinutes}
           runningLog={runningLog}
           recentLogs={recentLogs}
-          checkpoint={checkpoint}
-          weekLabel={weekLabel}
         />
       </>
     );
@@ -160,14 +145,19 @@ export default async function DashboardPage() {
     },
   ];
 
-  const adminWeekStart = getCurrentWeekStart();
-  const [departmentTaskCounts, contentsPublished, launchesDelivered, adminCheckpointStatuses] =
+  const adminWeekStart = getWeekStart();
+  const [departmentTaskCounts, contentsPublished, launchesDelivered, adminCheckpoints] =
     await Promise.all([
       getDepartmentTaskCounts(),
       getContentsPublishedThisMonth(),
       getLaunchesDeliveredThisMonth(),
-      getCheckpointStatus(adminWeekStart),
+      getWeeklyCheckpoints(adminWeekStart),
     ]);
+  const adminFriday = new Date(adminWeekStart);
+  adminFriday.setDate(adminWeekStart.getDate() + 4);
+  const fmtD = (d: Date) =>
+    d.toLocaleDateString("pt-PT", { day: "numeric", month: "long" });
+  const adminWeekLabel = `${fmtD(adminWeekStart)} a ${fmtD(adminFriday)}`;
 
   const focusCount = focusInitiatives.length;
   const pendingCount = decisions.filter((d) => d.status === "pendente").length;
@@ -323,8 +313,8 @@ export default async function DashboardPage() {
         {/* Checkpoints da Equipa */}
         <div className="w-full border border-border bg-card px-4 py-1 md:px-6">
           <AdminCheckpoints
-            initialWeekStart={adminWeekStart}
-            initialStatuses={adminCheckpointStatuses}
+            checkpoints={adminCheckpoints}
+            weekLabel={adminWeekLabel}
           />
         </div>
 

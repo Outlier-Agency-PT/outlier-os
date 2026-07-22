@@ -17,10 +17,13 @@ const studentSchema = z.object({
   level: z.enum(["aprendiz", "fazedor", "referencia", "suspenso"]).default("aprendiz"),
   turma: z.string().nullable().optional(),
   entry_type: z.string().nullable().optional(),
+  status: z.string().nullable().optional(),
   start_date: z.string().nullable().optional(),
   end_date: z.string().nullable().optional(),
   briefing: z.string().nullable().optional(),
   mindmap_url: z.string().url().nullable().optional().or(z.literal("")),
+  motivation: z.string().nullable().optional(),
+  priority: z.enum(["alta", "media", "baixa"]).nullable().optional(),
 });
 
 export type StudentInput = z.infer<typeof studentSchema>;

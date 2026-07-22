@@ -34,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -171,8 +172,14 @@ export function StudentDetailClient({
   const [profileForm, setProfileForm] = useState({
     instagram: student.instagram ?? "",
     mindmap_url: student.mindmap_url ?? "",
+    coach_id: student.coach_id ?? "",
+    status: student.status ?? "ativo",
+    start_date: student.start_date ?? "",
+    motivation: student.motivation ?? "",
+    priority: student.priority ?? "",
   });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; full_name: string }[]>([]);
 
   // ── Financial ─────────────────────────────────────────────────────────────
   const [editingFinancial, setEditingFinancial] = useState(false);
@@ -261,6 +268,17 @@ export function StudentDetailClient({
       .finally(() => setLoadingMilestones(false));
   }, [studentId, isStaff]);
 
+  useEffect(() => {
+    if (!isStaff) return;
+    const supabase = createClient();
+    supabase
+      .from("team_members")
+      .select("id, full_name")
+      .eq("active", true)
+      .order("full_name")
+      .then(({ data }) => setTeamMembers(data ?? []));
+  }, [isStaff]);
+
   // Polling de 60s para o estado de revisão do briefing (detecta submissões do aluno)
   useEffect(() => {
     if (!isStaff) return;
@@ -281,10 +299,18 @@ export function StudentDetailClient({
 
   async function handleSaveProfile() {
     setSavingProfile(true);
-    const result = await updateStudentAction(studentId, {
+    const payload: Parameters<typeof updateStudentAction>[1] = {
       instagram: profileForm.instagram || null,
       mindmap_url: profileForm.mindmap_url || null,
-    });
+    };
+    if (isStaff) {
+      payload.coach_id = profileForm.coach_id || null;
+      payload.status = profileForm.status || "ativo";
+      payload.start_date = profileForm.start_date || null;
+      payload.motivation = profileForm.motivation || null;
+      payload.priority = (profileForm.priority as "alta" | "media" | "baixa") || null;
+    }
+    const result = await updateStudentAction(studentId, payload);
     setSavingProfile(false);
     if ("error" in result) {
       toast.error("Erro ao guardar perfil");
@@ -529,6 +555,11 @@ export function StudentDetailClient({
                   setProfileForm({
                     instagram: student.instagram ?? "",
                     mindmap_url: student.mindmap_url ?? "",
+                    coach_id: student.coach_id ?? "",
+                    status: student.status ?? "ativo",
+                    start_date: student.start_date ?? "",
+                    motivation: student.motivation ?? "",
+                    priority: student.priority ?? "",
                   });
                   setShowProfileDialog(true);
                 }}
@@ -1371,7 +1402,7 @@ export function StudentDetailClient({
       )}
 
       <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Perfil</DialogTitle>
           </DialogHeader>
@@ -1395,6 +1426,82 @@ export function StudentDetailClient({
                 placeholder="https://mindomo.com/..."
                 className="mt-1"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Coach responsável</label>
+              <Select
+                value={profileForm.coach_id || "__none__"}
+                onValueChange={(v) =>
+                  setProfileForm({ ...profileForm, coach_id: v === "__none__" ? "" : v })
+                }
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Sem coach atribuído" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem coach atribuído</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Estado</label>
+              <Select
+                value={profileForm.status || "ativo"}
+                onValueChange={(v) => setProfileForm({ ...profileForm, status: v })}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ativo">Ativo</SelectItem>
+                  <SelectItem value="suspenso">Suspenso</SelectItem>
+                  <SelectItem value="cancelou">Cancelou</SelectItem>
+                  <SelectItem value="devolucao">Pediu devolução</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Data de início</label>
+              <Input
+                type="date"
+                value={profileForm.start_date}
+                onChange={(e) => setProfileForm({ ...profileForm, start_date: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Motivação / Estado</label>
+              <Textarea
+                value={profileForm.motivation}
+                onChange={(e) => setProfileForm({ ...profileForm, motivation: e.target.value })}
+                placeholder="Nota sobre o estado atual do aluno..."
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Prioridade de acompanhamento</label>
+              <Select
+                value={profileForm.priority || "__none__"}
+                onValueChange={(v) =>
+                  setProfileForm({ ...profileForm, priority: v === "__none__" ? "" : v })
+                }
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Não definida" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Não definida</SelectItem>
+                  <SelectItem value="alta">🔴 Alta</SelectItem>
+                  <SelectItem value="media">🟡 Média</SelectItem>
+                  <SelectItem value="baixa">🟢 Baixa</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

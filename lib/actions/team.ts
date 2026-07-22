@@ -40,6 +40,32 @@ export async function updateMemberAction(id: string, input: MemberUpdateInput) {
 
   if (error) return { error: { _form: [error.message] } };
 
+  // Sync team_member_departments
+  const dept = parsed.data.department;
+  if (dept) {
+    const { error: deptErr } = await supabase
+      .from("team_member_departments")
+      .upsert(
+        { team_member_id: id, department_code: dept, is_primary: true },
+        { onConflict: "team_member_id,department_code" },
+      );
+    if (deptErr) return { error: { _form: [deptErr.message] } };
+    // Remove outras linhas is_primary para este membro (mudou de departamento)
+    await supabase
+      .from("team_member_departments")
+      .delete()
+      .eq("team_member_id", id)
+      .eq("is_primary", true)
+      .neq("department_code", dept);
+  } else {
+    // "Sem departamento" → remove linha primária
+    await supabase
+      .from("team_member_departments")
+      .delete()
+      .eq("team_member_id", id)
+      .eq("is_primary", true);
+  }
+
   revalidatePath("/equipa");
   return { data };
 }

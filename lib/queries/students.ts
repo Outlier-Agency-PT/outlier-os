@@ -34,6 +34,8 @@ export interface Student {
   renewal_decided_at: string | null;
   sales_page_url: string | null;
   sales_page_published_at: string | null;
+  motivation: string | null;
+  priority: "alta" | "media" | "baixa" | null;
   created_at: string;
   coach: { id: string; full_name: string } | null;
 }

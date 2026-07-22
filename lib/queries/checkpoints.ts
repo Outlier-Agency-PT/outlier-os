@@ -1,3 +1,10 @@
+// DEPRECATED: substituído por lib/actions/checkpoints.ts
+export {}; // mantém o ficheiro como módulo TS
+// As funções abaixo referenciam o schema antigo (member_id, positive, achievements, etc.)
+// que foi substituído pelo schema de departamentos (0040_weekly_checkpoints.sql).
+// Mantido apenas para evitar quebrar imports não identificados.
+
+/*
 import { createClient } from "@/lib/supabase/server";
 import { toWeekStart, getCurrentWeekStart } from "@/lib/utils/week";
 
@@ -86,3 +93,4 @@ export async function getCheckpointStatus(weekStart: string): Promise<MemberChec
     checkpoint: cpMap.get(m.id) ?? null,
   }));
 }
+*/
