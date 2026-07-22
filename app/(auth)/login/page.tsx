@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -14,24 +15,12 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"password" | "magic">("password");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     const supabase = createClient();
-
-    if (mode === "magic") {
-      const { error } = await supabase.auth.signInWithOtp({ email });
-      setLoading(false);
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      toast.success("Verifica o teu email para fazer login.");
-      return;
-    }
-
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
@@ -45,11 +34,12 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">
-            OUTLIER <span className="text-primary">OS</span>
-          </CardTitle>
-          <CardDescription>O Business OS da Outlier Agency</CardDescription>
+        <CardHeader className="flex items-center">
+          <img
+            src="https://dsfzhrodcxtlayxcfjpx.supabase.co/storage/v1/object/public/assets/logooutliervector.svg?v=2"
+            alt="Outlier Agency"
+            className="h-16 w-auto"
+          />
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -65,29 +55,30 @@ export default function LoginPage() {
                 placeholder="o.teu.email@outlieragency.pt"
               />
             </div>
-            {mode === "password" && (
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
+                  className="pr-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
               </div>
-            )}
+            </div>
             <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "A entrar..." : mode === "magic" ? "Enviar Magic Link" : "Entrar"}
-            </Button>
-            <Button
-              type="button"
-              variant="link"
-              className="w-full"
-              onClick={() => setMode((m) => (m === "password" ? "magic" : "password"))}
-            >
-              {mode === "password" ? "Usar magic link" : "Usar password"}
+              {loading ? "A entrar..." : "Entrar"}
             </Button>
           </form>
         </CardContent>

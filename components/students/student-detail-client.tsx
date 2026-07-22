@@ -171,6 +171,7 @@ export function StudentDetailClient({
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [profileForm, setProfileForm] = useState({
     instagram: student.instagram ?? "",
+    phone: student.phone ?? "",
     mindmap_url: student.mindmap_url ?? "",
     coach_id: student.coach_id ?? "",
     status: student.status ?? "ativo",
@@ -301,6 +302,7 @@ export function StudentDetailClient({
     setSavingProfile(true);
     const payload: Parameters<typeof updateStudentAction>[1] = {
       instagram: profileForm.instagram || null,
+      phone: profileForm.phone || null,
       mindmap_url: profileForm.mindmap_url || null,
     };
     if (isStaff) {
@@ -342,7 +344,10 @@ export function StudentDetailClient({
   // ── Checklist handlers ────────────────────────────────────────────────────
 
   async function handleChecklistChange(
-    key: "has_leads_goal" | "has_organic_content" | "has_bio_link",
+    key: "has_strategy_session" | "has_business_briefing" | "has_mindmap"
+       | "has_bio_link" | "has_organic_content" | "has_instagram"
+       | "has_launch_briefing" | "has_capture_page" | "has_leads_goal"
+       | "has_ads_campaign" | "has_launch" | "has_debrief",
     value: boolean,
   ) {
     setChecklist((prev) => {
@@ -554,6 +559,7 @@ export function StudentDetailClient({
                 onClick={() => {
                   setProfileForm({
                     instagram: student.instagram ?? "",
+                    phone: student.phone ?? "",
                     mindmap_url: student.mindmap_url ?? "",
                     coach_id: student.coach_id ?? "",
                     status: student.status ?? "ativo",
@@ -638,6 +644,155 @@ export function StudentDetailClient({
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Checklist de Acompanhamento ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Checklist de Acompanhamento</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Setup inicial</p>
+            <ChecklistItem
+              label="Sessão estratégica realizada"
+              checked={checklist?.has_strategy_session ?? false}
+              onChange={(v) => handleChecklistChange("has_strategy_session", v)}
+            />
+            <ChecklistItem
+              label="Briefing de negócio preenchido"
+              checked={checklist?.has_business_briefing ?? false}
+              onChange={(v) => handleChecklistChange("has_business_briefing", v)}
+            />
+            <ChecklistItem
+              label="Mindmap de planeamento criado"
+              checked={checklist?.has_mindmap ?? false}
+              onChange={(v) => handleChecklistChange("has_mindmap", v)}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Presença digital</p>
+            <ChecklistItem
+              label="Bio link configurado"
+              checked={checklist?.has_bio_link ?? false}
+              onChange={(v) => handleChecklistChange("has_bio_link", v)}
+            />
+            <ChecklistItem
+              label="Conteúdo orgânico ativo"
+              checked={checklist?.has_organic_content ?? false}
+              onChange={(v) => handleChecklistChange("has_organic_content", v)}
+            />
+            <ChecklistItem
+              label="Instagram profissional configurado"
+              checked={checklist?.has_instagram ?? false}
+              onChange={(v) => handleChecklistChange("has_instagram", v)}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Lançamento</p>
+            <ChecklistItem
+              label="Briefing de lançamento preenchido"
+              checked={checklist?.has_launch_briefing ?? false}
+              onChange={(v) => handleChecklistChange("has_launch_briefing", v)}
+            />
+            <ChecklistItem
+              label="Página de captação criada"
+              checked={checklist?.has_capture_page ?? false}
+              onChange={(v) => handleChecklistChange("has_capture_page", v)}
+            />
+            <ChecklistItem
+              label="Leads goal definido"
+              checked={checklist?.has_leads_goal ?? false}
+              onChange={(v) => handleChecklistChange("has_leads_goal", v)}
+            />
+            <ChecklistItem
+              label="Campanha de anúncios ativa"
+              checked={checklist?.has_ads_campaign ?? false}
+              onChange={(v) => handleChecklistChange("has_ads_campaign", v)}
+            />
+            <ChecklistItem
+              label="Lançamento realizado"
+              checked={checklist?.has_launch ?? false}
+              onChange={(v) => handleChecklistChange("has_launch", v)}
+            />
+            <ChecklistItem
+              label="Debriefing preenchido"
+              checked={checklist?.has_debrief ?? false}
+              onChange={(v) => handleChecklistChange("has_debrief", v)}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium">Notas</label>
+            <Textarea
+              value={checklistNotes}
+              onChange={(e) => handleChecklistNotesChange(e.target.value)}
+              className="mt-1 text-sm"
+              rows={3}
+              placeholder="Notas adicionais..."
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Diário de Bordo ── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Diário de Bordo</CardTitle>
+          <Button size="sm" onClick={() => openNoteDialog()}>
+            <Plus className="mr-1 size-3" />
+            Nota
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {notes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">—</p>
+          ) : (
+            <div className="space-y-3">
+              {notes.map((note) => {
+                const noteDate = formatDate(note.created_at).split(" ").slice(-3).join(" ");
+                return (
+                  <div key={note.id} className="space-y-2 rounded-lg border bg-card p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium">{note.author.full_name}</p>
+                          <span className="text-xs text-muted-foreground">·</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {note.contact_type}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">·</span>
+                          <span className="text-xs text-muted-foreground">{noteDate}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Envolvimento: {note.involvement} · Motivação: {note.motivation}
+                        </p>
+                        <p className="text-sm text-foreground">{note.content}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openNoteDialog(note.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit2 className="size-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeletingNoteId(note.id)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Tarefas do aluno ── */}
       {isStaff && (
@@ -1280,103 +1435,6 @@ export function StudentDetailClient({
         </Card>
       )}
 
-      {/* ── Checklist de Acompanhamento ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Checklist de Acompanhamento</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <ChecklistItem
-              label="Leads Goal"
-              checked={checklist?.has_leads_goal ?? false}
-              onChange={(v) => handleChecklistChange("has_leads_goal", v)}
-            />
-            <ChecklistItem
-              label="Conteúdo Orgânico"
-              checked={checklist?.has_organic_content ?? false}
-              onChange={(v) => handleChecklistChange("has_organic_content", v)}
-            />
-            <ChecklistItem
-              label="Bio Link"
-              checked={checklist?.has_bio_link ?? false}
-              onChange={(v) => handleChecklistChange("has_bio_link", v)}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium">Notas</label>
-            <Textarea
-              value={checklistNotes}
-              onChange={(e) => handleChecklistNotesChange(e.target.value)}
-              className="mt-1 text-sm"
-              rows={3}
-              placeholder="Notas adicionais..."
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Diário de Bordo ── */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Diário de Bordo</CardTitle>
-          <Button size="sm" onClick={() => openNoteDialog()}>
-            <Plus className="mr-1 size-3" />
-            Nota
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {notes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">—</p>
-          ) : (
-            <div className="space-y-3">
-              {notes.map((note) => {
-                const noteDate = formatDate(note.created_at).split(" ").slice(-3).join(" ");
-                return (
-                  <div key={note.id} className="space-y-2 rounded-lg border bg-card p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium">{note.author.full_name}</p>
-                          <span className="text-xs text-muted-foreground">·</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {note.contact_type}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">·</span>
-                          <span className="text-xs text-muted-foreground">{noteDate}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Envolvimento: {note.involvement} · Motivação: {note.motivation}
-                        </p>
-                        <p className="text-sm text-foreground">{note.content}</p>
-                      </div>
-                      <div className="flex shrink-0 gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openNoteDialog(note.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Edit2 className="size-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setDeletingNoteId(note.id)}
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* ── Briefing legacy (texto livre) ── */}
       {student.briefing && (
         <Card>
@@ -1406,6 +1464,9 @@ export function StudentDetailClient({
           <DialogHeader>
             <DialogTitle>Editar Perfil</DialogTitle>
           </DialogHeader>
+          <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            Estes dados são internos, o aluno não os vê.
+          </div>
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Instagram</label>
@@ -1413,6 +1474,16 @@ export function StudentDetailClient({
                 value={profileForm.instagram}
                 onChange={(e) => setProfileForm({ ...profileForm, instagram: e.target.value })}
                 placeholder="@handle"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Telefone / WhatsApp</label>
+              <Input
+                type="tel"
+                value={profileForm.phone}
+                onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                placeholder="+351 912 345 678"
                 className="mt-1"
               />
             </div>
@@ -1520,6 +1591,9 @@ export function StudentDetailClient({
           <DialogHeader>
             <DialogTitle>{editingNoteId ? "Editar Nota" : "Nova Nota"}</DialogTitle>
           </DialogHeader>
+          <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            O Diário de Bordo é interno, o aluno não vê estas notas.
+          </div>
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Tipo de Contacto</label>

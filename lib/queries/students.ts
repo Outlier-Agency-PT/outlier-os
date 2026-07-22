@@ -139,9 +139,21 @@ export interface RenewalAlert {
 export interface StudentChecklist {
   id: string;
   student_id: string;
-  has_leads_goal: boolean;
-  has_organic_content: boolean;
+  // Setup inicial
+  has_strategy_session: boolean;
+  has_business_briefing: boolean;
+  has_mindmap: boolean;
+  // Presença digital
   has_bio_link: boolean;
+  has_organic_content: boolean;
+  has_instagram: boolean;
+  // Lançamento
+  has_launch_briefing: boolean;
+  has_capture_page: boolean;
+  has_leads_goal: boolean;
+  has_ads_campaign: boolean;
+  has_launch: boolean;
+  has_debrief: boolean;
   notes: string | null;
 }
 

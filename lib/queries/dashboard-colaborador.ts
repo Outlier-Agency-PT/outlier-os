@@ -126,3 +126,126 @@ export async function getMyRecentTimeLogs(userId: string, limit = 5): Promise<Ti
     .limit(limit);
   return (data ?? []) as TimeLogWithTask[];
 }
+
+// ── Extra dashboard blocks ────────────────────────────────────────────────────
+
+export interface DashNotification {
+  id: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export interface DashOverdueTask {
+  id: string;
+  title: string;
+  due_date: string;
+}
+
+export interface DashIncubadoraSummary {
+  ativos: number;
+  em_risco: number;
+  tickets_abertos: number;
+}
+
+export interface DashRenewal {
+  id: string;
+  name: string;
+  end_date: string;
+  dias_restantes: number;
+}
+
+export async function getMyNotifications(userId: string): Promise<{
+  items: DashNotification[];
+  unread_count: number;
+}> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("notifications")
+    .select("id, title, body, link, read, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  const items = (data ?? []) as DashNotification[];
+  return {
+    items,
+    unread_count: items.filter((n) => !n.read).length,
+  };
+}
+
+export async function getMyOverdueTasks(userId: string): Promise<DashOverdueTask[]> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from("tasks")
+    .select("id, title, due_date")
+    .eq("assignee_id", userId)
+    .lt("due_date", today)
+    .is("completed_at", null)
+    .order("due_date", { ascending: true })
+    .limit(5);
+  return (data ?? []) as DashOverdueTask[];
+}
+
+export async function getIncubadoraSummary(): Promise<DashIncubadoraSummary> {
+  const supabase = await createClient();
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ count: ativos }, { data: recentStudentIds }, { count: tickets }] = await Promise.all([
+    supabase
+      .from("students")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "ativo"),
+    supabase
+      .from("lesson_completions")
+      .select("student_id")
+      .gte("completed_at", sevenDaysAgo),
+    supabase
+      .from("support_tickets")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "aberto"),
+  ]);
+
+  const activeWithRecent = new Set((recentStudentIds ?? []).map((r: { student_id: string }) => r.student_id));
+  // "em risco" = alunos ativos cujo user_id não aparece nas completions recentes
+  const { data: activeStudents } = await supabase
+    .from("students")
+    .select("user_id")
+    .eq("status", "ativo")
+    .not("user_id", "is", null);
+
+  const emRisco = (activeStudents ?? []).filter(
+    (s: { user_id: string | null }) => s.user_id && !activeWithRecent.has(s.user_id),
+  ).length;
+
+  return {
+    ativos: ativos ?? 0,
+    em_risco: emRisco,
+    tickets_abertos: tickets ?? 0,
+  };
+}
+
+export async function getUpcomingRenewals(): Promise<DashRenewal[]> {
+  const supabase = await createClient();
+  const today = new Date();
+  const in30 = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const todayStr = today.toISOString().slice(0, 10);
+  const in30Str = in30.toISOString().slice(0, 10);
+
+  const { data } = await supabase
+    .from("students")
+    .select("id, name, end_date")
+    .eq("status", "ativo")
+    .gte("end_date", todayStr)
+    .lte("end_date", in30Str)
+    .order("end_date", { ascending: true })
+    .limit(5);
+
+  return ((data ?? []) as { id: string; name: string; end_date: string }[]).map((s) => {
+    const end = new Date(s.end_date);
+    const diff = Math.ceil((end.getTime() - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+    return { ...s, dias_restantes: diff };
+  });
+}

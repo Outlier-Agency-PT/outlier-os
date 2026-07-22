@@ -7,7 +7,8 @@ export type InviteRole = 'admin' | 'membro' | 'aluno'
 
 export async function createInviteAction(
   email: string,
-  role: InviteRole
+  role: InviteRole,
+  department: string | null = null
 ): Promise<{ success: true } | { error: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -46,7 +47,7 @@ export async function createInviteAction(
   // INSERT passa pela RLS (client do user autenticado)
   const { data: inserted, error: insertError } = await supabase
     .from('invites')
-    .insert({ email: normalizedEmail, role, invited_by: user.id })
+    .insert({ email: normalizedEmail, role, invited_by: user.id, department })
     .select('id')
     .single()
 
@@ -99,7 +100,7 @@ export async function acceptInviteAction(
   // Verificar expiração
   const { data: invite } = await admin
     .from('invites')
-    .select('id, expires_at, status')
+    .select('id, expires_at, status, department')
     .eq('email', email)
     .eq('status', 'pending')
     .maybeSingle()
@@ -146,6 +147,13 @@ export async function acceptInviteAction(
 
   if (invite) {
     await admin.from('invites').update({ status: 'accepted' }).eq('id', invite.id)
+
+    if (invite.department && (role === 'admin' || role === 'membro')) {
+      await admin.from('team_member_departments').upsert(
+        { team_member_id: user.id, department_code: invite.department, is_primary: true },
+        { onConflict: 'team_member_id,department_code' }
+      )
+    }
   }
 
   return { success: true, role }

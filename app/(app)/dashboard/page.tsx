@@ -12,10 +12,13 @@ import { AdminCheckpoints } from "@/components/dashboard/admin-checkpoints";
 import {
   getMyOpenTasks,
   getConcludedStatusId,
-  getTodayStandup,
   getWeekTimeMinutes,
   getMyRunningTimeLog,
   getMyRecentTimeLogs,
+  getMyNotifications,
+  getMyOverdueTasks,
+  getIncubadoraSummary,
+  getUpcomingRenewals,
 } from "@/lib/queries/dashboard-colaborador";
 import {
   getDepartmentTaskCounts,
@@ -39,22 +42,30 @@ export default async function DashboardPage() {
 
   const { data: member } = await supabase
     .from("team_members")
-    .select("role")
+    .select("role, permissions_modules")
     .eq("id", user?.id ?? "")
     .maybeSingle();
 
   const isAdmin = member?.role === "admin";
 
   if (!isAdmin) {
-    const [tasks, concludedStatusId, standup, weekMinutes, runningLog, recentLogs] =
+    const hasIncubadora =
+      member?.role === "admin" ||
+      (member?.permissions_modules ?? []).includes("incubadora");
+
+    const [tasks, concludedStatusId, weekMinutes, runningLog, recentLogs, notifResult, overdueTasks, renewals] =
       await Promise.all([
         user ? getMyOpenTasks(user.id) : Promise.resolve([]),
         getConcludedStatusId(),
-        user ? getTodayStandup(user.id) : Promise.resolve(null),
         user ? getWeekTimeMinutes(user.id) : Promise.resolve(0),
         user ? getMyRunningTimeLog(user.id) : Promise.resolve(null),
         user ? getMyRecentTimeLogs(user.id) : Promise.resolve([]),
+        user ? getMyNotifications(user.id) : Promise.resolve({ items: [], unread_count: 0 }),
+        user ? getMyOverdueTasks(user.id) : Promise.resolve([]),
+        hasIncubadora ? getUpcomingRenewals() : Promise.resolve([]),
       ]);
+
+    const incubadora = hasIncubadora ? await getIncubadoraSummary() : null;
 
     return (
       <>
@@ -62,10 +73,15 @@ export default async function DashboardPage() {
         <ColaboradorDashboard
           tasks={tasks}
           concludedStatusId={concludedStatusId}
-          standup={standup}
           weekMinutes={weekMinutes}
           runningLog={runningLog}
           recentLogs={recentLogs}
+          notifications={notifResult.items}
+          unread_count={notifResult.unread_count}
+          overdue_tasks={overdueTasks}
+          incubadora={incubadora}
+          renewals={renewals}
+          hasIncubadora={hasIncubadora}
         />
       </>
     );

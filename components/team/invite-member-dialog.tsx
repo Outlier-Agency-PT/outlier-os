@@ -30,12 +30,14 @@ export function InviteMemberDialog({ open, onOpenChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InviteRole>("membro");
+  const [department, setDepartment] = useState("none");
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
     setEmail("");
     setRole("membro");
+    setDepartment("none");
     setSuccess(null);
     setError(null);
     setLoading(false);
@@ -52,7 +54,7 @@ export function InviteMemberDialog({ open, onOpenChange }: Props) {
     setError(null);
     setSuccess(null);
 
-    const res = await createInviteAction(email, role);
+    const res = await createInviteAction(email, role, department === "none" ? null : department);
     setLoading(false);
 
     if ("error" in res) {
@@ -94,6 +96,25 @@ export function InviteMemberDialog({ open, onOpenChange }: Props) {
                 required
                 autoFocus
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="department">Departamento</Label>
+              <Select value={department} onValueChange={setDepartment}>
+                <SelectTrigger id="department">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem departamento</SelectItem>
+                  <SelectItem value="trafego">Tráfego</SelectItem>
+                  <SelectItem value="incubadora">Incubadora</SelectItem>
+                  <SelectItem value="vendas">Vendas e Leads</SelectItem>
+                  <SelectItem value="desenvolvimento">Desenvolvimento</SelectItem>
+                  <SelectItem value="gestao">Gestão</SelectItem>
+                  <SelectItem value="operacoes">Operações</SelectItem>
+                  <SelectItem value="conteudo">Conteúdo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
