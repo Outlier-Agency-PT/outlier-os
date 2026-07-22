@@ -247,10 +247,11 @@ export function CreateTemplateDialog({
       });
 
       if (result.error) {
+        const errorResult = result as { error: string | Record<string, string[]> };
         const msg =
-          typeof result.error === "string"
-            ? result.error
-            : Object.values(result.error).flat().join(", ");
+          typeof errorResult.error === "string"
+            ? errorResult.error
+            : Object.values(errorResult.error).flat().join(", ");
         toast.error(msg);
       } else {
         toast.success("Template criado");
