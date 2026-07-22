@@ -34,22 +34,35 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Com user autenticado → verificar role e redirecionar se necessário
+  // Com user autenticado → verificar em que tabela existe e redirecionar
   if (user) {
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id);
+    const [{ data: student }, { data: teamMember }] = await Promise.all([
+      supabase
+        .from("students")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("team_members")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ]);
 
-    const roleList = (roles ?? []).map((r) => r.role);
-    const isAdmin = roleList.includes("admin");
-    const isFuncionario = roleList.includes("funcionario");
-    const isAluno = roleList.includes("aluno");
+    const isStudent = !!student;
+    const isTeamMember = !!teamMember;
 
     // Determinar rota correcta para este utilizador
-    let correctRoute = "/dashboard"; // default
-    if (isAluno && !isAdmin && !isFuncionario) {
+    let correctRoute: string;
+    if (isTeamMember) {
+      correctRoute = "/dashboard";
+    } else if (isStudent) {
       correctRoute = "/incubadora";
+    } else {
+      // Utilizador autenticado mas sem perfil → forçar logout para /login
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
     }
 
     // Se está em /login, redirecionar para a rota correcta
@@ -59,15 +72,14 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Se é aluno, só pode aceder a /incubadora
-    if (isAluno && !isAdmin && !isFuncionario) {
-      if (!pathname.startsWith("/incubadora")) {
+    // Se é aluno, só pode aceder a /incubadora e /api
+    if (isStudent && !isTeamMember) {
+      if (!pathname.startsWith("/incubadora") && !pathname.startsWith("/api")) {
         const url = request.nextUrl.clone();
         url.pathname = "/incubadora";
         return NextResponse.redirect(url);
       }
     }
-    // Admin e funcionário podem aceder a qualquer rota sem redirect
   }
 
   return supabaseResponse;
