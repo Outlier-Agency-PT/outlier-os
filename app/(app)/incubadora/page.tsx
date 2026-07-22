@@ -1,5 +1,5 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRoles } from "@/lib/supabase/roles";
 import { PageHeader } from "@/components/layout/page-header";
 import { StudentsView } from "@/components/students/students-view";
 import { ModulesPanel } from "@/components/incubadora/incubadora-components";
@@ -20,19 +20,16 @@ export default async function IncubadoraPage(props: {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const [roles, memberData] = await Promise.all([
-    getUserRoles(),
+  const [{ data: student }, { data: teamMember }] = await Promise.all([
+    supabase.from("students").select("id").eq("user_id", user?.id ?? "").maybeSingle(),
     supabase.from("team_members").select("role").eq("id", user?.id ?? "").maybeSingle(),
   ]);
 
-  const teamRole = memberData.data?.role as string | undefined;
-  const isStaff =
-    roles.includes("admin") ||
-    roles.includes("funcionario") ||
-    teamRole === "admin" ||
-    teamRole === "membro";
+  const teamRole = teamMember?.role as string | undefined;
+  const isStaff = teamRole === "admin" || teamRole === "membro";
+  const isAluno = !!student && !isStaff;
 
-  const isAluno = roles.includes("aluno") && !isStaff;
+  if (!isAluno && !isStaff) redirect("/dashboard");
 
   if (isAluno && user) {
     const progressDetail = await getStudentProgressDetail(user.id);
