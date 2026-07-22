@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRoles, getHomeRoute } from "@/lib/supabase/roles";
 import { StudentLayout } from "@/components/incubadora/student-layout";
 
 export default async function IncubadoraLayout({ children }: { children: React.ReactNode }) {
@@ -9,35 +8,24 @@ export default async function IncubadoraLayout({ children }: { children: React.R
 
   if (!user) redirect("/login");
 
-  const [roles, memberData] = await Promise.all([
-    getUserRoles(),
+  const [{ data: student }, { data: teamMember }] = await Promise.all([
+    supabase.from("students").select("name, email").eq("user_id", user.id).maybeSingle(),
     supabase.from("team_members").select("role").eq("id", user.id).maybeSingle(),
   ]);
 
-  const teamRole = memberData.data?.role as string | undefined;
-  const isStaff =
-    roles.includes("admin") ||
-    roles.includes("funcionario") ||
-    teamRole === "admin" ||
-    teamRole === "membro";
+  const isStudent = !!student;
+  const teamRole = teamMember?.role as string | undefined;
+  const isStaff = teamRole === "admin" || teamRole === "membro";
 
-  if (!isStaff && !roles.includes("aluno")) {
-    redirect(getHomeRoute(roles));
+  if (!isStudent && !isStaff) {
+    redirect("/dashboard");
   }
 
-  const isAluno = roles.includes("aluno") && !isStaff;
-
-  if (isAluno) {
-    const { data: member } = await supabase
-      .from("team_members")
-      .select("full_name, email")
-      .eq("id", user.id)
-      .single();
-
+  if (isStudent && !isStaff) {
     return (
       <StudentLayout
-        userName={member?.full_name ?? undefined}
-        userEmail={member?.email ?? user.email ?? undefined}
+        userName={student.name ?? undefined}
+        userEmail={student.email ?? user.email ?? undefined}
       >
         {children}
       </StudentLayout>

@@ -44,8 +44,8 @@ export async function updateSession(request: NextRequest) {
         .maybeSingle(),
       supabase
         .from("team_members")
-        .select("user_id")
-        .eq("user_id", user.id)
+        .select("id")
+        .eq("id", user.id)
         .maybeSingle(),
     ]);
 
