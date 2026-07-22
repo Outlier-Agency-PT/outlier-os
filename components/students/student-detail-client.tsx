@@ -1,24 +1,147 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Mail, Phone, AtSign, Plus, Edit2, Trash2 } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  AtSign,
+  Plus,
+  Edit2,
+  Trash2,
+  AlertTriangle,
+  ExternalLink,
+  Network,
+  Pencil,
+  Globe,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  updateStudentLaunchAction,
+  updateStudentAction,
   updateStudentFinancialAction,
   upsertStudentChecklistAction,
   createStudentNoteAction,
   updateStudentNoteAction,
   deleteStudentNoteAction,
+  updateRenewalAction,
+  updateStudentSalesPageByIdAction,
+  updateBriefingReviewStatusAction,
+  getStudentBriefingAction,
 } from "@/lib/actions/students";
-import type { Student, StudentChecklist, StudentNote, StudentSession } from "@/lib/queries/students";
+import { getStudentMilestonesForCoachAction } from "@/lib/actions/milestones";
+import { BriefingDialog } from "@/components/students/briefing-dialog";
+import { StudentCoachTasks } from "@/components/students/student-coach-tasks";
+import { StudentAudienceCoach } from "@/components/students/student-audience-coach";
+import { StudentProductsCoach } from "@/components/students/student-products-coach";
+import { StudentLaunches } from "@/components/students/student-launches";
+import { StudentSupportDashboard } from "@/components/students/student-support-dashboard";
+import { SectionStatusBadge } from "@/components/ui/section-status-badge";
+import type { ReviewStatus } from "@/lib/types/review-status";
+import { COACH_TRANSITIONS } from "@/lib/types/review-status";
+import type { JourneyMilestone } from "@/lib/queries/milestones";
+import type {
+  Student,
+  StudentBriefing,
+  StudentChecklist,
+  StudentNote,
+  StudentSession,
+} from "@/lib/queries/students";
+import type { StudentProgressDetail } from "@/lib/queries/incubadora";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type RenewalStatus = "pendente" | "renovado" | "nao_renovado" | "bonus";
+
+const RENEWAL_STATUS_OPTIONS: { value: RenewalStatus; label: string }[] = [
+  { value: "pendente", label: "Pendente" },
+  { value: "renovado", label: "Renovado" },
+  { value: "nao_renovado", label: "Não Renovado" },
+  { value: "bonus", label: "Bónus" },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getDaysRemaining(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const target = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function isValidUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function fmtDateShort(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-PT", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function RenewalStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case "renovado":
+      return (
+        <Badge className="rounded-full border border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
+          Renovado
+        </Badge>
+      );
+    case "nao_renovado":
+      return (
+        <Badge className="rounded-full border border-red-200 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+          Não Renovado
+        </Badge>
+      );
+    case "bonus":
+      return (
+        <Badge
+          className="rounded-full border-transparent text-white"
+          style={{ backgroundColor: "#A12B2B" }}
+        >
+          Bónus
+        </Badge>
+      );
+    default:
+      return (
+        <Badge className="rounded-full border border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+          Pendente
+        </Badge>
+      );
+  }
+}
+
+// ── Props ─────────────────────────────────────────────────────────────────────
 
 interface StudentDetailClientProps {
   studentId: string;
@@ -26,7 +149,12 @@ interface StudentDetailClientProps {
   sessions: StudentSession[];
   initialChecklist: StudentChecklist | null;
   initialNotes: StudentNote[];
+  isStaff?: boolean;
+  initialBriefing?: StudentBriefing | null;
+  progressDetail?: StudentProgressDetail | null;
 }
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function StudentDetailClient({
   studentId,
@@ -34,23 +162,32 @@ export function StudentDetailClient({
   sessions,
   initialChecklist,
   initialNotes,
+  isStaff = false,
+  initialBriefing = null,
+  progressDetail = null,
 }: StudentDetailClientProps) {
-  const [editingLaunch, setEditingLaunch] = useState(false);
-  const [editingFinancial, setEditingFinancial] = useState(false);
-  const [launchForm, setLaunchForm] = useState({
-    launch_product: student.launch_product ?? "",
-    launch_objective: student.launch_objective ?? "",
-    launch_date: student.launch_date ?? "",
-    product_ticket: student.product_ticket ?? "",
-    leads_goal: student.leads_goal ?? "",
-    revenue_goal: student.revenue_goal ?? "",
-    investment_budget: student.investment_budget ?? "",
+  // ── Profile ────────────────────────────────────────────────────────────────
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    instagram: student.instagram ?? "",
+    mindmap_url: student.mindmap_url ?? "",
   });
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // ── Financial ─────────────────────────────────────────────────────────────
+  const [editingFinancial, setEditingFinancial] = useState(false);
   const [financialForm, setFinancialForm] = useState({
     revenue_generated: student.revenue_generated ?? "",
     debriefing: student.debriefing ?? "",
   });
+  const [loadingFinancial, setLoadingFinancial] = useState(false);
+
+  // ── Checklist ─────────────────────────────────────────────────────────────
   const [checklist, setChecklist] = useState(initialChecklist);
+  const [checklistNotes, setChecklistNotes] = useState(initialChecklist?.notes ?? "");
+  const checklistTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ── Notes (Diário de Bordo) ───────────────────────────────────────────────
   const [notes, setNotes] = useState(initialNotes);
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -63,11 +200,51 @@ export function StudentDetailClient({
     reminder_date: null as string | null,
     reminder_note: null as string | null,
   });
-  const [checklistNotes, setChecklistNotes] = useState(initialChecklist?.notes ?? "");
-  const checklistTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [loadingLaunch, setLoadingLaunch] = useState(false);
-  const [loadingFinancial, setLoadingFinancial] = useState(false);
   const [loadingNote, setLoadingNote] = useState(false);
+
+  // ── Briefing dialog ───────────────────────────────────────────────────────
+  const [showBriefingDialog, setShowBriefingDialog] = useState(false);
+
+  // ── Briefing review (coach panel) ─────────────────────────────────────────
+  const [briefingReviewStatus, setBriefingReviewStatus] = useState<ReviewStatus>(
+    (initialBriefing?.review_status as ReviewStatus) ?? "nao_iniciado",
+  );
+  const [existingReviewNotes, setExistingReviewNotes] = useState<string | null>(
+    initialBriefing?.review_notes ?? null,
+  );
+  const [reviewNotesInput, setReviewNotesInput] = useState("");
+  const [showReviewNotesInput, setShowReviewNotesInput] = useState(false);
+  const [loadingBriefingReview, setLoadingBriefingReview] = useState(false);
+  const [editingReviewNotes, setEditingReviewNotes] = useState(false);
+  const [reviewNotesEditInput, setReviewNotesEditInput] = useState("");
+
+  // ── Renewal ───────────────────────────────────────────────────────────────
+  const [renewalStatus, setRenewalStatus] = useState<RenewalStatus>(
+    (student.renewal_status as RenewalStatus) ?? "pendente",
+  );
+  const [renewalDate, setRenewalDate] = useState(student.renewal_date ?? "");
+  const [renewalNotes, setRenewalNotes] = useState(student.renewal_notes ?? "");
+  const [editingRenewalDate, setEditingRenewalDate] = useState(false);
+  const [editingRenewalNotes, setEditingRenewalNotes] = useState(false);
+  const [loadingRenewal, setLoadingRenewal] = useState(false);
+
+  // ── Página de vendas ──────────────────────────────────────────────────────
+  const [salesPageUrl, setSalesPageUrl] = useState<string | null>(
+    student.sales_page_url ?? null,
+  );
+  const [salesPagePublishedAt, setSalesPagePublishedAt] = useState<string | null>(
+    student.sales_page_published_at ?? null,
+  );
+  const [editingSalesPage, setEditingSalesPage] = useState(false);
+  const [salesPageInput, setSalesPageInput] = useState(student.sales_page_url ?? "");
+  const [salesPageUrlError, setSalesPageUrlError] = useState("");
+  const [savingSalesPage, setSavingSalesPage] = useState(false);
+
+  // ── Jornada do aluno ──────────────────────────────────────────────────────
+  const [milestones, setMilestones] = useState<JourneyMilestone[]>([]);
+  const [loadingMilestones, setLoadingMilestones] = useState(false);
+
+  // ── Effects ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
     return () => {
@@ -75,30 +252,56 @@ export function StudentDetailClient({
     };
   }, []);
 
-  async function handleSaveLaunch() {
-    setLoadingLaunch(true);
-    const result = await updateStudentLaunchAction(studentId, {
-      launch_product: launchForm.launch_product || null,
-      launch_objective: launchForm.launch_objective || null,
-      launch_date: launchForm.launch_date || null,
-      product_ticket: launchForm.product_ticket || null,
-      leads_goal: launchForm.leads_goal ? Number(launchForm.leads_goal) : null,
-      revenue_goal: launchForm.revenue_goal ? Number(launchForm.revenue_goal) : null,
-      investment_budget: launchForm.investment_budget ? Number(launchForm.investment_budget) : null,
+  useEffect(() => {
+    if (!isStaff) return;
+    setLoadingMilestones(true);
+    getStudentMilestonesForCoachAction(studentId)
+      .then((data) => setMilestones(data))
+      .catch(() => {/* milestones não críticos — falha silenciosa */})
+      .finally(() => setLoadingMilestones(false));
+  }, [studentId, isStaff]);
+
+  // Polling de 60s para o estado de revisão do briefing (detecta submissões do aluno)
+  useEffect(() => {
+    if (!isStaff) return;
+    const id = setInterval(async () => {
+      const data = await getStudentBriefingAction(studentId).catch(() => null);
+      if (!data) return;
+      const next = (data as { review_status?: string }).review_status as ReviewStatus | undefined;
+      if (next && next !== briefingReviewStatus) {
+        setBriefingReviewStatus(next);
+        const notes = (data as { review_notes?: string | null }).review_notes ?? null;
+        if (notes !== existingReviewNotes) setExistingReviewNotes(notes);
+      }
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [studentId, isStaff, briefingReviewStatus, existingReviewNotes]);
+
+  // ── Profile handlers ──────────────────────────────────────────────────────
+
+  async function handleSaveProfile() {
+    setSavingProfile(true);
+    const result = await updateStudentAction(studentId, {
+      instagram: profileForm.instagram || null,
+      mindmap_url: profileForm.mindmap_url || null,
     });
-    setLoadingLaunch(false);
+    setSavingProfile(false);
     if ("error" in result) {
-      toast.error(result.error);
+      toast.error("Erro ao guardar perfil");
     } else {
-      toast.success("Lançamento actualizado");
-      setEditingLaunch(false);
+      toast.success("Perfil actualizado");
+      setShowProfileDialog(false);
     }
   }
+
+  // ── Financial handlers ────────────────────────────────────────────────────
 
   async function handleSaveFinancial() {
     setLoadingFinancial(true);
     const result = await updateStudentFinancialAction(studentId, {
-      revenue_generated: financialForm.revenue_generated ? Number(financialForm.revenue_generated) : null,
+      revenue_generated: financialForm.revenue_generated
+        ? Number(financialForm.revenue_generated)
+        : null,
       debriefing: financialForm.debriefing || null,
     });
     setLoadingFinancial(false);
@@ -110,7 +313,12 @@ export function StudentDetailClient({
     }
   }
 
-  async function handleChecklistChange(key: "has_leads_goal" | "has_organic_content" | "has_bio_link", value: boolean) {
+  // ── Checklist handlers ────────────────────────────────────────────────────
+
+  async function handleChecklistChange(
+    key: "has_leads_goal" | "has_organic_content" | "has_bio_link",
+    value: boolean,
+  ) {
     setChecklist((prev) => {
       if (!prev) return null;
       return { ...prev, [key]: value };
@@ -126,16 +334,120 @@ export function StudentDetailClient({
     }, 1000);
   }
 
+  // ── Renewal handlers ──────────────────────────────────────────────────────
+
+  async function handleRenewalStatusChange(value: string) {
+    const next = value as RenewalStatus;
+    setRenewalStatus(next);
+    const result = await updateRenewalAction(studentId, { renewal_status: next });
+    if ("error" in result) toast.error(result.error);
+    else toast.success("Status de renovação actualizado");
+  }
+
+  async function handleSaveRenewalDate() {
+    setLoadingRenewal(true);
+    const result = await updateRenewalAction(studentId, { renewal_date: renewalDate || null });
+    setLoadingRenewal(false);
+    if ("error" in result) {
+      toast.error(result.error);
+    } else {
+      toast.success("Data de renovação actualizada");
+      setEditingRenewalDate(false);
+    }
+  }
+
+  async function handleSaveRenewalNotes() {
+    setLoadingRenewal(true);
+    const result = await updateRenewalAction(studentId, {
+      renewal_notes: renewalNotes || null,
+    });
+    setLoadingRenewal(false);
+    if ("error" in result) {
+      toast.error(result.error);
+    } else {
+      toast.success("Notas de renovação actualizadas");
+      setEditingRenewalNotes(false);
+    }
+  }
+
+  // ── Briefing review handlers ──────────────────────────────────────────────
+
+  async function handleBriefingReviewAction(nextStatus: ReviewStatus, notes?: string) {
+    setLoadingBriefingReview(true);
+    const result = await updateBriefingReviewStatusAction(studentId, nextStatus, notes);
+    setLoadingBriefingReview(false);
+    if (result && "error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    setBriefingReviewStatus(nextStatus);
+    if (notes) setExistingReviewNotes(notes);
+    setShowReviewNotesInput(false);
+    setReviewNotesInput("");
+    toast.success(
+      nextStatus === "aprovado"
+        ? "Briefing aprovado"
+        : nextStatus === "alteracoes_pedidas"
+          ? "Alterações pedidas ao aluno"
+          : "Estado de revisão actualizado",
+    );
+  }
+
+  async function handleSaveReviewNotes() {
+    setLoadingBriefingReview(true);
+    const result = await updateBriefingReviewStatusAction(
+      studentId,
+      briefingReviewStatus,
+      reviewNotesEditInput,
+    );
+    setLoadingBriefingReview(false);
+    if (result && "error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    setExistingReviewNotes(reviewNotesEditInput);
+    setEditingReviewNotes(false);
+    setReviewNotesEditInput("");
+    toast.success("Nota de revisão guardada");
+  }
+
+  // ── Sales page handlers ───────────────────────────────────────────────────
+
+  async function handleSaveSalesPage() {
+    const trimmed = salesPageInput.trim();
+    if (!trimmed) {
+      setSalesPageUrlError("Insere um URL.");
+      return;
+    }
+    if (!isValidUrl(trimmed)) {
+      setSalesPageUrlError("URL inválido — deve começar com https:// ou http://");
+      return;
+    }
+    setSalesPageUrlError("");
+    setSavingSalesPage(true);
+    const result = await updateStudentSalesPageByIdAction(studentId, trimmed);
+    setSavingSalesPage(false);
+    if (result && "error" in result && result.error) {
+      toast.error(result.error as string);
+      return;
+    }
+    const isFirst = !salesPageUrl;
+    setSalesPageUrl(trimmed);
+    if (isFirst) setSalesPagePublishedAt(new Date().toISOString());
+    setEditingSalesPage(false);
+    toast.success(isFirst ? "Página de vendas publicada" : "URL actualizado");
+  }
+
+  // ── Notes handlers ────────────────────────────────────────────────────────
+
   async function handleSaveNote() {
     setLoadingNote(true);
     let result;
-
     if (editingNoteId) {
       result = await updateStudentNoteAction(editingNoteId, studentId, noteForm);
     } else {
       result = await createStudentNoteAction(studentId, noteForm as any);
     }
-
     setLoadingNote(false);
     if ("error" in result) {
       toast.error(result.error);
@@ -143,13 +455,20 @@ export function StudentDetailClient({
       toast.success(editingNoteId ? "Nota actualizada" : "Nota criada");
       setShowNoteDialog(false);
       setEditingNoteId(null);
-      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "", reminder_date: null, reminder_note: null });
+      setNoteForm({
+        contact_type: "Call",
+        involvement: "",
+        motivation: "",
+        content: "",
+        reminder_date: null,
+        reminder_note: null,
+      });
     }
   }
 
   function openNoteDialog(noteId?: string) {
     if (noteId) {
-      const note = notes.find(n => n.id === noteId);
+      const note = notes.find((n) => n.id === noteId);
       if (note) {
         setEditingNoteId(noteId);
         setNoteForm({
@@ -163,7 +482,14 @@ export function StudentDetailClient({
       }
     } else {
       setEditingNoteId(null);
-      setNoteForm({ contact_type: "Call", involvement: "", motivation: "", content: "", reminder_date: null, reminder_note: null });
+      setNoteForm({
+        contact_type: "Call",
+        involvement: "",
+        motivation: "",
+        content: "",
+        reminder_date: null,
+        reminder_note: null,
+      });
     }
     setShowNoteDialog(true);
   }
@@ -176,21 +502,72 @@ export function StudentDetailClient({
       toast.error(result.error);
     } else {
       toast.success("Nota apagada");
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
       setDeletingNoteId(null);
     }
   }
 
+  const diasRestantes = getDaysRemaining(renewalDate || null);
+  const briefingTransitions = COACH_TRANSITIONS[briefingReviewStatus];
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6 p-8">
+
+      {/* ── Perfil + Timeline de Sessões ── */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Perfil</CardTitle>
+            {isStaff && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={() => {
+                  setProfileForm({
+                    instagram: student.instagram ?? "",
+                    mindmap_url: student.mindmap_url ?? "",
+                  });
+                  setShowProfileDialog(true);
+                }}
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {student.email && <Row icon={Mail} label="Email" value={student.email} />}
             {student.phone && <Row icon={Phone} label="Telefone" value={student.phone} />}
-            {student.instagram && <Row icon={AtSign} label="Instagram" value={student.instagram} />}
+            {student.instagram && (
+              <Row
+                icon={AtSign}
+                label="Instagram"
+                value={<InstagramLink handle={student.instagram} />}
+              />
+            )}
+            {isStaff && (
+              <Row
+                icon={Network}
+                label="Mind Map"
+                value={
+                  student.mindmap_url ? (
+                    <a
+                      href={student.mindmap_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                    >
+                      Ver Mind Map
+                      <ExternalLink className="size-3" />
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">Não definido</span>
+                  )
+                }
+              />
+            )}
             {student.nicho && <Row label="Nicho" value={student.nicho} />}
             {student.subnicho && <Row label="Subnicho" value={student.subnicho} />}
             {student.turma && <Row label="Turma" value={student.turma} />}
@@ -212,11 +589,17 @@ export function StudentDetailClient({
                     {s.type.label}
                   </p>
                   {s.completed_at ? (
-                    <Badge variant="default" className="mt-2 text-[10px]">Concluída</Badge>
+                    <Badge variant="default" className="mt-2 text-[10px]">
+                      Concluída
+                    </Badge>
                   ) : s.scheduled_date ? (
-                    <Badge variant="secondary" className="mt-2 text-[10px]">Agendada</Badge>
+                    <Badge variant="secondary" className="mt-2 text-[10px]">
+                      Agendada
+                    </Badge>
                   ) : (
-                    <Badge variant="outline" className="mt-2 text-[10px]">Pendente</Badge>
+                    <Badge variant="outline" className="mt-2 text-[10px]">
+                      Pendente
+                    </Badge>
                   )}
                 </div>
               ))}
@@ -225,104 +608,499 @@ export function StudentDetailClient({
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Contexto do Lançamento</CardTitle>
-          {!editingLaunch && (
-            <Button size="sm" variant="outline" onClick={() => setEditingLaunch(true)}>
-              Editar
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          {editingLaunch ? (
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="text-xs font-medium">Produto</label>
-                  <Input
-                    value={launchForm.launch_product}
-                    onChange={(e) => setLaunchForm({ ...launchForm, launch_product: e.target.value })}
-                    className="mt-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Objectivo</label>
-                  <Input
-                    value={launchForm.launch_objective}
-                    onChange={(e) => setLaunchForm({ ...launchForm, launch_objective: e.target.value })}
-                    className="mt-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Data</label>
-                  <Input
-                    type="date"
-                    value={launchForm.launch_date}
-                    onChange={(e) => setLaunchForm({ ...launchForm, launch_date: e.target.value })}
-                    className="mt-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Ticket Produto</label>
-                  <Input
-                    value={launchForm.product_ticket}
-                    onChange={(e) => setLaunchForm({ ...launchForm, product_ticket: e.target.value })}
-                    className="mt-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Meta Leads</label>
-                  <Input
-                    type="number"
-                    value={launchForm.leads_goal}
-                    onChange={(e) => setLaunchForm({ ...launchForm, leads_goal: e.target.value })}
-                    className="mt-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Meta Receita (€)</label>
-                  <Input
-                    type="number"
-                    value={launchForm.revenue_goal}
-                    onChange={(e) => setLaunchForm({ ...launchForm, revenue_goal: e.target.value })}
-                    className="mt-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Orçamento Investimento (€)</label>
-                  <Input
-                    type="number"
-                    value={launchForm.investment_budget}
-                    onChange={(e) => setLaunchForm({ ...launchForm, investment_budget: e.target.value })}
-                    className="mt-1 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSaveLaunch} disabled={loadingLaunch}>
-                  {loadingLaunch ? "A guardar..." : "Guardar"}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setEditingLaunch(false)}>
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-3 text-sm md:grid-cols-2">
-              {student.launch_product && <Row label="Produto" value={student.launch_product} />}
-              {student.launch_objective && <Row label="Objectivo" value={student.launch_objective} />}
-              {student.launch_date && <Row label="Data" value={formatDate(student.launch_date)} />}
-              {student.product_ticket && <Row label="Ticket" value={student.product_ticket} />}
-              {student.leads_goal && <Row label="Meta Leads" value={student.leads_goal} />}
-              {student.revenue_goal && <Row label="Meta Receita" value={`${student.revenue_goal}€`} />}
-              {student.investment_budget && <Row label="Orçamento" value={`${student.investment_budget}€`} />}
-              {!student.launch_product && <p className="text-muted-foreground">—</p>}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* ── Tarefas do aluno ── */}
+      {isStaff && (
+        <StudentCoachTasks userId={student.user_id} studentName={student.name} />
+      )}
 
+      {/* ── Renovação ── */}
+      {isStaff && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Renovação</CardTitle>
+            <RenewalStatusBadge status={renewalStatus} />
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div className="flex items-center gap-3">
+              <span className="w-36 shrink-0 text-xs text-muted-foreground">Status</span>
+              <Select value={renewalStatus} onValueChange={handleRenewalStatusChange}>
+                <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RENEWAL_STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {student.end_date && (
+              <div className="flex items-center gap-3">
+                <span className="w-36 shrink-0 text-xs text-muted-foreground">
+                  Fim do contrato
+                </span>
+                <span>{formatDate(student.end_date)}</span>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <span className="w-36 shrink-0 text-xs text-muted-foreground">
+                  Data de renovação
+                </span>
+                {editingRenewalDate ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={renewalDate}
+                      onChange={(e) => setRenewalDate(e.target.value)}
+                      className="h-8 w-40 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleSaveRenewalDate}
+                      disabled={loadingRenewal}
+                      className="h-8 text-xs"
+                    >
+                      {loadingRenewal ? "A guardar..." : "Guardar"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setRenewalDate(student.renewal_date ?? "");
+                        setEditingRenewalDate(false);
+                      }}
+                      className="h-8 text-xs"
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span>{renewalDate ? formatDate(renewalDate) : "—"}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditingRenewalDate(true)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <Edit2 className="size-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {diasRestantes !== null && (
+                <div
+                  className={`ml-[9.75rem] flex items-center gap-1 text-xs ${
+                    diasRestantes <= 7
+                      ? "text-red-600"
+                      : diasRestantes <= 30
+                        ? "text-amber-600"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {diasRestantes <= 7 && <AlertTriangle className="size-3" />}
+                  {diasRestantes < 0
+                    ? `${Math.abs(diasRestantes)} dias em atraso`
+                    : diasRestantes === 0
+                      ? "Vence hoje"
+                      : `${diasRestantes} dias restantes`}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                Observações de Renovação
+              </p>
+              {editingRenewalNotes ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={renewalNotes}
+                    onChange={(e) => setRenewalNotes(e.target.value)}
+                    className="text-sm"
+                    rows={3}
+                    placeholder="Ex: vai pagar em novembro, recebe bónus almoço…"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveRenewalNotes} disabled={loadingRenewal}>
+                      {loadingRenewal ? "A guardar..." : "Guardar"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setRenewalNotes(student.renewal_notes ?? "");
+                        setEditingRenewalNotes(false);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <p className="flex-1 whitespace-pre-wrap text-sm">
+                    {renewalNotes || <span className="text-muted-foreground">—</span>}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditingRenewalNotes(true)}
+                    className="h-6 w-6 shrink-0 p-0"
+                  >
+                    <Edit2 className="size-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Briefing do Negócio ── */}
+      {isStaff && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">Briefing do Negócio</CardTitle>
+              <SectionStatusBadge status={briefingReviewStatus} />
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setShowBriefingDialog(true)}>
+              Ver completo
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Sumário read-only */}
+            {initialBriefing?.negocio?.nome_negocio ? (
+              <div className="grid gap-2 text-sm sm:grid-cols-2">
+                <Row label="Negócio" value={initialBriefing.negocio.nome_negocio} />
+                {initialBriefing.negocio.nicho && (
+                  <Row label="Nicho" value={initialBriefing.negocio.nicho} />
+                )}
+                {initialBriefing.negocio.proposta_valor && (
+                  <div className="sm:col-span-2">
+                    <Row
+                      label="Proposta de valor"
+                      value={
+                        initialBriefing.negocio.proposta_valor.length > 160
+                          ? initialBriefing.negocio.proposta_valor.slice(0, 160) + "…"
+                          : initialBriefing.negocio.proposta_valor
+                      }
+                    />
+                  </div>
+                )}
+                {initialBriefing.audiencia?.avatar && (
+                  <div className="sm:col-span-2">
+                    <Row
+                      label="Avatar"
+                      value={
+                        initialBriefing.audiencia.avatar.length > 120
+                          ? initialBriefing.audiencia.avatar.slice(0, 120) + "…"
+                          : initialBriefing.audiencia.avatar
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                O aluno ainda não preencheu o briefing.
+              </p>
+            )}
+
+            {/* Nota de revisão existente */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Nota de revisão para o aluno
+                </p>
+                {!editingReviewNotes && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0"
+                    onClick={() => {
+                      setReviewNotesEditInput(existingReviewNotes ?? "");
+                      setEditingReviewNotes(true);
+                    }}
+                  >
+                    <Edit2 className="size-3" />
+                  </Button>
+                )}
+              </div>
+
+              {editingReviewNotes ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={reviewNotesEditInput}
+                    onChange={(e) => setReviewNotesEditInput(e.target.value)}
+                    placeholder="Feedback visível para o aluno..."
+                    rows={3}
+                    className="text-sm"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveReviewNotes}
+                      disabled={loadingBriefingReview}
+                    >
+                      {loadingBriefingReview ? "A guardar..." : "Guardar"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditingReviewNotes(false)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {existingReviewNotes || "—"}
+                </p>
+              )}
+            </div>
+
+            {/* Painel de transição de estado */}
+            {briefingTransitions && briefingTransitions.length > 0 && (
+              <div className="space-y-3 rounded-lg border border-dashed p-3">
+                <p className="text-xs font-medium text-muted-foreground">Mudar estado</p>
+                <div className="flex flex-wrap gap-2">
+                  {briefingTransitions.includes("aprovado") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400"
+                      onClick={() => handleBriefingReviewAction("aprovado")}
+                      disabled={loadingBriefingReview}
+                    >
+                      {loadingBriefingReview ? "A guardar..." : "Aprovar"}
+                    </Button>
+                  )}
+                  {briefingTransitions.includes("alteracoes_pedidas") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400"
+                      onClick={() => setShowReviewNotesInput((p) => !p)}
+                      disabled={loadingBriefingReview}
+                    >
+                      Pedir alterações
+                    </Button>
+                  )}
+                  {briefingTransitions.includes("arquivado") && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      onClick={() => handleBriefingReviewAction("arquivado")}
+                      disabled={loadingBriefingReview}
+                    >
+                      Arquivar
+                    </Button>
+                  )}
+                </div>
+
+                {showReviewNotesInput && briefingTransitions.includes("alteracoes_pedidas") && (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={reviewNotesInput}
+                      onChange={(e) => setReviewNotesInput(e.target.value)}
+                      placeholder="Descreve as alterações necessárias (obrigatório)…"
+                      rows={3}
+                      className="text-sm"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          handleBriefingReviewAction("alteracoes_pedidas", reviewNotesInput)
+                        }
+                        disabled={loadingBriefingReview || !reviewNotesInput.trim()}
+                      >
+                        {loadingBriefingReview ? "A enviar..." : "Enviar feedback"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowReviewNotesInput(false);
+                          setReviewNotesInput("");
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Audiência ── */}
+      {isStaff && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Audiência</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StudentAudienceCoach studentId={studentId} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Produtos ── */}
+      {isStaff && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Produtos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StudentProductsCoach studentId={studentId} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Tracker de Lançamentos ── */}
+      <StudentLaunches studentId={studentId} isCoach={isStaff} />
+
+      {/* ── Página de Vendas ── */}
+      {isStaff && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">Página de Vendas</CardTitle>
+            </div>
+            {!editingSalesPage && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSalesPageInput(salesPageUrl ?? "");
+                  setSalesPageUrlError("");
+                  setEditingSalesPage(true);
+                }}
+              >
+                {salesPageUrl ? "Editar URL" : "Adicionar página"}
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {editingSalesPage ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Input
+                    value={salesPageInput}
+                    onChange={(e) => {
+                      setSalesPageInput(e.target.value);
+                      if (salesPageUrlError) setSalesPageUrlError("");
+                    }}
+                    placeholder="https://minhaloja.com/pagina-vendas"
+                    className={salesPageUrlError ? "border-destructive text-sm" : "text-sm"}
+                    autoFocus
+                  />
+                  {salesPageUrlError && (
+                    <p className="text-xs text-destructive">{salesPageUrlError}</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleSaveSalesPage} disabled={savingSalesPage}>
+                    {savingSalesPage ? "A guardar..." : salesPageUrl ? "Guardar" : "Publicar"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingSalesPage(false);
+                      setSalesPageUrlError("");
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : salesPageUrl ? (
+              <div className="space-y-1.5">
+                <a
+                  href={salesPageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  <span className="max-w-xs truncate">{salesPageUrl}</span>
+                  <ExternalLink className="size-3 shrink-0" />
+                </a>
+                {salesPagePublishedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Publicada em {fmtDateShort(salesPagePublishedAt)}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                O aluno ainda não tem uma página de vendas registada.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Jornada do Aluno ── */}
+      {isStaff && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Jornada do Aluno</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingMilestones ? (
+              <p className="text-sm text-muted-foreground">A carregar…</p>
+            ) : milestones.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Ainda sem marcos atingidos.
+              </p>
+            ) : (
+              <div className="relative space-y-0">
+                {/* Linha vertical */}
+                <div className="absolute left-4 top-3 h-[calc(100%-24px)] w-px bg-border" />
+
+                {milestones.map((m) => (
+                  <div key={m.key} className="relative flex items-start gap-4 pb-5 last:pb-0">
+                    {/* Ícone */}
+                    <div className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-card text-base">
+                      {m.icon}
+                    </div>
+                    <div className="min-w-0 pt-0.5">
+                      <p className="text-sm font-medium">{m.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {fmtDateShort(m.achieved_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Suporte ── */}
+      {isStaff && (
+        <StudentSupportDashboard studentUserId={student.user_id} />
+      )}
+
+      {/* ── Progresso Financeiro ── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Progresso Financeiro</CardTitle>
@@ -340,7 +1118,9 @@ export function StudentDetailClient({
                 <Input
                   type="number"
                   value={financialForm.revenue_generated}
-                  onChange={(e) => setFinancialForm({ ...financialForm, revenue_generated: e.target.value })}
+                  onChange={(e) =>
+                    setFinancialForm({ ...financialForm, revenue_generated: e.target.value })
+                  }
                   className="mt-1 text-sm"
                 />
               </div>
@@ -348,7 +1128,9 @@ export function StudentDetailClient({
                 <label className="text-xs font-medium">Debriefing</label>
                 <Textarea
                   value={financialForm.debriefing}
-                  onChange={(e) => setFinancialForm({ ...financialForm, debriefing: e.target.value })}
+                  onChange={(e) =>
+                    setFinancialForm({ ...financialForm, debriefing: e.target.value })
+                  }
                   className="mt-1 text-sm"
                   rows={4}
                 />
@@ -357,24 +1139,117 @@ export function StudentDetailClient({
                 <Button size="sm" onClick={handleSaveFinancial} disabled={loadingFinancial}>
                   {loadingFinancial ? "A guardar..." : "Guardar"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setEditingFinancial(false)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingFinancial(false)}
+                >
                   Cancelar
                 </Button>
               </div>
             </div>
           ) : (
             <div className="space-y-3 text-sm">
-              {student.revenue_generated && <Row label="Receita Gerada" value={`${student.revenue_generated}€`} />}
-              {student.debriefing && <div>
-                <p className="text-xs text-muted-foreground">Debriefing</p>
-                <p className="mt-1 whitespace-pre-wrap">{student.debriefing}</p>
-              </div>}
-              {!student.revenue_generated && !student.debriefing && <p className="text-muted-foreground">—</p>}
+              {student.revenue_goal && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Meta Mensal</span>
+                    <span className="font-medium">
+                      {student.revenue_goal.toLocaleString("pt-PT")}€
+                    </span>
+                  </div>
+                  {student.revenue_generated != null && student.revenue_goal > 0 && (
+                    <div className="space-y-1">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full transition-all"
+                          style={{
+                            width: `${Math.min(100, Math.round((student.revenue_generated / student.revenue_goal) * 100))}%`,
+                            backgroundColor: "#A12B2B",
+                          }}
+                        />
+                      </div>
+                      <p className="text-right text-xs text-muted-foreground">
+                        {Math.min(
+                          100,
+                          Math.round(
+                            (student.revenue_generated / student.revenue_goal) * 100,
+                          ),
+                        )}
+                        % da meta
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {student.revenue_generated && (
+                <Row
+                  label="Receita Gerada"
+                  value={`${student.revenue_generated.toLocaleString("pt-PT")}€`}
+                />
+              )}
+              {student.investment_budget && (
+                <Row
+                  label="Investimento"
+                  value={`${student.investment_budget.toLocaleString("pt-PT")}€`}
+                />
+              )}
+              {student.debriefing && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Debriefing</p>
+                  <p className="mt-1 whitespace-pre-wrap">{student.debriefing}</p>
+                </div>
+              )}
+              {!student.revenue_goal &&
+                !student.revenue_generated &&
+                !student.investment_budget &&
+                !student.debriefing && <p className="text-muted-foreground">—</p>}
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* ── Progresso no Método ── */}
+      {progressDetail && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Progresso no Método</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Progresso geral</span>
+                <span className="font-medium">{progressDetail.progress_pct}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-emerald-500 transition-all"
+                  style={{ width: `${Math.min(progressDetail.progress_pct, 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              {progressDetail.modules.map((m) => (
+                <div key={m.id} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`size-2 rounded-full shrink-0 ${m.is_completed ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                    />
+                    <span className={m.is_completed ? "text-foreground" : "text-muted-foreground"}>
+                      {m.title}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {m.lessons.filter((l) => l.is_completed).length}/{m.lessons.length}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Checklist de Acompanhamento ── */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Checklist de Acompanhamento</CardTitle>
@@ -410,9 +1285,10 @@ export function StudentDetailClient({
         </CardContent>
       </Card>
 
+      {/* ── Diário de Bordo ── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Notas e Contactos</CardTitle>
+          <CardTitle className="text-base">Diário de Bordo</CardTitle>
           <Button size="sm" onClick={() => openNoteDialog()}>
             <Plus className="mr-1 size-3" />
             Nota
@@ -426,25 +1302,24 @@ export function StudentDetailClient({
               {notes.map((note) => {
                 const noteDate = formatDate(note.created_at).split(" ").slice(-3).join(" ");
                 return (
-                  <div key={note.id} className="rounded-lg border bg-card p-3 space-y-2">
+                  <div key={note.id} className="space-y-2 rounded-lg border bg-card p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 space-y-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium">{note.author.full_name}</p>
                           <span className="text-xs text-muted-foreground">·</span>
-                          <Badge variant="secondary" className="text-xs">{note.contact_type}</Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {note.contact_type}
+                          </Badge>
                           <span className="text-xs text-muted-foreground">·</span>
                           <span className="text-xs text-muted-foreground">{noteDate}</span>
                         </div>
-
                         <p className="text-xs text-muted-foreground">
                           Envolvimento: {note.involvement} · Motivação: {note.motivation}
                         </p>
-
                         <p className="text-sm text-foreground">{note.content}</p>
                       </div>
-
-                      <div className="flex gap-1 shrink-0">
+                      <div className="flex shrink-0 gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -471,6 +1346,7 @@ export function StudentDetailClient({
         </CardContent>
       </Card>
 
+      {/* ── Briefing legacy (texto livre) ── */}
       {student.briefing && (
         <Card>
           <CardHeader>
@@ -482,6 +1358,56 @@ export function StudentDetailClient({
         </Card>
       )}
 
+      {/* ── Dialogs ── */}
+
+      {isStaff && (
+        <BriefingDialog
+          open={showBriefingDialog}
+          onOpenChange={setShowBriefingDialog}
+          studentId={studentId}
+          isReadOnly
+          initialData={initialBriefing}
+        />
+      )}
+
+      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Perfil</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Instagram</label>
+              <Input
+                value={profileForm.instagram}
+                onChange={(e) => setProfileForm({ ...profileForm, instagram: e.target.value })}
+                placeholder="@handle"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Mind Map URL</label>
+              <Input
+                value={profileForm.mindmap_url}
+                onChange={(e) =>
+                  setProfileForm({ ...profileForm, mindmap_url: e.target.value })
+                }
+                placeholder="https://mindomo.com/..."
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={savingProfile}>
+              {savingProfile ? "A guardar..." : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
         <DialogContent>
           <DialogHeader>
@@ -492,7 +1418,9 @@ export function StudentDetailClient({
               <label className="text-sm font-medium">Tipo de Contacto</label>
               <Input
                 value={noteForm.contact_type}
-                onChange={(e) => setNoteForm({ ...noteForm, contact_type: e.target.value as any })}
+                onChange={(e) =>
+                  setNoteForm({ ...noteForm, contact_type: e.target.value as any })
+                }
                 list="contact-types"
                 className="mt-1"
                 placeholder="Call, WhatsApp, Email..."
@@ -512,7 +1440,9 @@ export function StudentDetailClient({
               <Input
                 type="date"
                 value={noteForm.reminder_date || ""}
-                onChange={(e) => setNoteForm({ ...noteForm, reminder_date: e.target.value || null })}
+                onChange={(e) =>
+                  setNoteForm({ ...noteForm, reminder_date: e.target.value || null })
+                }
                 className="mt-1"
               />
             </div>
@@ -521,7 +1451,9 @@ export function StudentDetailClient({
                 <label className="text-sm font-medium">Motivo do lembrete</label>
                 <Input
                   value={noteForm.reminder_note || ""}
-                  onChange={(e) => setNoteForm({ ...noteForm, reminder_note: e.target.value || null })}
+                  onChange={(e) =>
+                    setNoteForm({ ...noteForm, reminder_note: e.target.value || null })
+                  }
                   placeholder="ex: Rever números do CAC, Follow-up sobre lançamento"
                   className="mt-1"
                 />
@@ -558,7 +1490,13 @@ export function StudentDetailClient({
               Cancelar
             </Button>
             <Button onClick={handleSaveNote} disabled={loadingNote}>
-              {loadingNote ? (editingNoteId ? "A guardar..." : "A criar...") : (editingNoteId ? "Guardar" : "Criar")}
+              {loadingNote
+                ? editingNoteId
+                  ? "A guardar..."
+                  : "A criar..."
+                : editingNoteId
+                  ? "Guardar"
+                  : "Criar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -569,7 +1507,7 @@ export function StudentDetailClient({
           <DialogHeader>
             <DialogTitle>Apagar Nota</DialogTitle>
             <DialogDescription>
-              Tem a certeza que quer apagar esta nota? Esta ação é irreversível.
+              Tem a certeza que quer apagar esta nota? Esta acção é irreversível.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -587,6 +1525,26 @@ export function StudentDetailClient({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ── Utility components ────────────────────────────────────────────────────────
+
+function InstagramLink({ handle }: { handle: string }) {
+  const clean = handle.startsWith("@") ? handle.slice(1) : handle;
+  const url = handle.startsWith("https://") ? handle : `https://instagram.com/${clean}`;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{handle.startsWith("@") ? handle : `@${clean}`}</span>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-muted-foreground hover:text-blue-600"
+      >
+        <ExternalLink className="size-3" />
+      </a>
+    </span>
   );
 }
 
@@ -631,4 +1589,3 @@ function ChecklistItem({
     </label>
   );
 }
-

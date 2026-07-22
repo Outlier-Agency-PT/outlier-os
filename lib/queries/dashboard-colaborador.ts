@@ -38,25 +38,33 @@ export async function getMyOpenTasks(userId: string): Promise<TaskWithRelations[
   const supabase = await createClient();
   const concludedStatusId = await getConcludedStatusId();
 
-  let query = supabase
-    .from("tasks")
-    .select(
-      `
+  const SELECT = `
       *,
       estimate_points,
       status:task_statuses(id, key, label, color),
       client:clients(id, name),
       assignee:team_members!tasks_assignee_id_fkey(id, full_name, email)
-      `,
-    )
-    .or(`assignee_id.eq.${userId},assignees.cs.{${userId}}`);
+      `;
 
-  if (concludedStatusId) {
-    query = query.neq("status_id", concludedStatusId);
+  const baseById = supabase.from("tasks").select(SELECT).eq("assignee_id", userId);
+  const baseByArray = supabase.from("tasks").select(SELECT).contains("assignees", [userId]);
+
+  const [{ data: byId, error: errById }, { data: byArray, error: errByArray }] =
+    await Promise.all([
+      concludedStatusId ? baseById.neq("status_id", concludedStatusId) : baseById,
+      concludedStatusId ? baseByArray.neq("status_id", concludedStatusId) : baseByArray,
+    ]);
+
+  if (errById)
+    console.error("[getMyOpenTasks] assignee_id query:", errById.message);
+  if (errByArray)
+    console.error("[getMyOpenTasks] assignees array query:", errByArray.message);
+
+  const seen = new Set<string>();
+  const tasks: TaskWithRelations[] = [];
+  for (const t of [...(byId ?? []), ...(byArray ?? [])] as TaskWithRelations[]) {
+    if (!seen.has(t.id)) { seen.add(t.id); tasks.push(t); }
   }
-
-  const { data } = await query;
-  const tasks = (data ?? []) as TaskWithRelations[];
 
   return tasks.sort((a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]);
 }

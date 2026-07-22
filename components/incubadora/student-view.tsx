@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { AlertCircle, ChevronDown, ChevronRight, ExternalLink, Phone, Video, Zap, BookOpen, Lock, CheckCircle2, Circle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -23,7 +24,18 @@ import {
   uncompleteTrackStepAction,
   updateStudentProfileAction,
 } from "@/lib/actions/incubadora";
+import { getStudentBriefingAction } from "@/lib/actions/students";
+import { BriefingDialog } from "@/components/students/briefing-dialog";
+import { StudentTasks } from "./student-tasks";
+import { StudentROI } from "./student-roi";
+import { StudentSalesPage } from "./student-sales-page";
+import { StudentLaunchSummary } from "./student-launch-summary";
+import { StudentGamification } from "./student-gamification";
+import { StudentSupport } from "./student-support";
+import { StudentAudience } from "./student-audience";
+import { StudentProducts } from "./student-products";
 import { ToolsView } from "./tools-view";
+
 import type { ModuleWithLessons, Challenge, SuccessTrack } from "@/lib/queries/incubadora";
 
 const WELCOME_VIDEO_URL = ""; // Será preenchido pelo admin
@@ -70,6 +82,8 @@ export function StudentView({
   const [highlightedChallengeId, setHighlightedChallengeId] = useState<string | null>(null);
   const desafiosRef = useRef<HTMLDivElement>(null);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showBriefingDialog, setShowBriefingDialog] = useState(false);
+  const [briefingComplete, setBriefingComplete] = useState(false);
   const [challengeNotes, setChallengeNotes] = useState<Record<string, string>>(
     challenges.reduce(
       (acc, c) => {
@@ -90,6 +104,14 @@ export function StudentView({
         clearTimeout(highlightTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    getStudentBriefingAction().then((data) => {
+      if (data && (data as { is_complete?: boolean }).is_complete) {
+        setBriefingComplete(true);
+      }
+    });
   }, []);
 
   const remainingCalls = Math.max(0, 2 - emergencyCalls.length);
@@ -286,22 +308,24 @@ export function StudentView({
     <div className="space-y-8 p-8">
       {/* Header de Progresso */}
       <div className="rounded-lg border bg-card p-6">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold">Minha Aprendizagem</h2>
             <p className="text-sm text-muted-foreground">
               {completedModules} de {totalModules} módulos concluídos
             </p>
           </div>
-          <Button
-            variant={canRequestCall ? "default" : "secondary"}
-            disabled={!canRequestCall}
-            onClick={() => setShowEmergencyDialog(true)}
-            size="sm"
-          >
-            <Phone className="mr-2 size-4" />
-            {remainingCalls > 0 ? `Suporte (${remainingCalls})` : "Sem suporte"}
-          </Button>
+          <div className="flex shrink-0 items-center gap-3">
+            <Button
+              variant={canRequestCall ? "default" : "secondary"}
+              disabled={!canRequestCall}
+              onClick={() => setShowEmergencyDialog(true)}
+              size="sm"
+            >
+              <Phone className="mr-2 size-4" />
+              {remainingCalls > 0 ? `Suporte (${remainingCalls})` : "Sem suporte"}
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -317,6 +341,56 @@ export function StudentView({
           </div>
         </div>
       </div>
+
+      {/* Briefing do Negócio */}
+      <div className="rounded-lg border bg-card p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <h3 className="font-semibold">Briefing do Negócio</h3>
+            <p className="text-sm text-muted-foreground">
+              Define o teu negócio, produto e estratégia de lançamento
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {briefingComplete && (
+              <Badge className="rounded-full border border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
+                Completo
+              </Badge>
+            )}
+            <Button
+              size="sm"
+              variant={briefingComplete ? "outline" : "default"}
+              onClick={() => setShowBriefingDialog(true)}
+            >
+              {briefingComplete ? "Ver Briefing" : "Preencher Briefing"}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Perfis de Audiência */}
+      <StudentAudience />
+
+      {/* Produtos e Escada de Valor */}
+      <StudentProducts />
+
+      {/* Página de Vendas */}
+      <StudentSalesPage />
+
+      {/* Tarefas atribuídas pelo coach */}
+      <StudentTasks userId={studentId} />
+
+      {/* Progresso Financeiro e ROI */}
+      <StudentROI />
+
+      {/* Os Meus Lançamentos */}
+      <StudentLaunchSummary />
+
+      {/* Gamificação */}
+      <StudentGamification />
+
+      {/* Suporte — dúvidas assíncronas com a equipa */}
+      <StudentSupport userId={studentId} />
 
       {/* Timeline de Módulos */}
       <div className="space-y-3" data-section="modulos">
@@ -653,8 +727,6 @@ export function StudentView({
                   <div className="space-y-2">
                     {track.steps.map((step) => {
                       const isVideoAvailable = step.key === "pp_boas_vindas" && WELCOME_VIDEO_URL;
-                      const isBriefingStep = step.key === "pp_briefing";
-                      const isOfertaStep = step.key === "fund_oferta";
                       const isProfileStep = step.key === "pp_perfil";
                       const isModuloStep = step.key === "pp_modulo1";
 
@@ -673,12 +745,6 @@ export function StudentView({
                             setShowWelcomeVideoDialog(true);
                           }
                         };
-                      } else if (isBriefingStep && !step.is_completed) {
-                        isClickable = true;
-                        onClick = () => scrollToChallenge("Criar Briefing do Negócio");
-                      } else if (isOfertaStep && !step.is_completed) {
-                        isClickable = true;
-                        onClick = () => scrollToChallenge("Estruturar Oferta Principal");
                       } else if (isModuloStep && step.is_completed) {
                         isClickable = true;
                         onClick = handleScrollToModulos;
@@ -698,19 +764,13 @@ export function StudentView({
                           onClick={onClick}
                           disabled={
                             loadingTrackStep === step.key ||
-                            (step.is_automatic &&
-                              !isModuloStep &&
-                              !isBriefingStep &&
-                              !isOfertaStep) ||
+                            (step.is_automatic && !isModuloStep) ||
                             isComingSoon
                           }
                           className={`flex w-full items-start gap-3 rounded px-2 py-2 text-left transition-colors ${
                             isComingSoon
                               ? "cursor-not-allowed opacity-60"
-                              : (step.is_automatic &&
-                                  !isModuloStep &&
-                                  !isBriefingStep &&
-                                  !isOfertaStep) ||
+                              : (step.is_automatic && !isModuloStep) ||
                                 (!isClickable && !displayedAsCompleted)
                                 ? "cursor-not-allowed"
                                 : isClickable
@@ -720,16 +780,11 @@ export function StudentView({
                           title={
                             isModuloStep && step.is_completed
                               ? "Clica para ver os módulos"
-                              : (isBriefingStep || isOfertaStep) && !step.is_completed
-                                ? "Clica para ver o desafio"
-                                : step.is_automatic &&
-                                    !isModuloStep &&
-                                    !isBriefingStep &&
-                                    !isOfertaStep
-                                  ? "Este passo é marcado automaticamente"
-                                  : isComingSoon
-                                    ? "Vídeo ainda não disponível"
-                                    : ""
+                              : step.is_automatic && !isModuloStep
+                                ? "Este passo é marcado automaticamente"
+                                : isComingSoon
+                                  ? "Vídeo ainda não disponível"
+                                  : ""
                           }
                         >
                           <div className="mt-0.5 flex-shrink-0">
@@ -765,6 +820,20 @@ export function StudentView({
           </div>
         </div>
       )}
+
+      {/* Briefing Dialog */}
+      <BriefingDialog
+        open={showBriefingDialog}
+        onOpenChange={(open) => {
+          setShowBriefingDialog(open);
+          if (!open) {
+            // Recheck completion status after dialog closes
+            getStudentBriefingAction().then((data) => {
+              if (data) setBriefingComplete(!!(data as { is_complete?: boolean }).is_complete);
+            });
+          }
+        }}
+      />
 
       {/* Dialog de Emergência */}
       <Dialog open={showEmergencyDialog} onOpenChange={setShowEmergencyDialog}>

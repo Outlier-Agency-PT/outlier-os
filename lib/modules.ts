@@ -15,6 +15,7 @@ import {
   Compass,
   Lightbulb,
   Gauge,
+  PenLine,
   type LucideIcon,
 } from "lucide-react";
 
@@ -25,6 +26,7 @@ export type ModuleKey =
   | "mentorias"
   | "clientes"
   | "tarefas"
+  | "whiteboard"
   | "lancamentos"
   | "conteudo"
   | "incubadora"
@@ -63,6 +65,7 @@ export const MODULES: ModuleDef[] = [
   // OPERACIONAL
   { key: "clientes", label: "Clientes", href: "/clientes", icon: Users, section: "operacional" },
   { key: "tarefas", label: "Tarefas", href: "/tarefas", icon: CheckSquare, section: "operacional" },
+  { key: "whiteboard", label: "Whiteboard", href: "/whiteboard", icon: PenLine, section: "operacional" },
   { key: "lancamentos", label: "Lançamentos", href: "/lancamentos", icon: Rocket, section: "operacional" },
   { key: "conteudo", label: "Conteúdo", href: "/conteudo", icon: FileText, section: "operacional" },
   { key: "incubadora", label: "Incubadora", href: "/incubadora", icon: GraduationCap, section: "operacional" },

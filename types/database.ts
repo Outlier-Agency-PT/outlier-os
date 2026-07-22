@@ -60,7 +60,7 @@ export interface Database {
     Functions: Record<string, never>;
     Enums: {
       client_type: "one_shot" | "long_term" | "interno";
-      student_level: "aprendiz" | "fazedor" | "autoridade" | "referencia" | "aguardar";
+      student_level: "aprendiz" | "fazedor" | "referencia" | "suspenso";
       task_priority: "sem_prioridade" | "baixa" | "media" | "alta" | "urgente";
       confidence_level: "baixa" | "media" | "alta";
       quarter_label: "Q1" | "Q2" | "Q3" | "Q4";

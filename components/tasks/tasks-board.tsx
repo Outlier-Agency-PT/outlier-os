@@ -22,6 +22,9 @@ import {
   Download,
   Lock,
   LayoutTemplate,
+  BarChart2,
+  GanttChart,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,12 +36,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TaskForm } from "./task-form";
 import { TaskSidebar } from "./task-sidebar";
 import { TaskDetailPanel } from "./task-detail-panel";
 import { ExportFilterModal } from "./export-filter-modal";
 import { ApplyTemplateDialog } from "./apply-template-dialog";
 import { TasksCalendar } from "./tasks-calendar";
+import { WorkloadView } from "./workload-view";
+import { TasksGantt } from "./tasks-gantt";
 import { moveTaskStatusAction, getTaskDetailAction } from "@/lib/actions/tasks";
 import { PRIORITY_LABELS, PRIORITY_COLORS, type TaskPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -46,7 +58,7 @@ import { toast } from "sonner";
 import type { TaskWithRelations, TaskSpace } from "@/lib/queries/tasks";
 import type { TaskTemplate } from "@/lib/queries/templates";
 
-type View = "kanban" | "tabela" | "calendario";
+type View = "kanban" | "tabela" | "calendario" | "carga" | "gantt";
 
 interface TasksBoardProps {
   initialTasks: TaskWithRelations[];
@@ -74,6 +86,7 @@ export function TasksBoard({
   const [tasks, setTasks] = useState(initialTasks);
   const [view, setView] = useState<View>("kanban");
   const [search, setSearch] = useState("");
+  const [filterClientId, setFilterClientId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
@@ -103,15 +116,24 @@ export function TasksBoard({
   }, [spaces, selectedListId]);
 
   const filtered = useMemo(() => {
-    if (!search) return tasks;
-    const q = search.toLowerCase();
-    return tasks.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.client?.name.toLowerCase().includes(q) ||
-        t.assignee?.full_name.toLowerCase().includes(q),
-    );
-  }, [tasks, search]);
+    let result = tasks;
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          t.client?.name.toLowerCase().includes(q) ||
+          t.assignee?.full_name.toLowerCase().includes(q),
+      );
+    }
+
+    if (filterClientId) {
+      result = result.filter((t) => t.client?.id === filterClientId);
+    }
+
+    return result;
+  }, [tasks, search, filterClientId]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, TaskWithRelations[]>();
@@ -186,7 +208,6 @@ export function TasksBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskIdParam]);
 
-  // Abre o form de nova tarefa quando vem do Command Palette (?new=task)
   useEffect(() => {
     if (searchParams.get("new") !== "task") return;
     setOpen(true);
@@ -198,7 +219,12 @@ export function TasksBoard({
     { key: "kanban", icon: LayoutGrid, label: "Kanban" },
     { key: "tabela", icon: TableIcon, label: "Tabela" },
     { key: "calendario", icon: CalendarDays, label: "Calendário" },
+    { key: "carga", icon: BarChart2, label: "Carga" },
+    { key: "gantt", icon: GanttChart, label: "Gantt" },
   ];
+
+  const showFilters = view !== "calendario" && view !== "carga" && view !== "gantt";
+  const showExport = view !== "calendario" && view !== "carga" && view !== "gantt";
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height))]">
@@ -226,12 +252,50 @@ export function TasksBoard({
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-2 border-b px-8 py-4 bg-background">
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar tarefas..."
-            className="max-w-xs"
-          />
+          {showFilters && (
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar tarefas..."
+              className="max-w-xs"
+            />
+          )}
+
+          {/* Filtro por cliente — só em Kanban e Tabela */}
+          {showFilters && (
+            <div className="flex items-center gap-1">
+              <Select
+                value={filterClientId ?? "all"}
+                onValueChange={(v) => setFilterClientId(v === "all" ? null : v)}
+              >
+                <SelectTrigger
+                  className="h-9 w-48 text-sm"
+                  style={filterClientId ? { borderColor: "#A12B2B" } : undefined}
+                >
+                  <SelectValue placeholder="Todos os clientes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os clientes</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {filterClientId && (
+                <button
+                  onClick={() => setFilterClientId(null)}
+                  className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  title="Limpar filtro de cliente"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="ml-auto flex items-center gap-2">
             {/* Toggle de vistas */}
             <div className="flex rounded-md border">
@@ -250,8 +314,7 @@ export function TasksBoard({
               ))}
             </div>
 
-            {/* Exportar (só nas vistas não-calendário) */}
-            {view !== "calendario" && (
+            {showExport && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline">
@@ -270,8 +333,7 @@ export function TasksBoard({
               </DropdownMenu>
             )}
 
-            {/* Usar Template */}
-            {templates.length > 0 && (
+            {templates.length > 0 && view !== "carga" && view !== "gantt" && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline">
@@ -295,15 +357,25 @@ export function TasksBoard({
               </DropdownMenu>
             )}
 
-            <Button onClick={() => setOpen(true)}>
-              <Plus className="size-4" />
-              Nova Tarefa
-            </Button>
+            {view !== "carga" && view !== "gantt" && (
+              <Button onClick={() => setOpen(true)}>
+                <Plus className="size-4" />
+                Nova Tarefa
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Área de conteúdo */}
-        {view === "calendario" ? (
+        {view === "gantt" ? (
+          <div className="flex-1 overflow-hidden">
+            <TasksGantt onTaskClick={handleSelectTask} />
+          </div>
+        ) : view === "carga" ? (
+          <div className="flex-1 overflow-auto">
+            <WorkloadView />
+          </div>
+        ) : view === "calendario" ? (
           <div className="flex-1 overflow-hidden">
             <TasksCalendar
               tasks={filtered}
@@ -350,6 +422,13 @@ export function TasksBoard({
           onClose={() => {
             setSelectedTaskId(null);
             setSelectedTaskData({ task: null, comments: [] });
+          }}
+          onTaskUpdate={(field, value) => {
+            if (selectedTaskId) {
+              setTasks((prev) =>
+                prev.map((t) => (t.id === selectedTaskId ? { ...t, [field]: value } : t)),
+              );
+            }
           }}
         />
       )}
@@ -460,7 +539,7 @@ function TaskCard({ task, onClick }: { task: TaskWithRelations; onClick: () => v
       {...attributes}
       onClick={() => { if (!isDragging) onClick(); }}
       className={cn(
-        "rounded-md border bg-card p-3 shadow-sm transition-shadow hover:shadow-md hover:bg-accent/50 flex gap-2 select-none",
+        "rounded-md border bg-card p-3 shadow-sm transition-shadow hover:shadow-md hover:bg-accent/50 flex gap-2 select-none cursor-pointer",
         isDragging && "opacity-50",
         isOver && "ring-2 ring-primary",
       )}
@@ -471,6 +550,7 @@ function TaskCard({ task, onClick }: { task: TaskWithRelations; onClick: () => v
         className="flex-shrink-0 text-muted-foreground hover:text-foreground p-0 h-5 w-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
         aria-label="Arrastar tarefa"
         role="button"
+        onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="size-4" />
       </div>
@@ -488,16 +568,11 @@ function TaskCard({ task, onClick }: { task: TaskWithRelations; onClick: () => v
                 {PRIORITY_LABELS[task.priority as TaskPriority]}
               </span>
             )}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 ml-auto">
               {task.assignee && (
                 <span className="text-muted-foreground truncate max-w-24">
                   {task.assignee.full_name}
                 </span>
-              )}
-              {task.assignees && task.assignees.length > 1 && (
-                <Badge variant="secondary" className="text-[10px] ml-1 px-1.5 py-0">
-                  +{task.assignees.length - 1}
-                </Badge>
               )}
             </div>
           </div>
@@ -505,13 +580,20 @@ function TaskCard({ task, onClick }: { task: TaskWithRelations; onClick: () => v
             <p className="mt-1 truncate text-[10px] text-muted-foreground">{task.client.name}</p>
           )}
         </div>
-        {task.estimate_points && (
-          <div className="mt-2 flex justify-end">
-            <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] px-2 py-0.5">
-              {task.estimate_points} pts
+        <div className="mt-2 flex justify-end">
+          {task.estimate_points ? (
+            <Badge
+              variant="secondary"
+              className="bg-muted text-muted-foreground text-[10px] px-2 py-0.5"
+            >
+              {task.estimate_points}h
             </Badge>
-          </div>
-        )}
+          ) : (
+            <span className="inline-flex cursor-pointer items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700">
+              ! Sem estimativa
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -561,17 +643,14 @@ function TasksTable({
               </td>
               <td className="px-4 py-3 text-muted-foreground">{t.client?.name ?? "—"}</td>
               <td className="px-4 py-3 text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <span>{t.assignee?.full_name ?? "—"}</span>
-                  {t.assignees && t.assignees.length > 1 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      +{t.assignees.length - 1}
-                    </Badge>
-                  )}
-                </div>
+                {t.assignee?.full_name ?? "—"}
               </td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {t.estimate_points ? `${t.estimate_points} pts` : "—"}
+              <td className="px-4 py-3">
+                {t.estimate_points ? (
+                  <span className="text-muted-foreground">{t.estimate_points}h</span>
+                ) : (
+                  <span className="cursor-pointer text-amber-600">— Definir</span>
+                )}
               </td>
               <td className="px-4 py-3 text-muted-foreground">{t.due_date ?? "—"}</td>
             </tr>

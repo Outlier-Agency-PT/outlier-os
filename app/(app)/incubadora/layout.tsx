@@ -9,12 +9,23 @@ export default async function IncubadoraLayout({ children }: { children: React.R
 
   if (!user) redirect("/login");
 
-  const roles = await getUserRoles();
-  if (!roles.includes("admin") && !roles.includes("aluno")) {
+  const [roles, memberData] = await Promise.all([
+    getUserRoles(),
+    supabase.from("team_members").select("role").eq("id", user.id).maybeSingle(),
+  ]);
+
+  const teamRole = memberData.data?.role as string | undefined;
+  const isStaff =
+    roles.includes("admin") ||
+    roles.includes("funcionario") ||
+    teamRole === "admin" ||
+    teamRole === "membro";
+
+  if (!isStaff && !roles.includes("aluno")) {
     redirect(getHomeRoute(roles));
   }
 
-  const isAluno = roles.includes("aluno") && !roles.includes("admin") && !roles.includes("funcionario");
+  const isAluno = roles.includes("aluno") && !isStaff;
 
   if (isAluno) {
     const { data: member } = await supabase

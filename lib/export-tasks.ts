@@ -9,7 +9,7 @@ const EXPORT_HEADERS = [
   "Prioridade",
   "Assignees",
   "Data Limite",
-  "Estimativa (pts)",
+  "Estimativa (h)",
   "Lista",
   "Espaço",
   "Criado em",

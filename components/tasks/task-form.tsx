@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,12 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { PRIORITY_LABELS, type TaskPriority } from "@/lib/types";
 import { createTaskAction, type TaskInput } from "@/lib/actions/tasks";
 import { toast } from "sonner";
@@ -255,38 +248,20 @@ export function TaskForm({
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <Label htmlFor="estimate">Estimativa (pontos)</Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger type="button">
-                      <Info className="size-3.5 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Pontos representam complexidade, não horas.
-                      <br />
-                      1 = trivial · 2 = pequeno · 3 = médio · 5 = significativo · 8 = grande · 13 = muito grande
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Select
-                value={form.estimate_points?.toString() ?? "0"}
-                onValueChange={(v) => update("estimate_points", v === "0" ? null : parseInt(v))}
-              >
-                <SelectTrigger id="estimate">
-                  <SelectValue placeholder="Sem estimativa" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Sem estimativa</SelectItem>
-                  <SelectItem value="1">1</SelectItem>
-                  <SelectItem value="2">2</SelectItem>
-                  <SelectItem value="3">3</SelectItem>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="8">8</SelectItem>
-                  <SelectItem value="13">13</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="estimate">Estimativa (horas)</Label>
+              <Input
+                id="estimate"
+                type="number"
+                min="0.5"
+                max="40"
+                step="0.5"
+                placeholder="ex: 2"
+                value={form.estimate_points ?? ""}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  update("estimate_points", !e.target.value || v <= 0 ? null : v);
+                }}
+              />
             </div>
 
             <div className="col-span-2 space-y-1.5">

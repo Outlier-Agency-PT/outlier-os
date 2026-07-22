@@ -35,17 +35,15 @@ import type { StudentProgressSummary, DetailedStudentProgress } from "@/lib/quer
 const LEVEL_LABELS = {
   aprendiz: "Aprendiz",
   fazedor: "Fazedor",
-  autoridade: "Autoridade",
   referencia: "Referência",
-  aguardar: "Aguardar",
+  suspenso: "Suspenso",
 } as const;
 
 const LEVEL_COLORS = {
   aprendiz: "#94A3B8",
   fazedor: "#3B82F6",
-  autoridade: "#10B981",
   referencia: "#F59E0B",
-  aguardar: "#6B7280",
+  suspenso: "#6B7280",
 };
 
 interface Props {
@@ -72,12 +70,16 @@ export function StudentsView({ students, members, progressMap, detailedProgressM
   }, [students, search]);
 
   // Agrupa por nível
-  const byLevel = new Map<keyof typeof LEVEL_LABELS, Student[]>();
-  for (const k of Object.keys(LEVEL_LABELS) as (keyof typeof LEVEL_LABELS)[]) {
-    byLevel.set(k, []);
-  }
+  type LevelKey = keyof typeof LEVEL_LABELS;
+  const byLevel: Record<LevelKey, Student[]> = {
+    aprendiz: [],
+    fazedor: [],
+    referencia: [],
+    suspenso: [],
+  };
   for (const s of filtered) {
-    byLevel.get(s.level)!.push(s);
+    const key = s.level as LevelKey;
+    if (key in byLevel) byLevel[key].push(s);
   }
 
   return (
@@ -100,7 +102,7 @@ export function StudentsView({ students, members, progressMap, detailedProgressM
         <div className="grid gap-4 sm:grid-cols-3">
           <Kpi label="Total Alunos" value={students.length} />
           <Kpi label="Ativos" value={students.filter((s) => s.status === "ativo").length} />
-          <Kpi label="Aprendizes" value={byLevel.get("aprendiz")?.length ?? 0} />
+          <Kpi label="Aprendizes" value={byLevel["aprendiz"]?.length ?? 0} />
         </div>
 
         {/* Kanban por nível */}
@@ -113,14 +115,14 @@ export function StudentsView({ students, members, progressMap, detailedProgressM
                   <p className="text-xs font-semibold">{LEVEL_LABELS[level]}</p>
                 </div>
                 <Badge variant="secondary" className="text-[10px]">
-                  {byLevel.get(level)?.length ?? 0}
+                  {byLevel[level]?.length ?? 0}
                 </Badge>
               </div>
               <div className="space-y-2">
-                {byLevel.get(level)?.length === 0 ? (
+                {byLevel[level]?.length === 0 ? (
                   <p className="text-xs text-muted-foreground">—</p>
                 ) : (
-                  byLevel.get(level)!.map((s) => {
+                  byLevel[level]!.map((s) => {
                     const detailed = detailedProgressMap?.get(s.id);
                     const progressPercent = detailed?.progress_pct ?? 0;
                     const progressColor =
@@ -457,9 +459,8 @@ function CreateStudentDialog({
                 <SelectContent>
                   <SelectItem value="aprendiz">Aprendiz</SelectItem>
                   <SelectItem value="fazedor">Fazedor</SelectItem>
-                  <SelectItem value="autoridade">Autoridade</SelectItem>
                   <SelectItem value="referencia">Referência</SelectItem>
-                  <SelectItem value="aguardar">Aguardar</SelectItem>
+                  <SelectItem value="suspenso">Suspenso</SelectItem>
                 </SelectContent>
               </Select>
             </div>

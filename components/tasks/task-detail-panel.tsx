@@ -26,6 +26,7 @@ import {
   logTimeManualAction,
   getTaskTimeLogsAction,
   getTaskActivityAction,
+  updateTaskDatesAction,
 } from "@/lib/actions/tasks";
 import { formatDuration, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
@@ -47,6 +48,7 @@ interface TaskDetailPanelProps {
   lists: { id: string; name: string }[];
   members: { id: string; full_name: string }[];
   onClose: () => void;
+  onTaskUpdate?: (field: string, value: unknown) => void;
 }
 
 export function TaskDetailPanel({
@@ -56,6 +58,7 @@ export function TaskDetailPanel({
   lists,
   members,
   onClose,
+  onTaskUpdate,
 }: TaskDetailPanelProps) {
   const router = useRouter();
   const [form, setForm] = useState(task ? { ...task } : null);
@@ -181,6 +184,7 @@ export function TaskDetailPanel({
       setForm((prev) => prev ? { ...prev, [key]: (task as any)[key] } : null);
     } else {
       toast.success("Tarefa atualizada");
+      onTaskUpdate?.(key, value);
     }
   }
 
@@ -290,26 +294,44 @@ export function TaskDetailPanel({
     </div>
   );
 
+  const startDateField = (
+    <div>
+      <Label className="text-xs font-semibold">Data de Início</Label>
+      <Input
+        type="date"
+        value={form.start_date ?? ""}
+        onChange={async (e) => {
+          const val = e.target.value || null;
+          if (val && form.due_date && val > form.due_date) {
+            toast.error("Data de início posterior à data limite");
+            return;
+          }
+          setForm((prev: any) => prev ? { ...prev, start_date: val } : null);
+          setLoading(true);
+          await updateTaskDatesAction(task.id, { start_date: val, due_date: form.due_date });
+          setLoading(false);
+        }}
+        className="mt-1.5 h-8 text-xs"
+      />
+    </div>
+  );
+
   const estimateField = (
     <div>
-      <Label className="text-xs font-semibold">Estimativa (pontos)</Label>
-      <Select
-        value={form.estimate_points?.toString() ?? "0"}
-        onValueChange={(v) => handleUpdate("estimate_points", v === "0" ? null : parseInt(v))}
-      >
-        <SelectTrigger className="mt-1.5 h-8 text-xs">
-          <SelectValue placeholder="Sem estimativa" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="0">Sem estimativa</SelectItem>
-          <SelectItem value="1">1</SelectItem>
-          <SelectItem value="2">2</SelectItem>
-          <SelectItem value="3">3</SelectItem>
-          <SelectItem value="5">5</SelectItem>
-          <SelectItem value="8">8</SelectItem>
-          <SelectItem value="13">13</SelectItem>
-        </SelectContent>
-      </Select>
+      <Label className="text-xs font-semibold">Estimativa (horas)</Label>
+      <Input
+        type="number"
+        min="0.5"
+        max="40"
+        step="0.5"
+        placeholder="ex: 2"
+        value={form.estimate_points ?? ""}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          handleUpdate("estimate_points", !e.target.value || v <= 0 ? null : v);
+        }}
+        className="mt-1.5 h-8 text-xs"
+      />
     </div>
   );
 
@@ -555,6 +577,7 @@ export function TaskDetailPanel({
                 {statusField}
                 {priorityField}
                 {assigneesField}
+                {startDateField}
                 {dueDateField}
                 {estimateField}
                 {listField}
@@ -571,6 +594,7 @@ export function TaskDetailPanel({
             {titleField}
             {descriptionField}
             {statusPriorityGrid}
+            {startDateField}
             {dueDateField}
             {estimateField}
             {listField}

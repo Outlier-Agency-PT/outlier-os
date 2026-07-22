@@ -197,7 +197,7 @@ export function ApplyTemplateDialog({
                     )}
                     {item.estimate_points && (
                       <span className="text-xs text-muted-foreground shrink-0">
-                        {item.estimate_points}pts
+                        {item.estimate_points}h
                       </span>
                     )}
                   </div>

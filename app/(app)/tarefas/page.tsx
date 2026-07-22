@@ -28,11 +28,18 @@ export default async function TarefasPage(props: {
     getTaskTemplates(),
   ]);
 
+  const rootCount = (tasks as any[]).filter((t) => !t.parent_task_id).length;
+  const subCount = tasks.length - rootCount;
+  const taskDesc =
+    subCount > 0
+      ? `${rootCount} ${rootCount === 1 ? "tarefa" : "tarefas"} · ${subCount} ${subCount === 1 ? "subtarefa" : "subtarefas"}`
+      : `${tasks.length} ${tasks.length === 1 ? "tarefa" : "tarefas"}`;
+
   return (
     <>
       <PageHeader
         title="Tarefas"
-        description={`${tasks.length} ${tasks.length === 1 ? "tarefa" : "tarefas"}`}
+        description={taskDesc}
       />
       <TasksBoard
         key={listId}

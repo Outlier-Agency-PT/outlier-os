@@ -109,6 +109,21 @@ export async function updateTaskAction(id: string, input: Partial<TaskInput>) {
     cleaned[k] = v === "" ? null : v;
   }
 
+  // Sync completed_at whenever status_id changes
+  if ("status_id" in cleaned) {
+    if (cleaned.status_id) {
+      const { data: targetStatus } = await supabase
+        .from("task_statuses")
+        .select("key")
+        .eq("id", cleaned.status_id as string)
+        .maybeSingle();
+      cleaned.completed_at =
+        targetStatus?.key === "concluido" ? new Date().toISOString() : null;
+    } else {
+      cleaned.completed_at = null;
+    }
+  }
+
   const touchesAssignees = "assignees" in input || "assignee_id" in input;
   let previousTask: { assignee_id: string | null; assignees: string[] | null } | null = null;
   if (touchesAssignees) {
@@ -156,10 +171,18 @@ export async function updateTaskAction(id: string, input: Partial<TaskInput>) {
 
 export async function moveTaskStatusAction(id: string, newStatusId: string) {
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("tasks")
-    .update({ status_id: newStatusId })
-    .eq("id", id);
+
+  const { data: targetStatus } = await supabase
+    .from("task_statuses")
+    .select("key")
+    .eq("id", newStatusId)
+    .maybeSingle();
+
+  const update: Record<string, unknown> = { status_id: newStatusId };
+  update.completed_at =
+    targetStatus?.key === "concluido" ? new Date().toISOString() : null;
+
+  const { error } = await supabase.from("tasks").update(update).eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/tarefas");
   return { success: true };
@@ -422,4 +445,84 @@ export async function getTaskDetailAction(taskId: string) {
   ]);
 
   return { task, comments: comments ?? [] };
+}
+
+export async function getWorkloadAction() {
+  const { getWorkloadByMember } = await import("@/lib/queries/tasks");
+  return getWorkloadByMember();
+}
+
+export async function getTasksForStudentAction(userId: string) {
+  const { getTasksForStudent } = await import("@/lib/queries/tasks");
+  return getTasksForStudent(userId);
+}
+
+export async function updateTaskDeliveryAction(
+  taskId: string,
+  deliveryUrl: string | null,
+) {
+  const url = deliveryUrl?.trim() || null;
+  if (url) {
+    try {
+      new URL(url);
+    } catch {
+      return { error: "URL inválida — certifica-te que começa com https://" };
+    }
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tasks")
+    .update({ delivery_url: url })
+    .eq("id", taskId);
+  if (error) return { error: error.message };
+  revalidatePath("/incubadora");
+  return { success: true };
+}
+
+export async function markTaskCompleteAction(taskId: string) {
+  const supabase = await createClient();
+  const { data: concluido } = await supabase
+    .from("task_statuses")
+    .select("id")
+    .eq("key", "concluido")
+    .maybeSingle();
+  const update: Record<string, unknown> = {
+    completed_at: new Date().toISOString(),
+  };
+  if (concluido?.id) update.status_id = concluido.id;
+  const { error } = await supabase.from("tasks").update(update).eq("id", taskId);
+  if (error) return { error: error.message };
+  revalidatePath("/incubadora");
+  return { success: true };
+}
+
+export async function getTasksForGanttAction() {
+  const { getTasksForGantt } = await import("@/lib/queries/tasks");
+  return getTasksForGantt();
+}
+
+const taskDatesSchema = z.object({
+  start_date: z.string().nullable().optional(),
+  due_date: z.string().nullable().optional(),
+});
+
+export async function updateTaskDatesAction(
+  taskId: string,
+  dates: { start_date?: string | null; due_date?: string | null },
+) {
+  const parsed = taskDatesSchema.safeParse(dates);
+  if (!parsed.success) return { error: "Datas inválidas" };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      start_date: parsed.data.start_date ?? null,
+      due_date: parsed.data.due_date ?? null,
+    })
+    .eq("id", taskId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { success: true };
 }

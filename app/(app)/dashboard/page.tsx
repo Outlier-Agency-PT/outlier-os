@@ -27,7 +27,9 @@ import {
   getCheckpointStatus,
   getCurrentWeekStart,
 } from "@/lib/queries/checkpoints";
+import { getStudentsWithRenewalAlerts } from "@/lib/queries/students";
 import { formatRelative } from "@/lib/utils";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -100,7 +102,7 @@ export default async function DashboardPage() {
     getDecisions(),
   ]);
 
-  const [clientesRes, tarefasRes, lancamentosRes] = await Promise.all([
+  const [clientesRes, tarefasRes, lancamentosRes, renewalAlerts] = await Promise.all([
     clientActiveRes.data?.id
       ? supabase
           .from("clients")
@@ -123,6 +125,7 @@ export default async function DashboardPage() {
             `(${launchClosedRes.data.map((s: { id: string }) => s.id).join(",")})`,
           )
       : supabase.from("launches").select("*", { count: "exact", head: true }),
+    getStudentsWithRenewalAlerts(),
   ]);
 
   const { data: krs } = await supabase
@@ -236,6 +239,51 @@ export default async function DashboardPage() {
             openTasks: departmentTaskCounts.desenvolvimento,
           }}
         />
+
+        {/* Renovações Próximas — só aparece se houver alertas */}
+        {renewalAlerts.length > 0 && (
+          <div>
+            <div className="border-b border-border pb-3">
+              <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Renovações Próximas
+              </h2>
+            </div>
+            <ul className="divide-y divide-border">
+              {renewalAlerts.map((alert) => (
+                <li key={alert.id}>
+                  <Link
+                    href={`/incubadora/${alert.id}`}
+                    className="-mx-1 flex items-baseline justify-between gap-4 px-1 py-3 hover:bg-muted/30"
+                  >
+                    <p className="min-w-0 flex-1 text-sm leading-snug">
+                      <span className="font-medium tracking-[-0.01em]">{alert.name}</span>
+                      {alert.coach && (
+                        <span className="font-light text-muted-foreground">
+                          {" "}· {alert.coach.full_name}
+                        </span>
+                      )}
+                    </p>
+                    <span
+                      className={`shrink-0 text-[11px] tabular-nums ${
+                        alert.dias_restantes <= 7
+                          ? "font-medium text-red-600"
+                          : alert.dias_restantes <= 30
+                            ? "text-amber-600"
+                            : "text-muted-foreground/45"
+                      }`}
+                    >
+                      {alert.dias_restantes < 0
+                        ? `${Math.abs(alert.dias_restantes)}d em atraso`
+                        : alert.dias_restantes === 0
+                          ? "hoje"
+                          : `${alert.dias_restantes}d`}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Atividade — sem wrapper de card, lista editorial pura */}
         <div>

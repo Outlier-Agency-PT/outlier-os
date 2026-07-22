@@ -5,6 +5,8 @@ import { StudentsView } from "@/components/students/students-view";
 import { ModulesPanel } from "@/components/incubadora/incubadora-components";
 import { StudentView } from "@/components/incubadora/student-view";
 import { getStudents, getPendingReminders } from "@/lib/queries/students";
+import { StudentsROIDashboard } from "@/components/students/students-roi-dashboard";
+import { IncubadoraDashboard } from "@/components/incubadora/incubadora-dashboard";
 import { getTeamMembers } from "@/lib/queries/team";
 import { getModulesWithLessonCount, getAllStudentsProgress, getStudentProgressDetail, getChallenges, getSuccessTracks, getStudentsDetailedProgress, getStudentProfile as getStudentProfileQuery } from "@/lib/queries/incubadora";
 
@@ -18,9 +20,19 @@ export default async function IncubadoraPage(props: {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const roles = await getUserRoles();
+  const [roles, memberData] = await Promise.all([
+    getUserRoles(),
+    supabase.from("team_members").select("role").eq("id", user?.id ?? "").maybeSingle(),
+  ]);
 
-  const isAluno = roles.includes("aluno") && !roles.includes("admin") && !roles.includes("funcionario");
+  const teamRole = memberData.data?.role as string | undefined;
+  const isStaff =
+    roles.includes("admin") ||
+    roles.includes("funcionario") ||
+    teamRole === "admin" ||
+    teamRole === "membro";
+
+  const isAluno = roles.includes("aluno") && !isStaff;
 
   if (isAluno && user) {
     const progressDetail = await getStudentProgressDetail(user.id);
@@ -85,6 +97,9 @@ export default async function IncubadoraPage(props: {
         title="Incubadora"
         description={`${students.length} ${students.length === 1 ? "aluno" : "alunos"}`}
       />
+      <div className="p-4 md:p-8">
+        <IncubadoraDashboard />
+      </div>
       <ModulesPanel modules={modules} />
       <StudentsView
         students={students}
@@ -93,6 +108,7 @@ export default async function IncubadoraPage(props: {
         detailedProgressMap={detailedProgressMap}
         pendingReminders={pendingReminders}
       />
+      <StudentsROIDashboard />
     </>
   );
 }

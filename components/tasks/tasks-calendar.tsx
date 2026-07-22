@@ -384,7 +384,7 @@ export function TasksCalendar({
                 <span className="flex-1 truncate">{task.title}</span>
                 {task.estimate_points && (
                   <span className="text-[10px] shrink-0 opacity-70">
-                    {task.estimate_points}pts
+                    {task.estimate_points}h
                   </span>
                 )}
               </button>

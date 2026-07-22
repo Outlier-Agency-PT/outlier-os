@@ -33,7 +33,7 @@ import type { TaskSpace } from "@/lib/queries/tasks";
 import type { TaskTemplateCategory } from "@/lib/queries/templates";
 
 const PRIORITIES: TaskPriority[] = ["sem_prioridade", "baixa", "media", "alta", "urgente"];
-const FIBONACCI = [1, 2, 3, 5, 8, 13];
+const HOURS = [1, 2, 3, 4, 6, 8];
 const NONE = "none";
 
 interface Member { id: string; label: string }
@@ -334,7 +334,7 @@ export function CreateTemplateDialog({
             <div className="flex items-center justify-between">
               <Label>Tarefas do template</Label>
               <span className="text-[10px] text-muted-foreground">
-                título · prioridade · pts · responsável · dias · status
+                título · prioridade · horas · responsável · dias · status
               </span>
             </div>
 
@@ -375,9 +375,9 @@ export function CreateTemplateDialog({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={NONE}>—</SelectItem>
-                          {FIBONACCI.map((n) => (
+                          {HOURS.map((n) => (
                             <SelectItem key={n} value={n.toString()}>
-                              {n} pts
+                              {n}h
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -458,9 +458,9 @@ export function CreateTemplateDialog({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value={NONE}>—</SelectItem>
-                              {FIBONACCI.map((n) => (
+                              {HOURS.map((n) => (
                                 <SelectItem key={n} value={n.toString()}>
-                                  {n} pts
+                                  {n}h
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -473,9 +473,8 @@ export function CreateTemplateDialog({
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-56 text-xs">
-                                Estimativa em pontos Fibonacci (1, 2, 3, 5, 8, 13). Representa a
-                                complexidade relativa da tarefa, não horas. 1 = muito simples,
-                                13 = muito complexo.
+                                Tempo previsto para concluir a tarefa, em horas.
+                                1h = muito rápido · 8h = dia completo.
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>

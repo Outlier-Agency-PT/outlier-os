@@ -229,7 +229,6 @@ const TRACKS_DEFINITION = [
       { key: "pp_perfil", title: "Completar perfil", automatic: false },
       { key: "pp_boas_vindas", title: "Ver vídeo de boas-vindas", automatic: false },
       { key: "pp_modulo1", title: "Iniciar primeiro módulo", automatic: true },
-      { key: "pp_briefing", title: "Criar briefing do negócio", automatic: false },
     ]
   },
   {
@@ -238,8 +237,6 @@ const TRACKS_DEFINITION = [
     description: "Domina os conceitos básicos do método",
     steps: [
       { key: "fund_modulo1", title: "Completar Estratégia Pessoal", automatic: true },
-      { key: "fund_modulo2", title: "Completar Estratégia de Negócio", automatic: true },
-      { key: "fund_oferta", title: "Definir primeira oferta", automatic: false },
     ]
   }
 ];
@@ -262,10 +259,6 @@ export async function getSuccessTracks(
     m.lessons.some((l) => l.is_completed)
   );
   const module1Completed = progressDetail.modules.find((m) => m.order_index === 1)?.is_completed ?? false;
-  const module2Completed = progressDetail.modules.find((m) => m.order_index === 2)?.is_completed ?? false;
-
-  const briefingChallenge = challenges.find((c) => c.title === "Criar Briefing do Negócio");
-  const ofertaChallenge = challenges.find((c) => c.title === "Estruturar Oferta Principal");
 
   return TRACKS_DEFINITION.map((track) => ({
     id: track.id,
@@ -278,16 +271,7 @@ export async function getSuccessTracks(
       if (step.key === "pp_modulo1" && anyLessonsCompleted) {
         isCompleted = true;
       }
-      if (step.key === "pp_briefing" && briefingChallenge?.is_completed) {
-        isCompleted = true;
-      }
       if (step.key === "fund_modulo1" && module1Completed) {
-        isCompleted = true;
-      }
-      if (step.key === "fund_modulo2" && module2Completed) {
-        isCompleted = true;
-      }
-      if (step.key === "fund_oferta" && ofertaChallenge?.is_completed) {
         isCompleted = true;
       }
 
