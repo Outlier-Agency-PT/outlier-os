@@ -55,12 +55,13 @@ export function StudentROI() {
   async function handleSave() {
     setSaving(true);
     const revenue = form.revenue !== "" ? parseFloat(form.revenue) : null;
-    const result = await updateStudentSelfRevenueAction(revenue, form.debriefing || null);
+    // debriefing deprecated — passa valor existente inalterado para preservar dados antigos
+    const result = await updateStudentSelfRevenueAction(revenue, data?.debriefing ?? null);
     if ("error" in result && result.error) {
       toast.error(result.error);
     } else {
       setData((prev) =>
-        prev ? { ...prev, revenue_generated: revenue, debriefing: form.debriefing || null } : prev,
+        prev ? { ...prev, revenue_generated: revenue } : prev,
       );
       if (data) await loadHistory(data.id);
       setEditing(false);
@@ -203,15 +204,11 @@ export function StudentROI() {
               style={{ borderRadius: 3 }}
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium mb-1">Debriefing</label>
-            <textarea
-              value={form.debriefing}
-              onChange={(e) => setForm({ ...form, debriefing: e.target.value })}
-              rows={3}
-              className="w-full border bg-background px-3 py-1.5 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              style={{ borderRadius: 3 }}
-            />
+          <div className="rounded border border-muted bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+            As notas de debriefing ficam agora em cada lançamento, na tab Debriefing.{" "}
+            <a href="/incubadora" className="underline hover:text-foreground">
+              Ver Lançamentos
+            </a>
           </div>
           <div className="flex gap-2">
             <button
@@ -233,11 +230,11 @@ export function StudentROI() {
         </div>
       )}
 
-      {/* Debriefing em modo leitura */}
+      {/* Debriefing legacy */}
       {!editing && data.debriefing && (
-        <div className="border-t pt-3">
-          <p className="mb-1 text-xs text-muted-foreground">Debriefing</p>
-          <p className="text-sm whitespace-pre-wrap">{data.debriefing}</p>
+        <div className="border-t pt-3 space-y-1">
+          <p className="text-xs text-muted-foreground">Nota anterior (migrar para lançamento):</p>
+          <p className="text-sm whitespace-pre-wrap text-muted-foreground">{data.debriefing}</p>
         </div>
       )}
     </div>

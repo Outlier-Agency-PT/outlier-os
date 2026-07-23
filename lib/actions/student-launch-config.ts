@@ -134,6 +134,8 @@ export interface WizardLaunchInput {
   main_product_id: string | null;
   ticket: number | null;
   snapshot_at_creation: Record<string, unknown> | null;
+  product_snapshot?: Record<string, unknown> | null;
+  offer_overrides?: Record<string, unknown> | null;
   downsell_product_id: string | null;
   upsell_product_id: string | null;
   event_name: string | null;
@@ -150,6 +152,10 @@ export interface WizardLaunchInput {
   downsell_start_date: string | null;
   downsell_end_date: string | null;
   status: string;
+  // Campos opcionais para seed de metas na criação
+  budget_captacao?: number | null;
+  lead_goal_1_paid?: number | null;
+  conversion_rate_leads?: number | null;
   audiences: { profile_id: string; is_primary: boolean }[];
 }
 

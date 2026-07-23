@@ -39,6 +39,7 @@ import {
 import {
   ProductFormDialog,
   ESCADA_NIVEIS,
+  fmtProductType,
 } from "@/components/incubadora/student-products";
 import type { StudentProduct } from "@/lib/types/student-launches";
 import type { ReviewStatus } from "@/lib/types/review-status";
@@ -265,7 +266,7 @@ export function StudentProductsCoach({ studentId }: StudentProductsCoachProps) {
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {level && <span>{level.label}</span>}
                     {p.price != null && <span>{fmtEur(p.price)}</span>}
-                    {p.product_type && <span>{p.product_type}</span>}
+                    {p.product_type && <span>{fmtProductType(p.product_type)}</span>}
                   </div>
                   {p.review_notes && (
                     <p className="mt-1 text-xs text-orange-600 dark:text-orange-400 line-clamp-1">

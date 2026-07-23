@@ -33,10 +33,7 @@ import { ALUNO_TRANSITIONS } from "@/lib/types/review-status";
 import type {
   StudentBriefing,
   BriefingNegocio,
-  BriefingProduto,
-  BriefingAudiencia,
   BriefingObjecao,
-  BriefingEstrategia,
 } from "@/lib/queries/students";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -53,45 +50,7 @@ const NICHOS = [
   "Outro",
 ];
 
-const TIPOS_PRODUTO = [
-  "Curso",
-  "Mentoria em Grupo",
-  "Mentoria Individual",
-  "Workshop",
-  "Imersão Online",
-  "Imersão Presencial",
-  "Mastermind",
-  "Consultoria",
-  "PLR",
-  "Outro",
-];
 
-const TIPOS_LANCAMENTO = [
-  "Lançamento Semente",
-  "Lançamento Interno",
-  "Lançamento Perpétuo",
-  "Desafio",
-  "PLR",
-  "Lançamento Pago",
-  "Sessão Estratégica",
-  "Funil Tripwire",
-  "Outro",
-];
-
-const FREQUENCIAS = ["Mensal", "Bimestral", "Trimestral", "Semestral", "Anual", "Perpétuo"];
-
-const CANAIS_OPTIONS = [
-  "Instagram",
-  "Facebook",
-  "YouTube",
-  "TikTok",
-  "LinkedIn",
-  "Email",
-  "WhatsApp",
-  "Telegram",
-  "Blog",
-  "Podcast",
-];
 
 const PRIORIDADE_OPTIONS = [
   { value: "alta", label: "Alta" },
@@ -192,43 +151,6 @@ function TagInput({
   );
 }
 
-function CanaisToggle({
-  selected,
-  onChange,
-  disabled,
-}: {
-  selected: string[];
-  onChange: (canais: string[]) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {CANAIS_OPTIONS.map((canal) => {
-        const active = selected.includes(canal);
-        return (
-          <button
-            key={canal}
-            type="button"
-            onClick={() => {
-              if (disabled) return;
-              onChange(
-                active ? selected.filter((c) => c !== canal) : [...selected, canal],
-              );
-            }}
-            disabled={disabled}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-              active
-                ? "border-foreground bg-foreground text-background"
-                : "border-border text-muted-foreground hover:border-foreground/50"
-            } ${disabled ? "cursor-default" : "cursor-pointer"}`}
-          >
-            {canal}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
@@ -247,6 +169,8 @@ export interface BriefingDialogProps {
   studentId?: string;
   isReadOnly?: boolean;
   initialData?: StudentBriefing | null;
+  onGoToAudience?: () => void;
+  onGoToProducts?: () => void;
 }
 
 export function BriefingDialog({
@@ -255,6 +179,8 @@ export function BriefingDialog({
   studentId,
   isReadOnly = false,
   initialData,
+  onGoToAudience,
+  onGoToProducts,
 }: BriefingDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -266,14 +192,7 @@ export function BriefingDialog({
 
   // Step state
   const [negocio, setNegocio] = useState<BriefingNegocio>(emptyNegocio());
-  const [produto, setProduto] = useState<BriefingProduto>({ beneficios: [], bonus: [] });
-  const [audiencia, setAudiencia] = useState<BriefingAudiencia>({
-    dores: [],
-    desejos: [],
-    objecoes_audiencia: [],
-  });
   const [objecoes, setObjecoes] = useState<BriefingObjecao[]>([]);
-  const [estrategia, setEstrategia] = useState<BriefingEstrategia>({ canais: [] });
 
   // Nicho "Outro" handling
   const [nichoOutroInput, setNichoOutroInput] = useState("");
@@ -304,15 +223,7 @@ export function BriefingDialog({
     setNegocio({ ...emptyNegocio(), ...(data.negocio ?? {}) });
     setReviewStatus(data.review_status ?? "nao_iniciado");
     setReviewNotes(data.review_notes ?? null);
-    setProduto({ beneficios: [], bonus: [], ...(data.produto ?? {}) });
-    setAudiencia({
-      dores: [],
-      desejos: [],
-      objecoes_audiencia: [],
-      ...(data.audiencia ?? {}),
-    });
     setObjecoes(data.objecoes ?? []);
-    setEstrategia({ canais: [], ...(data.estrategia ?? {}) });
 
     const n = data.negocio?.nicho ?? "";
     if (n && !NICHO_OPTS_FIXED.includes(n)) setNichoOutroInput(n);
@@ -347,10 +258,7 @@ export function BriefingDialog({
   );
   const stepComplete = {
     negocio: negocioComplete,
-    produto: !!produto.nome_produto,
-    audiencia: !!audiencia.avatar,
     objecoes: true,
-    estrategia: !!estrategia.tipo_lancamento,
   };
   const completedCount = Object.values(stepComplete).filter(Boolean).length;
 
@@ -450,7 +358,7 @@ export function BriefingDialog({
             <div className="flex items-center gap-2">
               <SectionStatusBadge status={reviewStatus} />
               <Badge variant="outline" className="rounded-full text-xs font-normal">
-                {completedCount}/5 completos
+                {completedCount}/2 completos
               </Badge>
             </div>
           </div>
@@ -461,22 +369,47 @@ export function BriefingDialog({
             A carregar...
           </div>
         ) : (
+          <>
+          {!isReadOnly && (onGoToAudience || onGoToProducts) && (
+            <div className="mx-6 mt-4 space-y-2">
+              {onGoToAudience && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-2.5">
+                  <p className="text-xs text-muted-foreground">
+                    O perfil de audiência agora é definido na secção Perfis de Audiência da tua área.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onGoToAudience}
+                    className="shrink-0 text-xs font-medium underline underline-offset-2 hover:text-foreground"
+                  >
+                    Ir para Perfis de Audiência
+                  </button>
+                </div>
+              )}
+              {onGoToProducts && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-2.5">
+                  <p className="text-xs text-muted-foreground">
+                    O produto agora é definido na secção Produtos da tua área.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onGoToProducts}
+                    className="shrink-0 text-xs font-medium underline underline-offset-2 hover:text-foreground"
+                  >
+                    Ir para Produtos
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <Tabs defaultValue="negocio" className="flex flex-1 flex-col overflow-hidden">
-            <TabsList className="mx-6 mt-4 grid shrink-0 grid-cols-5">
+            <TabsList className="mx-6 mt-4 grid shrink-0 grid-cols-2">
               <TabsTrigger value="negocio">
                 <TabLabel label="Negócio" complete={stepComplete.negocio} />
               </TabsTrigger>
-              <TabsTrigger value="produto">
-                <TabLabel label="Produto" complete={stepComplete.produto} />
-              </TabsTrigger>
-              <TabsTrigger value="audiencia">
-                <TabLabel label="Audiência" complete={stepComplete.audiencia} />
-              </TabsTrigger>
               <TabsTrigger value="objecoes">
                 <TabLabel label="Objecções" complete={stepComplete.objecoes} />
-              </TabsTrigger>
-              <TabsTrigger value="estrategia">
-                <TabLabel label="Estratégia" complete={stepComplete.estrategia} />
               </TabsTrigger>
             </TabsList>
 
@@ -1041,209 +974,7 @@ export function BriefingDialog({
                 </div>
               </TabsContent>
 
-              {/* ── Tab 2: Produto (inalterada) ── */}
-              <TabsContent value="produto" className="mt-4 space-y-4">
-                <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                  Produto Principal
-                </p>
-
-                <div className="space-y-1.5">
-                  <FieldLabel required>Nome do Produto</FieldLabel>
-                  <Input
-                    value={produto.nome_produto ?? ""}
-                    onChange={(e) => setProduto({ ...produto, nome_produto: e.target.value })}
-                    placeholder="Ex: Método Lançamento Zero a Seis"
-                    disabled={isReadOnly}
-                    className="text-sm"
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel>Preço (€)</FieldLabel>
-                    <Input
-                      type="number"
-                      value={produto.preco ?? ""}
-                      onChange={(e) =>
-                        setProduto({ ...produto, preco: e.target.value ? Number(e.target.value) : null })
-                      }
-                      placeholder="497"
-                      disabled={isReadOnly}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel>Tipo de Produto</FieldLabel>
-                    <Select
-                      value={produto.tipo_produto ?? ""}
-                      onValueChange={(v) => setProduto({ ...produto, tipo_produto: v })}
-                      disabled={isReadOnly}
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue placeholder="Seleccionar..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIPOS_PRODUTO.map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Descrição</FieldLabel>
-                  <Textarea
-                    value={produto.descricao ?? ""}
-                    onChange={(e) => setProduto({ ...produto, descricao: e.target.value })}
-                    placeholder="O que o aluno aprende / recebe..."
-                    disabled={isReadOnly}
-                    className="text-sm"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Benefícios Principais</FieldLabel>
-                  <TagInput
-                    tags={produto.beneficios ?? []}
-                    onChange={(v) => setProduto({ ...produto, beneficios: v })}
-                    placeholder="Adicionar benefício..."
-                    disabled={isReadOnly}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Garantia</FieldLabel>
-                  <Input
-                    value={produto.garantia ?? ""}
-                    onChange={(e) => setProduto({ ...produto, garantia: e.target.value })}
-                    placeholder="Ex: 7 dias sem questões"
-                    disabled={isReadOnly}
-                    className="text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Bónus</FieldLabel>
-                  <TagInput
-                    tags={produto.bonus ?? []}
-                    onChange={(v) => setProduto({ ...produto, bonus: v })}
-                    placeholder="Adicionar bónus..."
-                    disabled={isReadOnly}
-                  />
-                </div>
-
-                <p className="pt-2 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                  Escada de Valor
-                </p>
-
-                {(
-                  [
-                    ["lead_magnet", "Lead Magnet / Produto Gratuito", "Ex: E-book, Webinar..."],
-                    ["produto_entrada", "Produto de Entrada €7-97", ""],
-                    ["produto_principal", "Produto Principal €197-997", ""],
-                    ["produto_premium", "Produto Premium €997-2997", ""],
-                    ["high_ticket", "High-Ticket €3000+", ""],
-                  ] as [keyof BriefingProduto, string, string][]
-                ).map(([key, label, placeholder]) => (
-                  <div key={key} className="space-y-1.5">
-                    <FieldLabel>{label}</FieldLabel>
-                    <Input
-                      value={(produto[key] as string) ?? ""}
-                      onChange={(e) => setProduto({ ...produto, [key]: e.target.value })}
-                      placeholder={placeholder}
-                      disabled={isReadOnly}
-                      className="text-sm"
-                    />
-                  </div>
-                ))}
-
-                <SaveButton step="produto" data={produto as Record<string, unknown>} disabled={!produto.nome_produto} />
-              </TabsContent>
-
-              {/* ── Tab 3: Audiência (inalterada) ── */}
-              <TabsContent value="audiencia" className="mt-4 space-y-4">
-                <div className="space-y-1.5">
-                  <FieldLabel required>Avatar / Cliente Ideal</FieldLabel>
-                  <Textarea
-                    value={audiencia.avatar ?? ""}
-                    onChange={(e) => setAudiencia({ ...audiencia, avatar: e.target.value })}
-                    placeholder="Quem é o teu cliente ideal? Que vida tem? Que problemas enfrenta?"
-                    disabled={isReadOnly}
-                    className="text-sm"
-                    rows={4}
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel>Faixa Etária</FieldLabel>
-                    <Input
-                      value={audiencia.faixa_etaria ?? ""}
-                      onChange={(e) => setAudiencia({ ...audiencia, faixa_etaria: e.target.value })}
-                      placeholder="Ex: 30-50 anos"
-                      disabled={isReadOnly}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel>Género Predominante</FieldLabel>
-                    <Select
-                      value={audiencia.genero ?? ""}
-                      onValueChange={(v) => setAudiencia({ ...audiencia, genero: v })}
-                      disabled={isReadOnly}
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue placeholder="Seleccionar..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {["Masculino", "Feminino", "Misto"].map((g) => (
-                          <SelectItem key={g} value={g}>
-                            {g}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Dores / Problemas</FieldLabel>
-                  <TagInput
-                    tags={audiencia.dores ?? []}
-                    onChange={(v) => setAudiencia({ ...audiencia, dores: v })}
-                    placeholder="Adicionar dor..."
-                    disabled={isReadOnly}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Desejos / Sonhos</FieldLabel>
-                  <TagInput
-                    tags={audiencia.desejos ?? []}
-                    onChange={(v) => setAudiencia({ ...audiencia, desejos: v })}
-                    placeholder="Adicionar desejo..."
-                    disabled={isReadOnly}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Objecções da Audiência</FieldLabel>
-                  <TagInput
-                    tags={audiencia.objecoes_audiencia ?? []}
-                    onChange={(v) => setAudiencia({ ...audiencia, objecoes_audiencia: v })}
-                    placeholder="Adicionar objecção..."
-                    disabled={isReadOnly}
-                  />
-                </div>
-
-                <SaveButton step="audiencia" data={audiencia as Record<string, unknown>} disabled={!audiencia.avatar} />
-              </TabsContent>
-
-              {/* ── Tab 4: Objecções (inalterada) ── */}
+              {/* ── Tab 2: Objecções ── */}
               <TabsContent value="objecoes" className="mt-4 space-y-4">
                 {objecoes.length === 0 && isReadOnly && (
                   <p className="text-sm text-muted-foreground">Sem objecções registadas.</p>
@@ -1309,96 +1040,9 @@ export function BriefingDialog({
                 <SaveButton step="objecoes" data={{ objecoes } as unknown as Record<string, unknown>} />
               </TabsContent>
 
-              {/* ── Tab 5: Estratégia (inalterada) ── */}
-              <TabsContent value="estrategia" className="mt-4 space-y-4">
-                <div className="space-y-1.5">
-                  <FieldLabel>Tipo de Lançamento</FieldLabel>
-                  <Select
-                    value={estrategia.tipo_lancamento ?? ""}
-                    onValueChange={(v) => setEstrategia({ ...estrategia, tipo_lancamento: v })}
-                    disabled={isReadOnly}
-                  >
-                    <SelectTrigger className="text-sm">
-                      <SelectValue placeholder="Seleccionar..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIPOS_LANCAMENTO.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Canais de Aquisição</FieldLabel>
-                  <CanaisToggle
-                    selected={estrategia.canais ?? []}
-                    onChange={(v) => setEstrategia({ ...estrategia, canais: v })}
-                    disabled={isReadOnly}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel>Frequência de Lançamentos</FieldLabel>
-                  <Select
-                    value={estrategia.frequencia ?? ""}
-                    onValueChange={(v) => setEstrategia({ ...estrategia, frequencia: v })}
-                    disabled={isReadOnly}
-                  >
-                    <SelectTrigger className="text-sm">
-                      <SelectValue placeholder="Seleccionar..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FREQUENCIAS.map((f) => (
-                        <SelectItem key={f} value={f}>
-                          {f}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel>Meta de Faturamento (€)</FieldLabel>
-                    <Input
-                      type="number"
-                      value={estrategia.meta_faturamento ?? ""}
-                      onChange={(e) =>
-                        setEstrategia({
-                          ...estrategia,
-                          meta_faturamento: e.target.value ? Number(e.target.value) : null,
-                        })
-                      }
-                      placeholder="50000"
-                      disabled={isReadOnly}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel>Meta de Leads</FieldLabel>
-                    <Input
-                      type="number"
-                      value={estrategia.meta_leads ?? ""}
-                      onChange={(e) =>
-                        setEstrategia({
-                          ...estrategia,
-                          meta_leads: e.target.value ? Number(e.target.value) : null,
-                        })
-                      }
-                      placeholder="500"
-                      disabled={isReadOnly}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-
-                <SaveButton step="estrategia" data={estrategia as Record<string, unknown>} />
-              </TabsContent>
             </div>
           </Tabs>
+          </>
         )}
       </DialogContent>
     </Dialog>

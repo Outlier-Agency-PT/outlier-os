@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { updateStudentLaunchAction } from "@/lib/actions/student-launches";
 import { calcDebrief } from "@/lib/types/student-launches";
 import type { StudentLaunch, StudentLaunchDebrief } from "@/lib/types/student-launches";
@@ -110,16 +112,33 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function ResultRow({
   label,
   value,
   real,
   higherIsBetter = true,
+  tooltip,
 }: {
   label: string;
   value: string;
   real?: { formatted: string; raw: number | null; estimated: number | null } | null;
   higherIsBetter?: boolean;
+  tooltip?: string;
 }) {
   const pct =
     real?.raw != null && real?.estimated != null && real.estimated !== 0
@@ -129,7 +148,10 @@ function ResultRow({
 
   return (
     <div>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </p>
       <div className="mt-0.5 flex min-h-[26px] items-center rounded border border-input bg-muted/60 px-2 text-xs text-muted-foreground select-none">
         {value}
       </div>
@@ -154,6 +176,7 @@ function NumInput({
   step,
   placeholder,
   className = "",
+  tooltip,
 }: {
   label: string;
   value: string;
@@ -161,10 +184,14 @@ function NumInput({
   step?: string;
   placeholder?: string;
   className?: string;
+  tooltip?: string;
 }) {
   return (
     <div className={className}>
-      <label className="text-[11px] text-muted-foreground">{label}</label>
+      <label className="text-[11px] text-muted-foreground flex items-center gap-1">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </label>
       <Input
         type="number"
         step={step}
@@ -288,7 +315,10 @@ export function LaunchGoalsCalculator({ launch, debrief, studentId }: Props) {
     <div className="space-y-5">
       {/* Break-even */}
       <div className="rounded border bg-muted/20 px-4 py-3">
-        <SectionTitle>Break-even</SectionTitle>
+        <div className="flex items-center gap-1.5">
+          <SectionTitle>Break-even</SectionTitle>
+          <InfoTooltip text="Ponto de equilíbrio — o mínimo de vendas que precisas de fazer para recuperar o investimento. Abaixo deste valor tens prejuízo." />
+        </div>
         <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1">
           <div className="text-sm">
             <span className="text-muted-foreground text-xs">Vendas mínimas · </span>
@@ -312,16 +342,17 @@ export function LaunchGoalsCalculator({ launch, debrief, studentId }: Props) {
         <SectionTitle>Orçamento</SectionTitle>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {([
-            ["budget_distribuicao", "Distribuição (€)"],
-            ["budget_captacao", "Captação (€)"],
-            ["budget_antecipacao", "Antecipação (€)"],
-            ["budget_remarketing", "Remarketing (€)"],
-          ] as [FormKey, string][]).map(([key, label]) => (
+            ["budget_distribuicao", "Distribuição (€)", undefined],
+            ["budget_captacao", "Captação (€)", "Orçamento de publicidade para captação de leads. É o valor que mais influencia o CPL."],
+            ["budget_antecipacao", "Antecipação (€)", undefined],
+            ["budget_remarketing", "Remarketing (€)", undefined],
+          ] as [FormKey, string, string | undefined][]).map(([key, label, tip]) => (
             <NumInput
               key={key}
               label={label}
               value={form[key]}
               onChange={(v) => handleChange(key, v)}
+              tooltip={tip}
             />
           ))}
         </div>
@@ -365,6 +396,7 @@ export function LaunchGoalsCalculator({ launch, debrief, studentId }: Props) {
             step="0.1"
             placeholder="ex: 5"
             className="w-40"
+            tooltip="Percentagem de leads que se tornam clientes. Inclui compras ao vivo e em follow-up."
           />
         </div>
       </section>
@@ -384,6 +416,7 @@ export function LaunchGoalsCalculator({ launch, debrief, studentId }: Props) {
                   onChange={(v) => handleChange(cpl, v)}
                   step="0.01"
                   placeholder="ex: 2.50"
+                  tooltip="Custo Por Lead estimado — quanto esperas pagar, em média, por cada inscrição na lista."
                 />
                 <NumInput
                   label="% leads orgânicas"
@@ -391,6 +424,7 @@ export function LaunchGoalsCalculator({ launch, debrief, studentId }: Props) {
                   onChange={(v) => handleChange(pct, v)}
                   step="0.1"
                   placeholder="ex: 20"
+                  tooltip="Percentagem de leads que chegam sem custo de publicidade (ex: partilhas, recomendações). O resto são leads pagas."
                 />
               </div>
 
@@ -453,6 +487,7 @@ export function LaunchGoalsCalculator({ launch, debrief, studentId }: Props) {
                       ? { formatted: fmtRoas(dc.roas_total), raw: dc.roas_total, estimated: s.roas }
                       : null
                   }
+                  tooltip="Return On Ad Spend — quantas vezes esperas recuperar o investimento em publicidade. Ex: 3x = €3 gerados por cada €1 investido."
                 />
               </div>
             </div>

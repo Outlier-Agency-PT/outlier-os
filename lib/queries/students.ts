@@ -27,6 +27,7 @@ export interface Student {
   revenue_goal: number | null;
   investment_budget: number | null;
   revenue_generated: number | null;
+  /** @deprecated usar student_launch_debriefs por lançamento */
   debriefing: string | null;
   renewal_status: "pendente" | "renovado" | "nao_renovado" | "bonus";
   renewal_date: string | null;
@@ -72,51 +73,22 @@ export interface BriefingNegocio {
   referencias?: { nome: string; url?: string; porque: string }[];
 }
 
-export interface BriefingProduto {
-  nome_produto?: string;
-  preco?: number | null;
-  tipo_produto?: string;
-  descricao?: string;
-  beneficios?: string[];
-  garantia?: string;
-  bonus?: string[];
-  lead_magnet?: string;
-  produto_entrada?: string;
-  produto_principal?: string;
-  produto_premium?: string;
-  high_ticket?: string;
-}
-
-export interface BriefingAudiencia {
-  avatar?: string;
-  faixa_etaria?: string;
-  genero?: string;
-  dores?: string[];
-  desejos?: string[];
-  objecoes_audiencia?: string[];
-}
-
 export interface BriefingObjecao {
   objecao: string;
   resposta: string;
-}
-
-export interface BriefingEstrategia {
-  tipo_lancamento?: string;
-  canais?: string[];
-  frequencia?: string;
-  meta_faturamento?: number | null;
-  meta_leads?: number | null;
 }
 
 export interface StudentBriefing {
   id: string;
   student_id: string;
   negocio: BriefingNegocio;
-  produto: BriefingProduto;
-  audiencia: BriefingAudiencia;
+  /** @deprecated campo produto removido do briefing (migration 0045) */
+  produto?: Record<string, unknown>;
+  /** @deprecated campo audiencia migrado para student_audience_profiles (migration 0044) */
+  audiencia?: Record<string, unknown>;
   objecoes: BriefingObjecao[];
-  estrategia: BriefingEstrategia;
+  /** @deprecated campo estrategia removido do briefing (migration 0046) */
+  estrategia?: Record<string, unknown>;
   is_complete: boolean;
   review_status: ReviewStatus;
   review_notes: string | null;

@@ -25,6 +25,8 @@ import {
   updateStudentProfileAction,
 } from "@/lib/actions/incubadora";
 import { getStudentBriefingAction } from "@/lib/actions/students";
+import { getMyAudienceProfilesAction } from "@/lib/actions/audience";
+import { getMyProductsAction } from "@/lib/actions/products";
 import { BriefingDialog } from "@/components/students/briefing-dialog";
 import { StudentTasks } from "./student-tasks";
 import { StudentROI } from "./student-roi";
@@ -74,8 +76,6 @@ export function StudentView({
   const [showWelcomeVideoDialog, setShowWelcomeVideoDialog] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
     full_name: "",
-    nicho: "",
-    subnicho: "",
     briefing: "",
   });
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -83,7 +83,9 @@ export function StudentView({
   const desafiosRef = useRef<HTMLDivElement>(null);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showBriefingDialog, setShowBriefingDialog] = useState(false);
-  const [briefingComplete, setBriefingComplete] = useState(false);
+  const [briefingStepComplete, setBriefingStepComplete] = useState({ negocio: false, objecoes: true });
+  const [primaryAudienceName, setPrimaryAudienceName] = useState<string | null>(null);
+  const [primaryProductName, setPrimaryProductName] = useState<string | null>(null);
   const [challengeNotes, setChallengeNotes] = useState<Record<string, string>>(
     challenges.reduce(
       (acc, c) => {
@@ -108,9 +110,22 @@ export function StudentView({
 
   useEffect(() => {
     getStudentBriefingAction().then((data) => {
-      if (data && (data as { is_complete?: boolean }).is_complete) {
-        setBriefingComplete(true);
-      }
+      if (!data) return;
+      const b = data as { negocio?: Record<string, unknown> };
+      const n = b.negocio ?? {};
+      setBriefingStepComplete({
+        negocio: !!(n.nome_negocio && n.nicho && n.publico_alvo && n.proposta_valor && n.transformacao_entregue),
+        objecoes: true,
+      });
+    });
+    getMyAudienceProfilesAction().then((profiles) => {
+      const primary = profiles.find((p) => p.is_primary && !p.is_archived)
+        ?? profiles.find((p) => !p.is_archived);
+      setPrimaryAudienceName(primary?.name ?? null);
+    });
+    getMyProductsAction().then((products) => {
+      const first = products.find((p) => !p.is_archived);
+      setPrimaryProductName(first?.name ?? null);
     });
   }, []);
 
@@ -247,8 +262,6 @@ export function StudentView({
     try {
       const result = await updateStudentProfileAction({
         full_name: profileFormData.full_name || undefined,
-        nicho: profileFormData.nicho || undefined,
-        subnicho: profileFormData.subnicho || undefined,
         briefing: profileFormData.briefing || undefined,
       });
 
@@ -342,37 +355,116 @@ export function StudentView({
         </div>
       </div>
 
-      {/* Briefing do Negócio */}
-      <div className="rounded-lg border bg-card p-5">
-        <div className="flex items-center justify-between gap-3">
+      {/* O Meu Negócio — card de resumo */}
+      <div className="rounded-lg border bg-card p-5 space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
           <div className="space-y-0.5">
-            <h3 className="font-semibold">Briefing do Negócio</h3>
-            <p className="text-sm text-muted-foreground">
-              Define o teu negócio, produto e estratégia de lançamento
-            </p>
+            <h3 className="font-semibold">O Meu Negócio</h3>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {briefingComplete && (
-              <Badge className="rounded-full border border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
-                Completo
-              </Badge>
-            )}
-            <Button
-              size="sm"
-              variant={briefingComplete ? "outline" : "default"}
-              onClick={() => setShowBriefingDialog(true)}
-            >
-              {briefingComplete ? "Ver Briefing" : "Preencher Briefing"}
-            </Button>
+            <Badge variant="outline" className="rounded-full text-xs font-normal">
+              {[briefingStepComplete.negocio, briefingStepComplete.objecoes].filter(Boolean).length}/2 completos
+            </Badge>
           </div>
         </div>
+
+        {/* Passos */}
+        <div className="space-y-1.5">
+          {(
+            [
+              { label: "Negócio", complete: briefingStepComplete.negocio },
+              { label: "Objecções", complete: briefingStepComplete.objecoes },
+            ] as { label: string; complete: boolean }[]
+          ).map(({ label, complete }) => (
+            <div key={label} className="flex items-center gap-2 text-sm">
+              {complete ? (
+                <span className="text-green-600">✅</span>
+              ) : (
+                <span className="text-muted-foreground">⭕</span>
+              )}
+              <span className={complete ? "text-foreground" : "text-muted-foreground"}>
+                {label}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {complete ? "Completo" : "Por preencher"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="h-px bg-border" />
+
+        {/* Cliente ideal */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base">👤</span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">Cliente ideal</p>
+              {primaryAudienceName ? (
+                <p className="truncate text-sm">{primaryAudienceName}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Ainda não definido</p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              document
+                .querySelector("[data-section='audiencia']")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+            className="shrink-0 text-xs font-medium underline underline-offset-2 hover:text-foreground text-muted-foreground"
+          >
+            {primaryAudienceName ? "Ver perfis" : "Criar perfil"}
+          </button>
+        </div>
+
+        {/* Produto principal */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base">📦</span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">Produto principal</p>
+              {primaryProductName ? (
+                <p className="truncate text-sm">{primaryProductName}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Ainda não definido</p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              document
+                .querySelector("[data-section='produtos']")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+            className="shrink-0 text-xs font-medium underline underline-offset-2 hover:text-foreground text-muted-foreground"
+          >
+            {primaryProductName ? "Ver produtos" : "Criar produto"}
+          </button>
+        </div>
+
+        {/* Acção principal */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          onClick={() => setShowBriefingDialog(true)}
+        >
+          Abrir Briefing
+        </Button>
       </div>
 
       {/* Perfis de Audiência */}
       <StudentAudience />
 
       {/* Produtos e Escada de Valor */}
-      <StudentProducts />
+      <div data-section="produtos">
+        <StudentProducts />
+      </div>
 
       {/* Página de Vendas */}
       <StudentSalesPage />
@@ -827,11 +919,32 @@ export function StudentView({
         onOpenChange={(open) => {
           setShowBriefingDialog(open);
           if (!open) {
-            // Recheck completion status after dialog closes
             getStudentBriefingAction().then((data) => {
-              if (data) setBriefingComplete(!!(data as { is_complete?: boolean }).is_complete);
+              if (!data) return;
+              const b = data as { negocio?: Record<string, unknown> };
+              const n = b.negocio ?? {};
+              setBriefingStepComplete({
+                negocio: !!(n.nome_negocio && n.nicho && n.publico_alvo && n.proposta_valor && n.transformacao_entregue),
+                objecoes: true,
+              });
             });
           }
+        }}
+        onGoToAudience={() => {
+          setShowBriefingDialog(false);
+          setTimeout(() => {
+            document
+              .querySelector("[data-section='audiencia']")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 150);
+        }}
+        onGoToProducts={() => {
+          setShowBriefingDialog(false);
+          setTimeout(() => {
+            document
+              .querySelector("[data-section='produtos']")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 150);
         }}
       />
 
@@ -905,32 +1018,6 @@ export function StudentView({
                   setProfileFormData({ ...profileFormData, full_name: e.target.value })
                 }
                 placeholder="Ex: João Silva"
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Nicho</label>
-              <input
-                type="text"
-                value={profileFormData.nicho}
-                onChange={(e) =>
-                  setProfileFormData({ ...profileFormData, nicho: e.target.value })
-                }
-                placeholder="Ex: Consultoria de Negócios"
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Sub-nicho</label>
-              <input
-                type="text"
-                value={profileFormData.subnicho}
-                onChange={(e) =>
-                  setProfileFormData({ ...profileFormData, subnicho: e.target.value })
-                }
-                placeholder="Ex: PMEs em Transição Digital"
                 className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
               />
             </div>

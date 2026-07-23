@@ -186,7 +186,6 @@ export function StudentDetailClient({
   const [editingFinancial, setEditingFinancial] = useState(false);
   const [financialForm, setFinancialForm] = useState({
     revenue_generated: student.revenue_generated ?? "",
-    debriefing: student.debriefing ?? "",
   });
   const [loadingFinancial, setLoadingFinancial] = useState(false);
 
@@ -330,7 +329,6 @@ export function StudentDetailClient({
       revenue_generated: financialForm.revenue_generated
         ? Number(financialForm.revenue_generated)
         : null,
-      debriefing: financialForm.debriefing || null,
     });
     setLoadingFinancial(false);
     if ("error" in result) {
@@ -981,18 +979,6 @@ export function StudentDetailClient({
                     />
                   </div>
                 )}
-                {initialBriefing.audiencia?.avatar && (
-                  <div className="sm:col-span-2">
-                    <Row
-                      label="Avatar"
-                      value={
-                        initialBriefing.audiencia.avatar.length > 120
-                          ? initialBriefing.audiencia.avatar.slice(0, 120) + "…"
-                          : initialBriefing.audiencia.avatar
-                      }
-                    />
-                  </div>
-                )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -1310,17 +1296,15 @@ export function StudentDetailClient({
                   className="mt-1 text-sm"
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium">Debriefing</label>
-                <Textarea
-                  value={financialForm.debriefing}
-                  onChange={(e) =>
-                    setFinancialForm({ ...financialForm, debriefing: e.target.value })
-                  }
-                  className="mt-1 text-sm"
-                  rows={4}
-                />
+              <div className="rounded border border-muted bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+                O debriefing agora é feito por lançamento, na tab Debriefing de cada lançamento.
               </div>
+              {student.debriefing && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Nota anterior:</p>
+                  <p className="mt-1 text-sm whitespace-pre-wrap text-muted-foreground">{student.debriefing}</p>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleSaveFinancial} disabled={loadingFinancial}>
                   {loadingFinancial ? "A guardar..." : "Guardar"}
@@ -1382,8 +1366,8 @@ export function StudentDetailClient({
               )}
               {student.debriefing && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Debriefing</p>
-                  <p className="mt-1 whitespace-pre-wrap">{student.debriefing}</p>
+                  <p className="text-xs text-muted-foreground">Nota anterior:</p>
+                  <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{student.debriefing}</p>
                 </div>
               )}
               {!student.revenue_goal &&

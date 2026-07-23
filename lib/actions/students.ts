@@ -267,7 +267,7 @@ export async function deleteStudentNoteAction(noteId: string, studentId: string)
 
 // ── Briefing actions ─────────────────────────────────────────────────────────
 
-type BriefingStep = "negocio" | "produto" | "audiencia" | "objecoes" | "estrategia";
+type BriefingStep = "negocio" | "produto" | "objecoes" | "estrategia";
 
 async function resolveStudentId(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -336,18 +336,15 @@ export async function saveStudentBriefingAction(
     }
   }
 
-  // Actualiza is_complete — verifica campos obrigatórios dos passos Negócio, Produto, Audiência
+  // Actualiza is_complete — verifica campos obrigatórios do passo Negócio
   const { data: row } = await supabase
     .from("student_briefings")
-    .select("negocio, produto, audiencia")
+    .select("negocio")
     .eq("student_id", resolvedId)
     .maybeSingle();
 
   const n = (row?.negocio as Record<string, unknown> | null) ?? {};
-  const p = (row?.produto as Record<string, unknown> | null) ?? {};
-  const a = (row?.audiencia as Record<string, unknown> | null) ?? {};
 
-  // Campos obrigatórios do módulo Negócio para is_complete
   const negocioComplete = !!(
     n.nome_negocio &&
     n.nicho &&
@@ -355,7 +352,7 @@ export async function saveStudentBriefingAction(
     n.proposta_valor &&
     n.transformacao_entregue
   );
-  const isComplete = !!(negocioComplete && p.nome_produto && a.avatar);
+  const isComplete = !!negocioComplete;
 
   await supabase
     .from("student_briefings")

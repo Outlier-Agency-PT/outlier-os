@@ -830,7 +830,7 @@ export function StudentAudience() {
   // Vista do formulário
   if (editingProfile) {
     return (
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-lg border bg-card" data-section="audiencia">
         <ProfileForm
           profile={editingProfile}
           onClose={() => {
@@ -854,7 +854,7 @@ export function StudentAudience() {
   ];
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-lg border bg-card" data-section="audiencia">
       {/* Header */}
       <div className="flex items-center justify-between border-b p-4">
         <div>

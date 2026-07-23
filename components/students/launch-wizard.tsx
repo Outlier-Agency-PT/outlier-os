@@ -11,6 +11,7 @@ import {
   Clock,
   Send,
   Copy,
+  Info,
 } from "lucide-react";
 import {
   Dialog,
@@ -23,6 +24,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -59,6 +66,7 @@ import type {
   StudentLaunchAudience,
   NameIdeaStatus,
 } from "@/lib/types/student-launches";
+import { LaunchGoalsCalculator } from "@/components/incubadora/launch-goals-calculator";
 import type { ReviewStatus } from "@/lib/types/review-status";
 import { ALUNO_TRANSITIONS } from "@/lib/types/review-status";
 
@@ -138,11 +146,19 @@ interface WizardForm {
   num_prestacoes: string;
   vagas_limitadas: boolean;
   num_vagas: string;
+  prazo_oferta: string;
+  bonus_campanha: string[];
+  condicoes_especiais: string;
+  // Etapa 6 (modo criação — seed de metas)
+  budget_captacao_seed: string;
+  lead_cpl_seed: string;
+  conversion_rate_seed: string;
 }
 
 function defaultForm(launch?: StudentLaunch | null, audiences?: StudentLaunchAudience[]): WizardForm {
   const primary = audiences?.find((a) => a.is_primary)?.audience_profile_id ?? "";
   const secondary = audiences?.filter((a) => !a.is_primary).map((a) => a.audience_profile_id) ?? [];
+  const ov = ((launch?.offer_overrides as Record<string, unknown>) ?? {});
 
   return {
     title:                  launch?.title ?? "",
@@ -167,10 +183,16 @@ function defaultForm(launch?: StudentLaunch | null, audiences?: StudentLaunchAud
     has_downsell:           !!launch?.downsell_product_id,
     downsell_product_id:    launch?.downsell_product_id ?? "",
     upsell_product_id:      launch?.upsell_product_id ?? "",
-    parcelamento:           false,
-    num_prestacoes:         "",
-    vagas_limitadas:        false,
-    num_vagas:              "",
+    parcelamento:           !!(ov.num_prestacoes),
+    num_prestacoes:         (ov.num_prestacoes as number)?.toString() ?? "",
+    vagas_limitadas:        !!(ov.vagas_limitadas),
+    num_vagas:              (ov.num_vagas as number)?.toString() ?? "",
+    prazo_oferta:           (ov.prazo_oferta as string) ?? "",
+    bonus_campanha:         Array.isArray(ov.bonus_campanha) ? (ov.bonus_campanha as string[]) : [],
+    condicoes_especiais:    (ov.condicoes_especiais as string) ?? "",
+    budget_captacao_seed:   "",
+    lead_cpl_seed:          "",
+    conversion_rate_seed:   "",
   };
 }
 
@@ -218,7 +240,7 @@ export function LaunchWizard({
   const [submitting, setSubmitting] = useState(false);
   const [newIdeaText, setNewIdeaText] = useState({ nome: "", promessa: "" });
 
-  const STEPS = ["Identificação", "Evento", "Ideias", "Calendário", "Oferta", "Confirmação"];
+  const STEPS = ["Identificação", "Evento", "Ideias", "Calendário", "Oferta", "Orçamento e Metas", "Confirmação"];
   const totalSteps = STEPS.length;
 
   const loadData = useCallback(async () => {
@@ -296,10 +318,31 @@ export function LaunchWizard({
 
     const mainProduct = allProducts.find((p) => p.id === form.main_product_id);
     const snapshot: Record<string, unknown> | null = mainProduct
-      ? { nome: mainProduct.name, preco: mainProduct.price, nivel: mainProduct.value_ladder_position, formato: mainProduct.product_type }
+      ? {
+          id:                    mainProduct.id,
+          name:                  mainProduct.name,
+          price:                 mainProduct.price,
+          product_type:          mainProduct.product_type,
+          value_ladder_position: mainProduct.value_ladder_position,
+          description:           mainProduct.description,
+          promise:               mainProduct.promise,
+          beneficios:            mainProduct.beneficios,
+          garantia:              mainProduct.garantia,
+          bonus:                 mainProduct.bonus,
+          captured_at:           new Date().toISOString(),
+        }
       : null;
 
     const audiences = buildAudiences(form);
+
+    const offerOverrides = {
+      num_prestacoes:      form.parcelamento && form.num_prestacoes ? Number(form.num_prestacoes) : null,
+      vagas_limitadas:     form.vagas_limitadas,
+      num_vagas:           form.vagas_limitadas && form.num_vagas ? Number(form.num_vagas) : null,
+      prazo_oferta:        form.prazo_oferta || null,
+      bonus_campanha:      form.bonus_campanha.filter(Boolean),
+      condicoes_especiais: form.condicoes_especiais || null,
+    };
 
     const payload = {
       title:               form.title.trim(),
@@ -322,6 +365,14 @@ export function LaunchWizard({
       downsell_start_date: form.has_downsell ? (form.downsell_start_date || null) : null,
       downsell_end_date:   form.has_downsell ? (form.downsell_end_date || null) : null,
       status:              "planeado",
+      offer_overrides:     offerOverrides,
+      product_snapshot:    snapshot,
+    };
+
+    const budgetSeed = {
+      ...(form.budget_captacao_seed ? { budget_captacao: Number(form.budget_captacao_seed) } : {}),
+      ...(form.lead_cpl_seed ? { lead_goal_1_paid: Number(form.lead_cpl_seed) } : {}),
+      ...(form.conversion_rate_seed ? { conversion_rate_leads: Number(form.conversion_rate_seed) } : {}),
     };
 
     let result;
@@ -330,14 +381,14 @@ export function LaunchWizard({
         ? await updateLaunchWithWizardAction(launch.id, studentId, payload, audiences)
         : await updateMyLaunchWithWizardAction(launch.id, payload, audiences);
       if ("error" in result) { toast.error(result.error); setSaving(false); return; }
-      toast.success("Lançamento guardado");
+      toast.success("Briefing guardado");
       onSaved({ ...launch, ...payload } as StudentLaunch);
     } else {
       result = isCoach
-        ? await createLaunchWithWizardAction(studentId, { ...payload, snapshot_at_creation: snapshot, audiences })
-        : await createMyLaunchWithWizardAction({ ...payload, snapshot_at_creation: snapshot, audiences });
+        ? await createLaunchWithWizardAction(studentId, { ...payload, ...budgetSeed, snapshot_at_creation: snapshot, audiences })
+        : await createMyLaunchWithWizardAction({ ...payload, ...budgetSeed, snapshot_at_creation: snapshot, audiences });
       if ("error" in result) { toast.error(result.error); setSaving(false); return; }
-      toast.success("Lançamento criado");
+      toast.success("Briefing criado");
       onSaved((result as { data: StudentLaunch }).data);
     }
 
@@ -421,10 +472,10 @@ export function LaunchWizard({
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <DialogTitle>
-                {launch ? "Editar Lançamento" : "Novo Lançamento"}
+                {launch ? "Editar Briefing de Lançamento" : "Novo Briefing de Lançamento"}
               </DialogTitle>
               <DialogDescription>
-                {launch ? "Editar as configurações deste lançamento." : "Configurar um novo lançamento."}
+                {launch ? "Editar o briefing deste lançamento." : "Configurar o briefing do novo lançamento."}
               </DialogDescription>
               {launch && (
                 <div className="flex items-center gap-2">
@@ -879,11 +930,137 @@ export function LaunchWizard({
                       </Field>
                     )}
                   </div>
+
+                  <Field label="Prazo da oferta">
+                    <Input
+                      type="date"
+                      value={form.prazo_oferta}
+                      onChange={(e) => set("prazo_oferta", e.target.value)}
+                    />
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      Data limite para compra neste lançamento (opcional).
+                    </p>
+                  </Field>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Bónus de campanha</label>
+                    <div className="space-y-1.5">
+                      {form.bonus_campanha.map((bonus, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input
+                            value={bonus}
+                            onChange={(e) => {
+                              const next = [...form.bonus_campanha];
+                              next[i] = e.target.value;
+                              set("bonus_campanha", next);
+                            }}
+                            className="h-8 flex-1 text-sm"
+                            placeholder={`Bónus ${i + 1}…`}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            type="button"
+                            onClick={() => set("bonus_campanha", form.bonus_campanha.filter((_, j) => j !== i))}
+                            className="h-8 shrink-0"
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        type="button"
+                        onClick={() => set("bonus_campanha", [...form.bonus_campanha, ""])}
+                        className="h-8"
+                      >
+                        <Plus className="mr-1.5 size-3.5" />
+                        Adicionar bónus
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Bónus especiais incluídos neste lançamento (ex: sessão de grupo, template, bónus surpresa).
+                    </p>
+                  </div>
+
+                  <Field label="Condições especiais">
+                    <Textarea
+                      value={form.condicoes_especiais}
+                      onChange={(e) => set("condicoes_especiais", e.target.value)}
+                      rows={2}
+                      placeholder="ex: Acesso vitalício apenas neste lançamento…"
+                    />
+                  </Field>
                 </div>
               )}
 
-              {/* ── Etapa 6: Confirmação ── */}
+              {/* ── Etapa 6: Orçamento e Metas ── */}
               {step === 5 && (
+                <div className="space-y-5">
+                  <StepTitle>Orçamento e Metas</StepTitle>
+
+                  {launch ? (
+                    <LaunchGoalsCalculator
+                      launch={launch}
+                      debrief={null}
+                      studentId={studentId}
+                    />
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-xs text-muted-foreground">
+                        Define estimativas iniciais. Podes ajustá-las com mais detalhe depois, na página do lançamento.
+                      </p>
+
+                      <Field
+                        label="Orçamento de captação (€)"
+                        tooltip="O valor que prevês gastar em anúncios pagos para atrair pessoas para o teu evento ou lista. Inclui publicidade no Meta (Facebook/Instagram), Google, etc."
+                      >
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={form.budget_captacao_seed}
+                          onChange={(e) => set("budget_captacao_seed", e.target.value)}
+                          placeholder="ex: 500"
+                        />
+                      </Field>
+
+                      <Field
+                        label="CPL previsto (€) — Custo por Lead"
+                        tooltip="Quanto estimas gastar em anúncios para conseguir um lead (uma pessoa inscrita no teu evento ou lista). Exemplo: se gastas 500€ e consegues 200 inscritos, o CPL é 2,50€."
+                      >
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={form.lead_cpl_seed}
+                          onChange={(e) => set("lead_cpl_seed", e.target.value)}
+                          placeholder="ex: 2.50"
+                        />
+                      </Field>
+
+                      <Field
+                        label="Taxa de conversão estimada (%)"
+                        tooltip="A percentagem de inscritos que acabam por comprar. Exemplo: 100 inscritos e 5 compradores = 5% de conversão. Um valor conservador para começar é 2–5%."
+                      >
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          value={form.conversion_rate_seed}
+                          onChange={(e) => set("conversion_rate_seed", e.target.value)}
+                          placeholder="ex: 5"
+                        />
+                      </Field>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Etapa 7: Confirmação ── */}
+              {step === 6 && (
                 <div className="space-y-5">
                   <StepTitle>Confirmação</StepTitle>
 
@@ -927,7 +1104,20 @@ export function LaunchWizard({
                     {form.has_downsell && <SummaryRow label="Downsell" value={allProducts.find((p) => p.id === form.downsell_product_id)?.name ?? "—"} />}
                     {form.parcelamento && <SummaryRow label="Parcelamento" value={`${form.num_prestacoes || "?"} prestações`} />}
                     {form.vagas_limitadas && <SummaryRow label="Vagas" value={form.num_vagas || "?"} />}
+                    {form.prazo_oferta && <SummaryRow label="Prazo da oferta" value={form.prazo_oferta} />}
+                    {form.bonus_campanha.filter(Boolean).length > 0 && (
+                      <SummaryRow label="Bónus" value={form.bonus_campanha.filter(Boolean).join(", ")} />
+                    )}
+                    {form.condicoes_especiais && <SummaryRow label="Condições especiais" value={form.condicoes_especiais} />}
                   </SummarySection>
+
+                  {(form.budget_captacao_seed || form.lead_cpl_seed || form.conversion_rate_seed) && (
+                    <SummarySection title="Orçamento e Metas (estimativa inicial)">
+                      {form.budget_captacao_seed && <SummaryRow label="Orçamento captação" value={`${form.budget_captacao_seed}€`} />}
+                      {form.lead_cpl_seed && <SummaryRow label="CPL previsto" value={`${form.lead_cpl_seed}€`} />}
+                      {form.conversion_rate_seed && <SummaryRow label="Taxa de conversão" value={`${form.conversion_rate_seed}%`} />}
+                    </SummarySection>
+                  )}
                 </div>
               )}
             </>
@@ -949,7 +1139,7 @@ export function LaunchWizard({
             </Button>
           ) : (
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "A guardar…" : launch ? "Guardar" : "Criar Lançamento"}
+              {saving ? "A guardar…" : launch ? "Guardar" : "Criar Briefing"}
             </Button>
           )}
         </div>
@@ -964,10 +1154,30 @@ function StepTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="text-sm font-semibold">{children}</h3>;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="ml-1 inline-flex items-center text-muted-foreground hover:text-foreground focus:outline-none">
+            <Info className="size-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[220px] leading-snug text-center">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function Field({ label, tooltip, children }: { label: string; tooltip?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium">{label}</label>
+      <label className="mb-1 flex items-center text-xs font-medium">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </label>
       {children}
     </div>
   );

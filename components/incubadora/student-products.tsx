@@ -105,18 +105,20 @@ const POSITION_TO_KEY: Record<number, LadderKey> = Object.fromEntries(
   Object.entries(LADDER_KEY_TO_POSITION).map(([k, v]) => [v, k as LadderKey]),
 ) as Record<number, LadderKey>;
 
-const PRODUCT_FORMATS = [
-  "Curso online",
-  "Mentoria individual",
-  "Mentoria em grupo",
-  "Workshop",
-  "Webinar",
-  "Produto físico",
-  "Software / SaaS",
-  "Comunidade",
-  "Ebook",
-  "Evento presencial",
-  "Outro",
+const PRODUCT_FORMATS: { value: string; label: string }[] = [
+  { value: "curso",                label: "Curso" },
+  { value: "mentoria_grupo",       label: "Mentoria de Grupo" },
+  { value: "mentoria_individual",  label: "Mentoria Individual" },
+  { value: "ebook",                label: "Ebook" },
+  { value: "comunidade",           label: "Comunidade" },
+  { value: "workshop",             label: "Workshop" },
+  { value: "imersao_online",       label: "Imersão Online" },
+  { value: "imersao_presencial",   label: "Imersão Presencial" },
+  { value: "mastermind",           label: "Mastermind" },
+  { value: "consultoria",          label: "Consultoria" },
+  { value: "academia",             label: "Academia" },
+  { value: "desafio",              label: "Desafio" },
+  { value: "outro",                label: "Outro" },
 ];
 
 const PRODUCT_STATUS_LABELS: Record<string, string> = {
@@ -124,6 +126,15 @@ const PRODUCT_STATUS_LABELS: Record<string, string> = {
   activo:   "Activo",
   inactivo: "Inactivo",
 };
+
+const PRODUCT_FORMAT_LABEL: Record<string, string> = Object.fromEntries(
+  PRODUCT_FORMATS.map((f) => [f.value, f.label]),
+);
+
+export function fmtProductType(t: string | null | undefined): string {
+  if (!t) return "";
+  return PRODUCT_FORMAT_LABEL[t] ?? t;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -269,7 +280,7 @@ function SortableProductCard({
         <p className="truncate text-sm font-medium">{product.name}</p>
         <p className="text-xs text-muted-foreground">
           {product.price != null ? fmtEur(product.price) : "Sem preço"}
-          {product.product_type ? ` · ${product.product_type}` : ""}
+          {product.product_type ? ` · ${fmtProductType(product.product_type)}` : ""}
         </p>
       </div>
       <ProductStatusBadge status={product.product_status} />
@@ -306,9 +317,26 @@ export function ProductFormDialog({
   const [form, setForm] = useState<ProductFormData>(() => defaultForm(product));
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [productTypeOutroText, setProductTypeOutroText] = useState("");
+
+  const KNOWN_TYPE_VALUES = PRODUCT_FORMATS.filter((f) => f.value !== "outro").map((f) => f.value);
+  const productTypeSelectValue = KNOWN_TYPE_VALUES.includes(form.product_type)
+    ? form.product_type
+    : form.product_type || productTypeOutroText
+      ? "outro"
+      : "none";
 
   useEffect(() => {
-    if (open) setForm(defaultForm(product));
+    if (open) {
+      const p = defaultForm(product);
+      setForm(p);
+      setProductTypeOutroText(
+        p.product_type && !KNOWN_TYPE_VALUES.includes(p.product_type) && p.product_type !== "outro"
+          ? p.product_type
+          : "",
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, product]);
 
   const set = <K extends keyof ProductFormData>(key: K, value: ProductFormData[K]) =>
@@ -498,17 +526,39 @@ export function ProductFormDialog({
 
                     <Field label="Formato *">
                       <Select
-                        value={form.product_type || "none"}
-                        onValueChange={(v) => handleChange("product_type", v === "none" ? "" : v)}
+                        value={productTypeSelectValue}
+                        onValueChange={(v) => {
+                          if (v === "none") {
+                            handleChange("product_type", "");
+                            setProductTypeOutroText("");
+                          } else if (v === "outro") {
+                            handleChange("product_type", productTypeOutroText);
+                            // Input will appear; user types from there
+                          } else {
+                            handleChange("product_type", v);
+                            setProductTypeOutroText("");
+                          }
+                        }}
                       >
                         <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">—</SelectItem>
                           {PRODUCT_FORMATS.map((f) => (
-                            <SelectItem key={f} value={f}>{f}</SelectItem>
+                            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {productTypeSelectValue === "outro" && (
+                        <Input
+                          className="mt-2"
+                          value={productTypeOutroText}
+                          onChange={(e) => {
+                            setProductTypeOutroText(e.target.value);
+                            handleChange("product_type", e.target.value);
+                          }}
+                          placeholder="Descreve o formato..."
+                        />
+                      )}
                     </Field>
                   </FieldRow>
 
@@ -1361,7 +1411,7 @@ export function StudentProducts({ studentId, isCoach = false }: StudentProductsP
                       <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {level && <span>{level.label}</span>}
                         {p.price != null && <span>{fmtEur(p.price)}</span>}
-                        {p.product_type && <span>{p.product_type}</span>}
+                        {p.product_type && <span>{fmtProductType(p.product_type)}</span>}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">

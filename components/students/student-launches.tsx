@@ -12,6 +12,7 @@ import {
   X,
   Copy,
   Settings2,
+  Info,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ import {
   type LaunchStatus,
 } from "@/lib/types/student-launches";
 import { SectionStatusBadge } from "@/components/ui/section-status-badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LaunchWizard, LaunchPhaseBadge } from "./launch-wizard";
 import { LaunchGoalsCalculator } from "@/components/incubadora/launch-goals-calculator";
 import type { ReviewStatus } from "@/lib/types/review-status";
@@ -116,14 +118,32 @@ function LaunchStatusBadge({ status }: { status: LaunchStatus }) {
   );
 }
 
-function CalcField({ label, value }: { label: string; value: string }) {
+function CalcField({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
   return (
     <div>
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </label>
       <div className="mt-1 flex h-8 cursor-not-allowed items-center rounded-md border border-input bg-muted/60 px-3 text-sm text-muted-foreground select-none">
         {value}
       </div>
     </div>
+  );
+}
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-3 w-3 cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -548,7 +568,7 @@ export function StudentLaunches({ studentId, isCoach = false }: Props) {
           </Button>
           <Button size="sm" onClick={() => setWizard({ open: true, launch: null })}>
             <Plus className="mr-1 size-3" />
-            Novo Lançamento
+            Novo Briefing de Lançamento
           </Button>
         </div>
       </CardHeader>
@@ -741,6 +761,18 @@ export function StudentLaunches({ studentId, isCoach = false }: Props) {
                   </div>
 
                   <div className="bg-muted/20 p-4 space-y-6">
+                    {tab === "planeamento" && launch.product_snapshot && (
+                      <div className="rounded border border-muted bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                        Produto no momento do briefing:{" "}
+                        <span className="font-medium text-foreground">
+                          {String((launch.product_snapshot as Record<string, unknown>).name ?? "—")}
+                          {(launch.product_snapshot as Record<string, unknown>).price != null
+                            ? ` — ${(launch.product_snapshot as Record<string, unknown>).price}€`
+                            : ""}
+                        </span>
+                        . O produto base pode ter sido atualizado desde então.
+                      </div>
+                    )}
                     {tab === "planeamento" && (
                       <PlanningForm
                         launch={launch}
@@ -1181,6 +1213,11 @@ function DebriefForm({ launch, form, calc, setDebrief, onSave, saving, planBudge
 
   return (
     <div className="space-y-6">
+      {launch.status !== "concluido" && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+          Estás a preencher o debriefing antes de o lançamento terminar. Os valores finais podem ser atualizados depois.
+        </div>
+      )}
       {/* Investimento */}
       <section className="space-y-3">
         <SectionTitle>Investimento Real</SectionTitle>
@@ -1202,7 +1239,7 @@ function DebriefForm({ launch, form, calc, setDebrief, onSave, saving, planBudge
             <label className="text-xs font-medium">Investimento total (€){planBudget.total != null && <span className="text-muted-foreground font-normal"> · Plan: {fmtEur(planBudget.total)}</span>}</label>
             <Input type="number" value={n("investimento_total")} onChange={setN("investimento_total")} className="mt-1 h-8 text-sm" />
           </div>
-          <CalcField label="CPL (calculado)" value={fmtEur(calc?.cpl)} />
+          <CalcField label="CPL (calculado)" value={fmtEur(calc?.cpl)} tooltip="Custo Por Lead — quanto custou, em média, cada inscrição. Calculado automaticamente: investimento total ÷ leads totais." />
         </div>
       </section>
 
@@ -1211,7 +1248,10 @@ function DebriefForm({ launch, form, calc, setDebrief, onSave, saving, planBudge
         <SectionTitle>Leads</SectionTitle>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           <div>
-            <label className="text-xs font-medium">Visitantes página</label>
+            <label className="text-xs font-medium flex items-center gap-1">
+              Visitantes página
+              <InfoTooltip text="Total de pessoas que abriram a tua página de inscrição (landing page)." />
+            </label>
             <Input type="number" value={n("visitantes_pagina")} onChange={setN("visitantes_pagina")} className="mt-1 h-8 text-sm" />
           </div>
           <div>
@@ -1296,7 +1336,10 @@ function DebriefForm({ launch, form, calc, setDebrief, onSave, saving, planBudge
         <SectionTitle>LPV e Checkout</SectionTitle>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
           <div>
-            <label className="text-xs font-medium">Views LPV</label>
+            <label className="text-xs font-medium flex items-center gap-1">
+              Views LPV
+              <InfoTooltip text="Visualizações da Página de Vendas — quantas pessoas viram a página onde o produto é apresentado e vendido." />
+            </label>
             <Input type="number" value={n("views_lpv")} onChange={setN("views_lpv")} className="mt-1 h-8 text-sm" />
           </div>
           <div>
@@ -1329,8 +1372,8 @@ function DebriefForm({ launch, form, calc, setDebrief, onSave, saving, planBudge
             <Input type="number" value={n("receita_liquida_fase_venda")} onChange={setN("receita_liquida_fase_venda")} className="mt-1 h-8 text-sm" />
           </div>
           <CalcField label="Conv. leads→venda" value={fmtPct(calc?.taxa_conversao_leads)} />
-          <CalcField label="Conv. ao vivo→venda" value={fmtPct(calc?.taxa_conversao_ao_vivo)} />
-          <CalcField label={`ROAS (fase venda)${planBudget.total ? ` · Plan inv: ${fmtEur(planBudget.total)}` : ""}`} value={calc?.roas != null ? `${calc.roas.toFixed(2)}x` : "—"} />
+          <CalcField label="Conv. ao vivo→venda" value={fmtPct(calc?.taxa_conversao_ao_vivo)} tooltip="De todas as pessoas que estiveram ao vivo no pitch, quantas compraram. Calculado: vendas ÷ ao vivo no pitch." />
+          <CalcField label={`ROAS (fase venda)${planBudget.total ? ` · Plan inv: ${fmtEur(planBudget.total)}` : ""}`} value={calc?.roas != null ? `${calc.roas.toFixed(2)}x` : "—"} tooltip="Return On Ad Spend — quantas vezes recuperaste o investimento em publicidade. Ex: 3x significa €3 gerados por cada €1 investido." />
         </div>
       </section>
 

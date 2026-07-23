@@ -62,6 +62,15 @@ export interface StudentProduct {
   updated_at: string;
 }
 
+export interface OfferOverrides {
+  num_prestacoes?: number | null;
+  vagas_limitadas?: boolean;
+  num_vagas?: number | null;
+  prazo_oferta?: string | null;
+  bonus_campanha?: string[];
+  condicoes_especiais?: string | null;
+}
+
 export type LaunchStatus = "planeado" | "em_curso" | "concluido" | "cancelado";
 
 export type LaunchPhase =
@@ -194,6 +203,7 @@ export interface StudentLaunch {
   revenue_synced: boolean;
   deletion_requested_at: string | null;
   deletion_requested_by: string | null;
+  offer_overrides: OfferOverrides | null;
   product_snapshot: Record<string, unknown> | null;
   snapshot_at_creation: Record<string, unknown> | null;
   event_name: string | null;
