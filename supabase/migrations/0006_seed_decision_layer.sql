@@ -9,11 +9,11 @@
 -- ============================================================
 
 insert into mentorships (id, name, mentor, platform, status, cover_emoji, description, started_at) values
-  ('11111111-0000-0000-0000-000000000001', 'Core IA', 'Juliano Torriani', 'Plataforma própria', 'ativa', '🤖',
+  ('11111111-0000-0000-0000-000000000001', 'Core IA', 'Juliano Torriani', 'Plataforma própria', 'ativa', null,
    'Programa de IA aplicada a negócio. Daniel pode partilhar acesso ao playbook para mapeamento dos módulos.', null),
-  ('11111111-0000-0000-0000-000000000002', 'Venda Todo Santo Dia', 'Leandro Ladeira', 'Hotmart', 'ativa', '💰',
+  ('11111111-0000-0000-0000-000000000002', 'Venda Todo Santo Dia', 'Leandro Ladeira', 'Hotmart', 'ativa', null,
    'Programa de vendas digitais — copywriting, posicionamento, conversão.', null),
-  ('11111111-0000-0000-0000-000000000003', 'Stories 10x', 'Leandro Ladeira', 'Hotmart', 'ativa', '📱',
+  ('11111111-0000-0000-0000-000000000003', 'Stories 10x', 'Leandro Ladeira', 'Hotmart', 'ativa', null,
    'Programa de produção de stories de alta performance no Instagram.', null)
 on conflict (id) do nothing;
 

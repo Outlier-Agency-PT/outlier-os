@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
+const DOC_TYPE_VALUES = ["processo", "playbook", "guia", "template", "checklist", "decisao", "trilha"] as const;
+
 const processSchema = z.object({
   title: z.string().min(1),
   description: z.string().nullable().optional(),
+  doc_type: z.enum(DOC_TYPE_VALUES).default("processo"),
   category_id: z.string().uuid().nullable().optional(),
   content_md: z.string().nullable().optional(),
   miro_link: z.string().nullable().optional(),

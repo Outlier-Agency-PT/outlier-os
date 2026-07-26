@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +77,11 @@ export default async function ProcessDetailPage({ params }: PageProps) {
         <Card>
           <CardContent className="p-6">
             {process.content_md ? (
-              <pre className="whitespace-pre-wrap font-mono text-sm">{process.content_md}</pre>
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {process.content_md}
+                </ReactMarkdown>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">Sem conteúdo.</p>
             )}

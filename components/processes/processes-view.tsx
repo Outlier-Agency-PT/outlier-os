@@ -28,6 +28,9 @@ import {
 import { createProcessAction, type ProcessInput } from "@/lib/actions/processes";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { DOC_TYPES } from "@/lib/constants/process-types";
 import type { Process, ProcessCategory } from "@/lib/queries/processes";
 
 interface Props {
@@ -142,6 +145,9 @@ export function ProcessesView({ processes, categories }: Props) {
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1">
+                          <Badge variant="secondary" className="text-[10px]">
+                            {DOC_TYPES.find((t) => t.value === p.doc_type)?.label ?? p.doc_type}
+                          </Badge>
                           {p.category && (
                             <Badge
                               variant="outline"
@@ -181,8 +187,9 @@ function CreateProcessDialog({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<ProcessInput>({ title: "", published: true });
+  const [form, setForm] = useState<ProcessInput>({ title: "", doc_type: "processo", published: true });
   const [tagsInput, setTagsInput] = useState("");
+  const [preview, setPreview] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -203,8 +210,9 @@ function CreateProcessDialog({
     if ("data" in result && result.data) {
       router.push(`/processos/${(result.data as { id: string }).id}`);
     }
-    setForm({ title: "", published: true });
+    setForm({ title: "", doc_type: "processo", published: true });
     setTagsInput("");
+    setPreview(false);
   }
 
   return (
@@ -232,6 +240,22 @@ function CreateProcessDialog({
               value={form.description ?? ""}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="doc_type">Tipo</Label>
+            <Select
+              value={form.doc_type ?? "processo"}
+              onValueChange={(v) => setForm((f) => ({ ...f, doc_type: v as ProcessInput["doc_type"] }))}
+            >
+              <SelectTrigger id="doc_type">
+                <SelectValue placeholder="Selecionar tipo..." />
+              </SelectTrigger>
+              <SelectContent>
+                {DOC_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -270,15 +294,47 @@ function CreateProcessDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="content">Conteúdo (Markdown)</Label>
-            <Textarea
-              id="content"
-              value={form.content_md ?? ""}
-              onChange={(e) => setForm((f) => ({ ...f, content_md: e.target.value }))}
-              rows={8}
-              className="font-mono text-sm"
-              placeholder="# Passo 1&#10;&#10;Descreve o passo..."
-            />
+            <div className="flex items-center justify-between">
+              <Label>Conteúdo (Markdown)</Label>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={!preview ? "default" : "outline"}
+                  onClick={() => setPreview(false)}
+                >
+                  Editar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={preview ? "default" : "outline"}
+                  onClick={() => setPreview(true)}
+                >
+                  Pré-visualizar
+                </Button>
+              </div>
+            </div>
+            {preview ? (
+              <div className="prose prose-sm max-w-none dark:prose-invert min-h-[192px] rounded-md border px-3 py-2">
+                {form.content_md?.trim() ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {form.content_md}
+                  </ReactMarkdown>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhum conteúdo para pré-visualizar.</p>
+                )}
+              </div>
+            ) : (
+              <Textarea
+                id="content"
+                value={form.content_md ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, content_md: e.target.value }))}
+                rows={8}
+                className="font-mono text-sm"
+                placeholder="# Passo 1&#10;&#10;Descreve o passo..."
+              />
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

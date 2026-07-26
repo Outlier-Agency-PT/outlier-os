@@ -251,37 +251,53 @@ export async function submitAudienceForReviewAction(id: string) {
 
   if (error) return { error: error.message };
 
-  // Notifica a equipa
+  // Notifica o coach do aluno (ou admins se não tiver coach atribuído)
   const admin = createAdminClient();
-  const [{ data: profile }, { data: teamMembers }] = await Promise.all([
-    admin
-      .from("student_audience_profiles")
-      .select("name, student_id")
-      .eq("id", id)
-      .maybeSingle(),
-    admin.from("team_members").select("id").eq("active", true),
-  ]);
+  const { data: profile } = await admin
+    .from("student_audience_profiles")
+    .select("name, student_id")
+    .eq("id", id)
+    .maybeSingle();
 
   const p = profile as { name: string; student_id: string } | null;
 
-  if (p && teamMembers && teamMembers.length > 0) {
-    // Busca o nome do aluno
+  if (p) {
+    // Busca o aluno e o seu coach_id
     const { data: studentRow } = await admin
       .from("students")
-      .select("name")
+      .select("name, coach_id")
       .eq("id", p.student_id)
       .maybeSingle();
-    const studentName = (studentRow as { name: string } | null)?.name ?? "Aluno";
 
-    await admin.from("notifications").insert(
-      (teamMembers as { id: string }[]).map((m) => ({
-        user_id: m.id,
-        type: "audience_review_requested",
-        title: "Perfil de audiência pronto para revisão",
-        body: `${studentName}: perfil "${p.name}" submetido para revisão.`,
-        link: `/incubadora/${p.student_id}`,
-      })),
-    );
+    const s = studentRow as { name: string; coach_id: string | null } | null;
+    const studentName = s?.name ?? "Aluno";
+
+    let recipientIds: string[];
+
+    if (s?.coach_id) {
+      // Notifica apenas o coach responsável
+      recipientIds = [s.coach_id];
+    } else {
+      // Sem coach atribuído: notifica todos os admins ativos
+      const { data: admins } = await admin
+        .from("team_members")
+        .select("id")
+        .eq("role", "admin")
+        .eq("active", true);
+      recipientIds = (admins as { id: string }[] | null)?.map((a) => a.id) ?? [];
+    }
+
+    if (recipientIds.length > 0) {
+      await admin.from("notifications").insert(
+        recipientIds.map((uid) => ({
+          user_id: uid,
+          type: "audience_review_requested",
+          title: "Perfil de audiência pronto para revisão",
+          body: `${studentName}: perfil "${p.name}" submetido para revisão.`,
+          link: `/incubadora/${p.student_id}`,
+        })),
+      );
+    }
   }
 
   revalidatePath("/incubadora");

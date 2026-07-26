@@ -34,6 +34,7 @@ interface Props {
 export function PermissionsEditor({ member, open, onOpenChange }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [fullName, setFullName] = useState(member.full_name ?? "");
   const [role, setRole] = useState<MemberRole>(member.role);
   const [department, setDepartment] = useState(member.department ?? "none");
   const [jobTitle, setJobTitle] = useState(member.job_title ?? "");
@@ -57,6 +58,7 @@ export function PermissionsEditor({ member, open, onOpenChange }: Props) {
   async function handleSave() {
     setLoading(true);
     const result = await updateMemberAction(member.id, {
+      full_name: fullName || undefined,
       role,
       department: department === "none" ? null : department || null,
       job_title: jobTitle || null,
@@ -83,6 +85,15 @@ export function PermissionsEditor({ member, open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="full-name">Nome</Label>
+            <Input
+              id="full-name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Nome completo"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="role">Função</Label>
