@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { TasksBoard } from "@/components/tasks/tasks-board";
 import { getTasks, getTaskSpaces, getTasksByList } from "@/lib/queries/tasks";
@@ -14,12 +15,24 @@ export default async function TarefasPage(props: {
   const searchParams = await props.searchParams;
   const selectedListId = searchParams.list;
 
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: member } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+
+  const isAdmin = member?.role === "admin";
+  const currentUserId = user?.id ?? "";
+
   // UUID da lista padrão "Backlog"
   const DEFAULT_LIST_ID = "00000000-0000-0000-0000-000000000011";
   const listId = selectedListId || DEFAULT_LIST_ID;
 
   const [tasks, statuses, clients, members, spaces, listTasks, templates] = await Promise.all([
-    getTasks(),
+    isAdmin ? getTasks() : getTasks({ assigneeId: currentUserId }),
     getStatuses("task_statuses"),
     getClients(),
     getTeamMembers(),
@@ -51,6 +64,8 @@ export default async function TarefasPage(props: {
         spaces={spaces}
         selectedListId={listId}
         templates={templates}
+        currentUserId={currentUserId}
+        isAdmin={isAdmin}
       />
     </>
   );

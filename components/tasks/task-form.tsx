@@ -248,20 +248,60 @@ export function TaskForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="estimate">Estimativa (horas)</Label>
-              <Input
-                id="estimate"
-                type="number"
-                min="0.5"
-                max="40"
-                step="0.5"
-                placeholder="ex: 2"
-                value={form.estimate_points ?? ""}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  update("estimate_points", !e.target.value || v <= 0 ? null : v);
-                }}
-              />
+              <Label>Estimativa</Label>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    id="estimate-hours"
+                    type="number"
+                    min="0"
+                    max="999"
+                    step="1"
+                    placeholder="0"
+                    className="w-20"
+                    value={
+                      form.estimate_points != null
+                        ? Math.floor(form.estimate_points)
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const hours = parseInt(e.target.value, 10);
+                      const mins = form.estimate_points != null
+                        ? Math.round((form.estimate_points % 1) * 60)
+                        : 0;
+                      const total = (!e.target.value || isNaN(hours) ? 0 : hours) + mins / 60;
+                      update("estimate_points", total === 0 ? null : total);
+                    }}
+                  />
+                  <span className="text-sm text-muted-foreground">h</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Select
+                    value={String(
+                      form.estimate_points != null
+                        ? Math.round((form.estimate_points % 1) * 60)
+                        : 0
+                    )}
+                    onValueChange={(v) => {
+                      const hours = form.estimate_points != null
+                        ? Math.floor(form.estimate_points)
+                        : 0;
+                      const total = hours + parseInt(v, 10) / 60;
+                      update("estimate_points", total === 0 ? null : total);
+                    }}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0 min</SelectItem>
+                      <SelectItem value="15">15 min</SelectItem>
+                      <SelectItem value="30">30 min</SelectItem>
+                      <SelectItem value="45">45 min</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             <div className="col-span-2 space-y-1.5">

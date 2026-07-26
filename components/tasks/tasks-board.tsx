@@ -69,6 +69,8 @@ interface TasksBoardProps {
   spaces: TaskSpace[];
   selectedListId: string;
   templates?: TaskTemplate[];
+  currentUserId?: string;
+  isAdmin?: boolean;
 }
 
 export function TasksBoard({
@@ -80,6 +82,8 @@ export function TasksBoard({
   spaces,
   selectedListId,
   templates = [],
+  currentUserId = "",
+  isAdmin = false,
 }: TasksBoardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -87,6 +91,7 @@ export function TasksBoard({
   const [view, setView] = useState<View>("kanban");
   const [search, setSearch] = useState("");
   const [filterClientId, setFilterClientId] = useState<string | null>(null);
+  const [filterAssigneeId, setFilterAssigneeId] = useState<string | "all">(currentUserId || "all");
   const [open, setOpen] = useState(false);
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
@@ -118,6 +123,10 @@ export function TasksBoard({
   const filtered = useMemo(() => {
     let result = tasks;
 
+    if (filterAssigneeId !== "all") {
+      result = result.filter((t) => t.assignee?.id === filterAssigneeId);
+    }
+
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -133,7 +142,7 @@ export function TasksBoard({
     }
 
     return result;
-  }, [tasks, search, filterClientId]);
+  }, [tasks, search, filterClientId, filterAssigneeId]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, TaskWithRelations[]>();
@@ -289,6 +298,44 @@ export function TasksBoard({
                   onClick={() => setFilterClientId(null)}
                   className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   title="Limpar filtro de cliente"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Filtro por responsável — só para admins */}
+          {showFilters && isAdmin && (
+            <div className="flex items-center gap-1">
+              <Select
+                value={filterAssigneeId}
+                onValueChange={(v) => setFilterAssigneeId(v)}
+              >
+                <SelectTrigger
+                  className="h-9 w-48 text-sm"
+                  style={filterAssigneeId !== "all" && filterAssigneeId !== currentUserId ? { borderColor: "#A12B2B" } : undefined}
+                >
+                  <SelectValue placeholder="As minhas tarefas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={currentUserId}>As minhas tarefas</SelectItem>
+                  <SelectItem value="all">Toda a equipa</SelectItem>
+                  {members
+                    .filter((m) => m.id !== currentUserId)
+                    .map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+
+              {filterAssigneeId === "all" && (
+                <button
+                  onClick={() => setFilterAssigneeId(currentUserId)}
+                  className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  title="Voltar às minhas tarefas"
                 >
                   <X className="size-3.5" />
                 </button>

@@ -52,7 +52,7 @@ export function MyDay({ tasks, concludedStatusId }: Props) {
       </div>
       {visible.length === 0 ? (
         <p className="py-6 text-sm font-light text-muted-foreground">
-          Sem tarefas atribuídas em aberto. 🎉
+          Sem tarefas atribuídas em aberto.
         </p>
       ) : (
         <ul className="divide-y divide-border">
