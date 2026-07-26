@@ -267,6 +267,7 @@ export async function logTimeManualAction(
   taskId: string,
   durationMinutes: number,
   description?: string,
+  logDate?: string, // "YYYY-MM-DD" — quando omitido usa hoje
 ) {
   const supabase = await createClient();
   const {
@@ -274,8 +275,9 @@ export async function logTimeManualAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Não autenticado" };
 
-  const now = new Date();
-  const start = new Date(now.getTime() - durationMinutes * 60000);
+  const ref = logDate ? new Date(logDate + "T12:00:00") : new Date();
+  const end = new Date(ref.getTime());
+  const start = new Date(ref.getTime() - durationMinutes * 60000);
 
   const { data, error } = await supabase
     .from("task_time_logs")
@@ -283,7 +285,7 @@ export async function logTimeManualAction(
       task_id: taskId,
       member_id: user.id,
       start_at: start.toISOString(),
-      end_at: now.toISOString(),
+      end_at: end.toISOString(),
       duration_minutes: durationMinutes,
       is_manual: true,
       description: description ?? null,
@@ -294,6 +296,58 @@ export async function logTimeManualAction(
   if (error) return { error: error.message };
   revalidatePath("/tarefas");
   return { data };
+}
+
+export async function fetchMyOpenTasksAction() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: [] };
+
+  const { data: concludedStatus } = await supabase
+    .from("task_statuses")
+    .select("id")
+    .eq("key", "concluido")
+    .maybeSingle();
+
+  const SELECT = "id, title";
+
+  const [{ data: byId }, { data: byArray }] = await Promise.all([
+    concludedStatus?.id
+      ? supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).neq("status_id", concludedStatus.id).order("title")
+      : supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).order("title"),
+    concludedStatus?.id
+      ? supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).neq("status_id", concludedStatus.id).order("title")
+      : supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).order("title"),
+  ]);
+
+  const seen = new Set<string>();
+  const tasks: { id: string; title: string }[] = [];
+  for (const t of [...(byId ?? []), ...(byArray ?? [])]) {
+    if (!seen.has(t.id)) { seen.add(t.id); tasks.push(t); }
+  }
+
+  return { data: tasks.sort((a, b) => a.title.localeCompare(b.title)) };
+}
+
+export async function fetchMyAllTasksAction() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: [] };
+
+  const SELECT = "id, title, completed_at";
+
+  const [{ data: byId }, { data: byArray }] = await Promise.all([
+    supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).order("title"),
+    supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).order("title"),
+  ]);
+
+  const seen = new Set<string>();
+  const tasks: { id: string; title: string; completed_at: string | null }[] = [];
+  for (const t of [...(byId ?? []), ...(byArray ?? [])] as { id: string; title: string; completed_at: string | null }[]) {
+    if (!seen.has(t.id)) { seen.add(t.id); tasks.push(t); }
+  }
+
+  return { data: tasks.sort((a, b) => a.title.localeCompare(b.title)) };
 }
 
 export async function getTaskTimeLogsAction(taskId: string) {
