@@ -28,7 +28,7 @@ import {
   fetchMyOpenTasksAction,
   fetchMyAllTasksAction,
 } from "@/lib/actions/tasks";
-import { formatDuration, formatRelative } from "@/lib/utils";
+import { formatDuration } from "@/lib/utils";
 import { toast } from "sonner";
 import type { TaskWithRelations } from "@/lib/queries/tasks";
 import type { TimeLogWithTask } from "@/lib/queries/dashboard-colaborador";
@@ -62,6 +62,11 @@ function calcDurationMins(start: string, end: string): number {
   return endMins - startMins;
 }
 
+function fmtTime(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 function fmtDur(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -89,17 +94,17 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
   const [logDate, setLogDate] = useState(todayISO());
   const [logDesc, setLogDesc] = useState("");
 
-  // Fetch fresh open tasks for timer on mount (fixes dropdown showing only 1 task)
+  // Fetch fresh open tasks for timer on mount
   useEffect(() => {
-    fetchMyOpenTasksAction().then((res) => {
-      if (res.data.length > 0) {
+    fetchMyOpenTasksAction()
+      .then((res) => {
         setTimerTasks(res.data);
         setSelectedTaskId((prev) => {
           const ids = new Set(res.data.map((t) => t.id));
           return ids.has(prev) ? prev : (res.data[0]?.id ?? "");
         });
-      }
-    });
+      })
+      .catch(() => {/* mantém myDayTasks como fallback */});
   }, []);
 
   // Fetch all tasks (open + concluded) when dialog opens
@@ -241,13 +246,14 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
       ) : (
         <ul className="divide-y divide-border">
           {recentLogs.map((log) => (
-            <li key={log.id} className="flex items-center justify-between py-2.5 text-sm">
-              <div className="min-w-0">
-                <p className="truncate font-medium tracking-[-0.01em]">{log.task?.title ?? "—"}</p>
-                <p className="text-[11px] text-muted-foreground/65">{formatRelative(log.start_at)}</p>
-              </div>
+            <li key={log.id} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+              <p className="min-w-0 truncate font-medium tracking-[-0.01em]">
+                {log.task?.title ?? "—"}
+              </p>
               <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                {log.duration_minutes !== null ? formatDuration(log.duration_minutes) : "A correr..."}
+                {log.end_at
+                  ? `${fmtTime(log.start_at)} — ${fmtTime(log.end_at)} · ${fmtDur(log.duration_minutes ?? 0)}`
+                  : "A correr..."}
               </span>
             </li>
           ))}

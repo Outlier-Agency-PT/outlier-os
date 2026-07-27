@@ -326,7 +326,8 @@ export async function fetchMyOpenTasksAction() {
   let query = supabase
     .from("tasks")
     .select("id, title")
-    .or(`assignee_id.eq.${user.id},assignees.cs.{${user.id}}`);
+    .or(`assignee_id.eq.${user.id},assignees.cs.{${user.id}}`)
+    .is("completed_at", null);
 
   if (concludedStatus?.id) {
     query = query.neq("status_id", concludedStatus.id);
