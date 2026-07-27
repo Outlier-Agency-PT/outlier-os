@@ -48,6 +48,28 @@ interface Props {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+function timeStr(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function calcDurationMins(start: string, end: string): number {
+  if (!start || !end) return 0;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  const startMins = sh * 60 + sm;
+  let endMins = eh * 60 + em;
+  if (endMins <= startMins) endMins += 24 * 60; // passou da meia-noite
+  return endMins - startMins;
+}
+
+function fmtDur(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}min`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}min`;
+}
+
 export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -62,8 +84,8 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
   const [logOpen, setLogOpen] = useState(false);
   const [allTasks, setAllTasks] = useState<SimpleTask[]>([]);
   const [logTaskId, setLogTaskId] = useState("");
-  const [logHours, setLogHours] = useState<number | "">(0);
-  const [logMins, setLogMins] = useState("0");
+  const [logStartTime, setLogStartTime] = useState(() => timeStr(new Date(Date.now() - 3600000)));
+  const [logEndTime, setLogEndTime] = useState(() => timeStr(new Date()));
   const [logDate, setLogDate] = useState(todayISO());
   const [logDesc, setLogDesc] = useState("");
 
@@ -128,29 +150,30 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
 
   function resetLogForm() {
     setLogTaskId("");
-    setLogHours(0);
-    setLogMins("0");
+    setLogStartTime(timeStr(new Date(Date.now() - 3600000)));
+    setLogEndTime(timeStr(new Date()));
     setLogDate(todayISO());
     setLogDesc("");
   }
 
   function handleLogTime() {
-    const h = typeof logHours === "number" ? logHours : 0;
-    const totalMins = h * 60 + parseInt(logMins, 10);
+    const durationMins = calcDurationMins(logStartTime, logEndTime);
     if (!logTaskId) {
       toast.error("Escolhe uma tarefa");
       return;
     }
-    if (totalMins === 0) {
+    if (durationMins === 0) {
       toast.error("A duração tem de ser maior que 0");
       return;
     }
     startLogTransition(async () => {
       const result = await logTimeManualAction(
         logTaskId,
-        totalMins,
+        durationMins,
         logDesc || undefined,
         logDate,
+        logStartTime,
+        logEndTime,
       );
       if ("error" in result && result.error) {
         toast.error("Erro ao registar tempo");
@@ -262,34 +285,32 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
             </div>
 
             <div className="space-y-1.5">
-              <Label>Duração</Label>
+              <Label>Período</Label>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] text-muted-foreground">Início</span>
                   <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    className="w-20"
-                    value={logHours}
-                    onChange={(e) =>
-                      setLogHours(
-                        e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value, 10)),
-                      )
-                    }
+                    type="time"
+                    className="w-28"
+                    value={logStartTime}
+                    onChange={(e) => setLogStartTime(e.target.value)}
                   />
-                  <span className="text-sm text-muted-foreground">h</span>
                 </div>
-                <Select value={logMins} onValueChange={setLogMins}>
-                  <SelectTrigger className="w-24">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">0 min</SelectItem>
-                    <SelectItem value="15">15 min</SelectItem>
-                    <SelectItem value="30">30 min</SelectItem>
-                    <SelectItem value="45">45 min</SelectItem>
-                  </SelectContent>
-                </Select>
+                <span className="mt-5 text-muted-foreground">→</span>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] text-muted-foreground">Fim</span>
+                  <Input
+                    type="time"
+                    className="w-28"
+                    value={logEndTime}
+                    onChange={(e) => setLogEndTime(e.target.value)}
+                  />
+                </div>
+                {calcDurationMins(logStartTime, logEndTime) > 0 && (
+                  <span className="mt-5 text-sm text-muted-foreground">
+                    = {fmtDur(calcDurationMins(logStartTime, logEndTime))}
+                  </span>
+                )}
               </div>
             </div>
 

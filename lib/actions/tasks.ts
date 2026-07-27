@@ -267,7 +267,9 @@ export async function logTimeManualAction(
   taskId: string,
   durationMinutes: number,
   description?: string,
-  logDate?: string, // "YYYY-MM-DD" — quando omitido usa hoje
+  logDate?: string,   // "YYYY-MM-DD"
+  startTime?: string, // "HH:MM"
+  endTime?: string,   // "HH:MM"
 ) {
   const supabase = await createClient();
   const {
@@ -275,18 +277,30 @@ export async function logTimeManualAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Não autenticado" };
 
-  const ref = logDate ? new Date(logDate + "T12:00:00") : new Date();
-  const end = new Date(ref.getTime());
-  const start = new Date(ref.getTime() - durationMinutes * 60000);
+  let startAt: Date;
+  let endAt: Date;
+
+  if (logDate && startTime && endTime) {
+    startAt = new Date(`${logDate}T${startTime}:00`);
+    endAt = new Date(`${logDate}T${endTime}:00`);
+    // passa da meia-noite
+    if (endAt <= startAt) endAt = new Date(endAt.getTime() + 24 * 60 * 60 * 1000);
+  } else {
+    const ref = logDate ? new Date(logDate + "T12:00:00") : new Date();
+    endAt = new Date(ref.getTime());
+    startAt = new Date(ref.getTime() - durationMinutes * 60000);
+  }
+
+  const actualDuration = Math.round((endAt.getTime() - startAt.getTime()) / 60000) || durationMinutes;
 
   const { data, error } = await supabase
     .from("task_time_logs")
     .insert({
       task_id: taskId,
       member_id: user.id,
-      start_at: start.toISOString(),
-      end_at: end.toISOString(),
-      duration_minutes: durationMinutes,
+      start_at: startAt.toISOString(),
+      end_at: endAt.toISOString(),
+      duration_minutes: actualDuration,
       is_manual: true,
       description: description ?? null,
     })
@@ -309,24 +323,17 @@ export async function fetchMyOpenTasksAction() {
     .eq("key", "concluido")
     .maybeSingle();
 
-  const SELECT = "id, title";
+  let query = supabase
+    .from("tasks")
+    .select("id, title")
+    .or(`assignee_id.eq.${user.id},assignees.cs.{${user.id}}`);
 
-  const [{ data: byId }, { data: byArray }] = await Promise.all([
-    concludedStatus?.id
-      ? supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).neq("status_id", concludedStatus.id).order("title")
-      : supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).order("title"),
-    concludedStatus?.id
-      ? supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).neq("status_id", concludedStatus.id).order("title")
-      : supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).order("title"),
-  ]);
-
-  const seen = new Set<string>();
-  const tasks: { id: string; title: string }[] = [];
-  for (const t of [...(byId ?? []), ...(byArray ?? [])]) {
-    if (!seen.has(t.id)) { seen.add(t.id); tasks.push(t); }
+  if (concludedStatus?.id) {
+    query = query.neq("status_id", concludedStatus.id);
   }
 
-  return { data: tasks.sort((a, b) => a.title.localeCompare(b.title)) };
+  const { data } = await query.order("title");
+  return { data: (data ?? []) as { id: string; title: string }[] };
 }
 
 export async function fetchMyAllTasksAction() {
@@ -334,20 +341,13 @@ export async function fetchMyAllTasksAction() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: [] };
 
-  const SELECT = "id, title, completed_at";
+  const { data } = await supabase
+    .from("tasks")
+    .select("id, title, completed_at")
+    .or(`assignee_id.eq.${user.id},assignees.cs.{${user.id}}`)
+    .order("title");
 
-  const [{ data: byId }, { data: byArray }] = await Promise.all([
-    supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).order("title"),
-    supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).order("title"),
-  ]);
-
-  const seen = new Set<string>();
-  const tasks: { id: string; title: string; completed_at: string | null }[] = [];
-  for (const t of [...(byId ?? []), ...(byArray ?? [])] as { id: string; title: string; completed_at: string | null }[]) {
-    if (!seen.has(t.id)) { seen.add(t.id); tasks.push(t); }
-  }
-
-  return { data: tasks.sort((a, b) => a.title.localeCompare(b.title)) };
+  return { data: (data ?? []) as { id: string; title: string; completed_at: string | null }[] };
 }
 
 export async function getTaskTimeLogsAction(taskId: string) {
