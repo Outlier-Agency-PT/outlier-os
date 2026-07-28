@@ -76,6 +76,10 @@ const LAUNCH_MODELS = ["webinar", "semente", "desafio", "outro"] as const;
 const EVENT_TYPES   = ["Live", "Webinar", "Desafio", "Workshop", "Outro"] as const;
 const PLATFORMS     = ["Instagram", "YouTube", "Zoom", "Outro"] as const;
 
+const KNOWN_LAUNCH_MODELS = LAUNCH_MODELS.filter(m => m !== "outro");
+const KNOWN_EVENT_TYPES   = EVENT_TYPES.filter(t => t !== "Outro");
+const KNOWN_PLATFORMS     = PLATFORMS.filter(p => p !== "Outro");
+
 const PHASE_LABELS: Record<string, { label: string; color: string }> = {
   rascunho:    { label: "Rascunho",      color: "border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400" },
   planeamento: { label: "Planeamento",   color: "border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-400" },
@@ -545,15 +549,35 @@ export function LaunchWizard({
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Modelo de lançamento">
-                      <Select value={form.launch_model || "none"} onValueChange={(v) => set("launch_model", v === "none" ? "" : v)}>
-                        <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">—</SelectItem>
-                          {LAUNCH_MODELS.map((m) => (
-                            <SelectItem key={m} value={m} className="capitalize">{m.charAt(0).toUpperCase() + m.slice(1)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {(() => {
+                        const selectVal = KNOWN_LAUNCH_MODELS.includes(form.launch_model as typeof KNOWN_LAUNCH_MODELS[number])
+                          ? form.launch_model
+                          : form.launch_model
+                            ? "outro"
+                            : "none";
+                        return (
+                          <>
+                            <Select value={selectVal} onValueChange={(v) => set("launch_model", v === "none" ? "" : v === "outro" ? "outro" : v)}>
+                              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">—</SelectItem>
+                                {LAUNCH_MODELS.map((m) => (
+                                  <SelectItem key={m} value={m} className="capitalize">{m.charAt(0).toUpperCase() + m.slice(1)}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {selectVal === "outro" && (
+                              <Input
+                                className="mt-2"
+                                value={form.launch_model === "outro" ? "" : form.launch_model}
+                                onChange={(e) => set("launch_model", e.target.value || "outro")}
+                                placeholder="Descreve o modelo de lançamento..."
+                                required
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
                     </Field>
 
                     <Field label="Produto principal">
@@ -649,23 +673,63 @@ export function LaunchWizard({
 
                   <div className="grid gap-4 sm:grid-cols-3">
                     <Field label="Tipo de evento">
-                      <Select value={form.event_type || "none"} onValueChange={(v) => set("event_type", v === "none" ? "" : v)}>
-                        <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">—</SelectItem>
-                          {EVENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      {(() => {
+                        const selectVal = KNOWN_EVENT_TYPES.includes(form.event_type as typeof KNOWN_EVENT_TYPES[number])
+                          ? form.event_type
+                          : form.event_type
+                            ? "Outro"
+                            : "none";
+                        return (
+                          <>
+                            <Select value={selectVal} onValueChange={(v) => set("event_type", v === "none" ? "" : v === "Outro" ? "Outro" : v)}>
+                              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">—</SelectItem>
+                                {EVENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            {selectVal === "Outro" && (
+                              <Input
+                                className="mt-2"
+                                value={form.event_type === "Outro" ? "" : form.event_type}
+                                onChange={(e) => set("event_type", e.target.value || "Outro")}
+                                placeholder="Especifica o tipo de evento..."
+                                required
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
                     </Field>
 
                     <Field label="Plataforma">
-                      <Select value={form.event_platform || "none"} onValueChange={(v) => set("event_platform", v === "none" ? "" : v)}>
-                        <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">—</SelectItem>
-                          {PLATFORMS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      {(() => {
+                        const selectVal = KNOWN_PLATFORMS.includes(form.event_platform as typeof KNOWN_PLATFORMS[number])
+                          ? form.event_platform
+                          : form.event_platform
+                            ? "Outro"
+                            : "none";
+                        return (
+                          <>
+                            <Select value={selectVal} onValueChange={(v) => set("event_platform", v === "none" ? "" : v === "Outro" ? "Outro" : v)}>
+                              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">—</SelectItem>
+                                {PLATFORMS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            {selectVal === "Outro" && (
+                              <Input
+                                className="mt-2"
+                                value={form.event_platform === "Outro" ? "" : form.event_platform}
+                                onChange={(e) => set("event_platform", e.target.value || "Outro")}
+                                placeholder="Especifica a plataforma..."
+                                required
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
                     </Field>
 
                     <Field label="Hora do evento">

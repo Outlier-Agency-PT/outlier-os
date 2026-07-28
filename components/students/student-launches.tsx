@@ -70,6 +70,9 @@ import { COACH_TRANSITIONS } from "@/lib/types/review-status";
 const LAUNCH_TYPES = ["meteórico", "desafio", "webinar", "perpétuo", "outro"] as const;
 const CHANNELS = ["Instagram", "YouTube", "WhatsApp", "Email", "Facebook", "TikTok", "LinkedIn", "Outro"];
 
+const KNOWN_LAUNCH_TYPES = LAUNCH_TYPES.filter(t => t !== "outro");
+const KNOWN_CHANNELS     = CHANNELS.filter(c => c !== "Outro");
+
 const STATUS_LABELS: Record<LaunchStatus, string> = {
   planeado:  "Planeado",
   em_curso:  "Em curso",
@@ -946,7 +949,15 @@ function PlanningForm({ launch, form, products, setPlan, onSave, saving }: Plann
 
   function toggleChannel(ch: string) {
     const curr = form.channels ?? [];
-    setPlan({ channels: curr.includes(ch) ? curr.filter((c) => c !== ch) : [...curr, ch] });
+    if (ch === "Outro") {
+      if (curr.some(c => !KNOWN_CHANNELS.includes(c))) {
+        setPlan({ channels: curr.filter(c => KNOWN_CHANNELS.includes(c)) });
+      } else {
+        setPlan({ channels: [...curr, "Outro"] });
+      }
+    } else {
+      setPlan({ channels: curr.includes(ch) ? curr.filter((c) => c !== ch) : [...curr, ch] });
+    }
   }
 
   function productOpts() {
@@ -972,16 +983,36 @@ function PlanningForm({ launch, form, products, setPlan, onSave, saving }: Plann
           </div>
           <div>
             <label className="text-xs font-medium">Tipo</label>
-            <Select
-              value={form.type ?? "none"}
-              onValueChange={(v) => setPlan({ type: v === "none" ? null : v })}
-            >
-              <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">—</SelectItem>
-                {LAUNCH_TYPES.map((t) => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {(() => {
+              const typeSelectVal = KNOWN_LAUNCH_TYPES.includes((form.type ?? "") as typeof KNOWN_LAUNCH_TYPES[number])
+                ? form.type!
+                : form.type
+                  ? "outro"
+                  : "none";
+              return (
+                <>
+                  <Select
+                    value={typeSelectVal}
+                    onValueChange={(v) => setPlan({ type: v === "none" ? null : v === "outro" ? "outro" : v })}
+                  >
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      {LAUNCH_TYPES.map((t) => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {typeSelectVal === "outro" && (
+                    <Input
+                      className="mt-1.5 h-8 text-sm"
+                      value={form.type === "outro" ? "" : (form.type ?? "")}
+                      onChange={(e) => setPlan({ type: e.target.value || "outro" })}
+                      placeholder="Especifica o tipo de lançamento..."
+                      required
+                    />
+                  )}
+                </>
+              );
+            })()}
           </div>
           <div>
             <label className="text-xs font-medium">Status</label>
@@ -1011,22 +1042,48 @@ function PlanningForm({ launch, form, products, setPlan, onSave, saving }: Plann
           </div>
           <div className="md:col-span-2">
             <label className="text-xs font-medium">Canais</label>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {CHANNELS.map((ch) => (
-                <button
-                  key={ch}
-                  type="button"
-                  onClick={() => toggleChannel(ch)}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
-                    (form.channels ?? []).includes(ch)
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-input bg-background text-muted-foreground hover:border-foreground"
-                  }`}
-                >
-                  {ch}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const channelOutroActive = (form.channels ?? []).some(c => !KNOWN_CHANNELS.includes(c));
+              const customChannelText  = (form.channels ?? []).find(c => c !== "Outro" && !KNOWN_CHANNELS.includes(c)) ?? "";
+              return (
+                <>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {CHANNELS.map((ch) => {
+                      const active = ch === "Outro"
+                        ? channelOutroActive
+                        : (form.channels ?? []).includes(ch);
+                      return (
+                        <button
+                          key={ch}
+                          type="button"
+                          onClick={() => toggleChannel(ch)}
+                          className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+                            active
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-input bg-background text-muted-foreground hover:border-foreground"
+                          }`}
+                        >
+                          {ch}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {channelOutroActive && (
+                    <Input
+                      className="mt-1.5 h-8 text-sm"
+                      value={customChannelText}
+                      onChange={(e) => {
+                        const text = e.target.value;
+                        const base = (form.channels ?? []).filter(c => KNOWN_CHANNELS.includes(c));
+                        setPlan({ channels: text ? [...base, text] : [...base, "Outro"] });
+                      }}
+                      placeholder="Especifica o canal..."
+                      required
+                    />
+                  )}
+                </>
+              );
+            })()}
           </div>
           <div className="md:col-span-2">
             <label className="text-xs font-medium">Notas</label>
