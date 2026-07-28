@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { TasksBoard } from "@/components/tasks/tasks-board";
-import { getTasks, getTaskSpaces, getTasksByList } from "@/lib/queries/tasks";
+import { getTasks, getTaskSpaces, getTasksByList, getTasksBySpace } from "@/lib/queries/tasks";
 import { getStatuses } from "@/lib/queries/statuses";
 import { getClients } from "@/lib/queries/clients";
 import { getTeamMembers } from "@/lib/queries/team";
@@ -10,10 +10,11 @@ import { getTaskTemplates } from "@/lib/queries/templates";
 export const dynamic = "force-dynamic";
 
 export default async function TarefasPage(props: {
-  searchParams: Promise<{ list?: string }>;
+  searchParams: Promise<{ list?: string; space?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const selectedListId = searchParams.list;
+  const selectedSpaceId = searchParams.space;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -31,15 +32,18 @@ export default async function TarefasPage(props: {
   const DEFAULT_LIST_ID = "00000000-0000-0000-0000-000000000011";
   const listId = selectedListId || DEFAULT_LIST_ID;
 
-  const [tasks, statuses, clients, members, spaces, listTasks, templates] = await Promise.all([
+  const [tasks, statuses, clients, members, spaces, templates] = await Promise.all([
     isAdmin ? getTasks() : getTasks({ assigneeId: currentUserId }),
     getStatuses("task_statuses"),
     getClients(),
     getTeamMembers(),
     getTaskSpaces(),
-    getTasksByList(listId),
     getTaskTemplates(),
   ]);
+
+  const listTasks = selectedSpaceId
+    ? await getTasksBySpace(selectedSpaceId)
+    : await getTasksByList(listId);
 
   const rootCount = (tasks as any[]).filter((t) => !t.parent_task_id).length;
   const subCount = tasks.length - rootCount;
@@ -55,14 +59,15 @@ export default async function TarefasPage(props: {
         description={taskDesc}
       />
       <TasksBoard
-        key={listId}
+        key={selectedSpaceId ?? listId}
         initialTasks={listTasks}
         allTasks={tasks}
         statuses={statuses}
         clients={clients.map((c) => ({ id: c.id, label: c.name }))}
         members={members.map((m) => ({ id: m.id, label: m.full_name, email: m.email ?? "" }))}
         spaces={spaces}
-        selectedListId={listId}
+        selectedListId={selectedSpaceId ? undefined : listId}
+        selectedSpaceId={selectedSpaceId}
         templates={templates}
         currentUserId={currentUserId}
         isAdmin={isAdmin}

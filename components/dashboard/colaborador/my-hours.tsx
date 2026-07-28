@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Square, Plus, ChevronDown } from "lucide-react";
+import { Play, Square, Plus, ChevronDown, Pencil, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,8 @@ import {
   markTaskCompleteAction,
   createTaskAction,
   fetchTaskListsAction,
+  updateTimeLogAction,
+  deleteTimeLogAction,
 } from "@/lib/actions/tasks";
 import { cn, formatDuration } from "@/lib/utils";
 import { toast } from "sonner";
@@ -153,6 +155,18 @@ export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Pr
   const [taskListGroups, setTaskListGroups] = useState<{ spaceId: string; spaceName: string; lists: { id: string; name: string }[] }[]>([]);
   const [isQuickTaskPending, startQuickTaskTransition] = useTransition();
 
+  // Inline edit
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [editTaskId, setEditTaskId] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editLogDate, setEditLogDate] = useState("");
+  const [isEditPending, startEditTransition] = useTransition();
+
+  // Delete confirmation
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+  const [isDeletePending, startDeleteTransition] = useTransition();
+
   // Manual log dialog
   const [logOpen, setLogOpen] = useState(false);
   const [allTasks, setAllTasks] = useState<SimpleTask[]>([]);
@@ -175,13 +189,14 @@ export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Pr
       .catch(() => {});
   }, []);
 
-  // Fetch all tasks when log dialog opens
+  // Fetch all tasks when log dialog opens or inline edit starts
   useEffect(() => {
-    if (!logOpen) return;
+    if (!logOpen && !editingLogId) return;
+    if (allTasks.length > 0) return;
     fetchMyAllTasksAction().then((res) => {
       if (res.data.length > 0) setAllTasks(res.data);
     });
-  }, [logOpen]);
+  }, [logOpen, editingLogId]);
 
   // Fetch task lists when quick task dialog opens
   useEffect(() => {
@@ -294,6 +309,42 @@ export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Pr
     });
   }
 
+  function startEditLog(log: TimeLogWithTask) {
+    setEditingLogId(log.id);
+    setEditTaskId(log.task?.id ?? "");
+    setEditStartTime(fmtTime(log.start_at));
+    setEditEndTime(log.end_at ? fmtTime(log.end_at) : "");
+    setEditLogDate(getLocalDateStr(log.start_at));
+    setDeletingLogId(null);
+  }
+
+  function cancelEdit() {
+    setEditingLogId(null);
+  }
+
+  function handleSaveEdit() {
+    if (!editingLogId || !editTaskId) { toast.error("Escolhe uma tarefa"); return; }
+    const dur = calcDurationMins(editStartTime, editEndTime);
+    if (dur === 0) { toast.error("A duração tem de ser maior que 0"); return; }
+    startEditTransition(async () => {
+      const result = await updateTimeLogAction(editingLogId, editTaskId, editLogDate, editStartTime, editEndTime);
+      if ("error" in result && result.error) { toast.error("Erro ao actualizar registo"); return; }
+      toast.success("Registo actualizado");
+      setEditingLogId(null);
+      router.refresh();
+    });
+  }
+
+  function handleDeleteLog(logId: string) {
+    startDeleteTransition(async () => {
+      const result = await deleteTimeLogAction(logId);
+      if ("error" in result && result.error) { toast.error("Erro ao apagar registo"); return; }
+      toast.success("Registo apagado");
+      setDeletingLogId(null);
+      router.refresh();
+    });
+  }
+
   const grouped = groupLogsByDate(recentLogs);
 
   return (
@@ -395,18 +446,96 @@ export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Pr
                       const taskDesc = log.task?.description?.trim() ?? "";
                       const hasDesc = !!taskDesc;
                       const isLogExpanded = expandedLogs.has(log.id);
+                      const isEditing = editingLogId === log.id;
+                      const isDeleting = deletingLogId === log.id;
+                      const isRunning = !log.end_at;
+
+                      if (isEditing) {
+                        return (
+                          <li key={log.id} className="py-2 pl-4 pr-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Select value={editTaskId} onValueChange={setEditTaskId}>
+                                <SelectTrigger className="h-7 min-w-0 flex-1 text-xs">
+                                  <SelectValue placeholder="Tarefa" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {allTasks.map((task) => {
+                                    const prioColor = PRIORITY_COLORS[task.priority ?? "sem_prioridade"];
+                                    const name = task.title.length > 40 ? task.title.slice(0, 40).trimEnd() + "…" : task.title;
+                                    return (
+                                      <SelectItem key={task.id} value={task.id}>
+                                        <span className="flex items-center gap-1.5">
+                                          <span className={cn("size-2 shrink-0 rounded-full bg-current", prioColor)} />
+                                          {name}
+                                        </span>
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
+                              </Select>
+                              <Input type="time" className="h-7 w-24 text-xs" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} />
+                              <span className="text-muted-foreground">→</span>
+                              <Input type="time" className="h-7 w-24 text-xs" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} />
+                              {calcDurationMins(editStartTime, editEndTime) > 0 && (
+                                <span className="text-[11px] text-muted-foreground">{fmtDur(calcDurationMins(editStartTime, editEndTime))}</span>
+                              )}
+                              <button
+                                onClick={handleSaveEdit}
+                                disabled={isEditPending}
+                                className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                              >
+                                <Check className="size-3.5" />
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                <X className="size-3.5" />
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      }
+
+                      if (isDeleting) {
+                        return (
+                          <li key={log.id} className="flex items-center justify-between gap-4 py-2 pl-4 pr-1">
+                            <span className="text-[11px] text-muted-foreground">Tens a certeza?</span>
+                            <span className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleDeleteLog(log.id)}
+                                disabled={isDeletePending}
+                                className="text-[11px] font-medium text-destructive transition-colors hover:text-destructive/80 disabled:opacity-50"
+                              >
+                                Apagar
+                              </button>
+                              <button
+                                onClick={() => setDeletingLogId(null)}
+                                className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                Cancelar
+                              </button>
+                            </span>
+                          </li>
+                        );
+                      }
+
                       return (
-                        <li key={log.id}>
-                          <button
+                        <li key={log.id} className="group">
+                          <div
                             className={cn(
                               "flex w-full items-center justify-between gap-4 py-2 text-left",
-                              hasDesc ? "cursor-pointer" : "cursor-default",
                             )}
-                            onClick={() => hasDesc && toggleLog(log.id)}
                           >
-                            <p className="min-w-0 truncate pl-4 text-sm font-medium tracking-[-0.01em]">
+                            <button
+                              className={cn(
+                                "min-w-0 flex-1 truncate pl-4 text-sm font-medium tracking-[-0.01em] text-left",
+                                hasDesc ? "cursor-pointer" : "cursor-default",
+                              )}
+                              onClick={() => hasDesc && toggleLog(log.id)}
+                            >
                               {log.task?.title ?? "—"}
-                            </p>
+                            </button>
                             <span className="flex shrink-0 items-center gap-1.5">
                               <span className="text-[11px] tabular-nums text-muted-foreground">
                                 {log.end_at
@@ -421,8 +550,26 @@ export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Pr
                                   )}
                                 />
                               )}
+                              {!isRunning && (
+                                <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                  <button
+                                    onClick={() => startEditLog(log)}
+                                    className="rounded p-1 text-muted-foreground/60 transition-colors hover:text-foreground"
+                                    title="Editar"
+                                  >
+                                    <Pencil className="size-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeletingLogId(log.id); setEditingLogId(null); }}
+                                    className="rounded p-1 text-muted-foreground/60 transition-colors hover:text-destructive"
+                                    title="Apagar"
+                                  >
+                                    <Trash2 className="size-3" />
+                                  </button>
+                                </span>
+                              )}
                             </span>
-                          </button>
+                          </div>
                           {hasDesc && isLogExpanded && (
                             <p className="pb-2 pl-4 pr-6 text-xs text-muted-foreground">
                               {taskDesc}

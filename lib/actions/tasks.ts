@@ -542,6 +542,57 @@ export async function getTaskDetailAction(taskId: string) {
   return { task, comments: comments ?? [] };
 }
 
+export async function updateTimeLogAction(
+  logId: string,
+  taskId: string,
+  logDate: string,
+  startTime: string,
+  endTime: string,
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado" };
+
+  const { data: existing } = await supabase
+    .from("task_time_logs")
+    .select("member_id")
+    .eq("id", logId)
+    .single();
+  if (!existing || (existing as { member_id: string }).member_id !== user.id) return { error: "Sem permissão" };
+
+  const startAt = new Date(`${logDate}T${startTime}:00`);
+  let endAt = new Date(`${logDate}T${endTime}:00`);
+  if (endAt <= startAt) endAt = new Date(endAt.getTime() + 24 * 60 * 60 * 1000);
+  const durationMinutes = Math.round((endAt.getTime() - startAt.getTime()) / 60000);
+
+  const { error } = await supabase
+    .from("task_time_logs")
+    .update({ task_id: taskId, start_at: startAt.toISOString(), end_at: endAt.toISOString(), duration_minutes: durationMinutes })
+    .eq("id", logId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
+export async function deleteTimeLogAction(logId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado" };
+
+  const { data: existing } = await supabase
+    .from("task_time_logs")
+    .select("member_id")
+    .eq("id", logId)
+    .single();
+  if (!existing || (existing as { member_id: string }).member_id !== user.id) return { error: "Sem permissão" };
+
+  const { error } = await supabase.from("task_time_logs").delete().eq("id", logId);
+  if (error) return { error: error.message };
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
 export async function getWorkloadAction() {
   const { getWorkloadByMember } = await import("@/lib/queries/tasks");
   return getWorkloadByMember();

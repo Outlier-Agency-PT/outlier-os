@@ -13,9 +13,10 @@ import type { TaskSpace } from "@/lib/queries/tasks";
 interface TaskSidebarProps {
   spaces: TaskSpace[];
   selectedListId?: string;
+  selectedSpaceId?: string;
 }
 
-export function TaskSidebar({ spaces, selectedListId }: TaskSidebarProps) {
+export function TaskSidebar({ spaces, selectedListId, selectedSpaceId }: TaskSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [expandedSpaces, setExpandedSpaces] = useState<Set<string>>(
@@ -166,25 +167,40 @@ export function TaskSidebar({ spaces, selectedListId }: TaskSidebarProps) {
       <div className="space-y-1">
         {spaces.map((space) => (
           <div key={space.id} className="space-y-1">
-            <button
-              onClick={() => toggleSpace(space.id)}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium transition-colors"
-              title={space.is_private ? "Só tu tens acesso" : ""}
+            <div
+              className={cn(
+                "w-full flex items-center gap-1 rounded-md text-xs font-medium transition-colors",
+                selectedSpaceId === space.id ? "bg-brand text-white" : "hover:bg-accent",
+              )}
             >
-              {expandedSpaces.has(space.id) ? (
-                <ChevronDown className="size-4" />
-              ) : (
-                <ChevronRight className="size-4" />
-              )}
-              <span
-                className="size-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: space.color }}
-              />
-              <span className="flex-1 text-left truncate">{space.name}</span>
-              {space.is_private && (
-                <Lock className="size-3 flex-shrink-0 text-muted-foreground" />
-              )}
-            </button>
+              <button
+                onClick={() => toggleSpace(space.id)}
+                className="flex items-center justify-center p-1.5 shrink-0"
+                title={space.is_private ? "Só tu tens acesso" : ""}
+              >
+                {expandedSpaces.has(space.id) ? (
+                  <ChevronDown className="size-4" />
+                ) : (
+                  <ChevronRight className="size-4" />
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  router.push(`?space=${space.id}`);
+                  if (!expandedSpaces.has(space.id)) toggleSpace(space.id);
+                }}
+                className="flex flex-1 items-center gap-2 py-1.5 pr-2 min-w-0"
+              >
+                <span
+                  className="size-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: space.color }}
+                />
+                <span className="flex-1 text-left truncate">{space.name}</span>
+                {space.is_private && (
+                  <Lock className="size-3 flex-shrink-0 text-muted-foreground" />
+                )}
+              </button>
+            </div>
 
             {expandedSpaces.has(space.id) && (
               <div className="ml-4 space-y-1">

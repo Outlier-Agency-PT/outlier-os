@@ -180,6 +180,37 @@ export async function getTasksByList(listId: string): Promise<TaskWithHierarchy[
   return tasksWithSubtasks as TaskWithHierarchy[];
 }
 
+export async function getTasksBySpace(spaceId: string): Promise<TaskWithHierarchy[]> {
+  const supabase = await createClient();
+
+  const { data: lists } = await supabase
+    .from("task_lists")
+    .select("id")
+    .eq("space_id", spaceId)
+    .order("position", { ascending: true });
+
+  if (!lists || lists.length === 0) return [];
+
+  const listIds = lists.map((l: any) => l.id);
+
+  const { data: rootTasks } = await supabase
+    .from("tasks")
+    .select(
+      `*,
+      estimate_points,
+      status:task_statuses(id, key, label, color),
+      client:clients(id, name),
+      assignee:team_members!tasks_assignee_id_fkey(id, full_name, email),
+      list:task_lists(id, name)`,
+    )
+    .in("list_id", listIds)
+    .is("parent_task_id", null)
+    .order("list_id", { ascending: true })
+    .order("position", { ascending: true });
+
+  return (rootTasks ?? []) as TaskWithHierarchy[];
+}
+
 // ─── Gantt ───────────────────────────────────────────────────────────────────
 
 export interface GanttTask {

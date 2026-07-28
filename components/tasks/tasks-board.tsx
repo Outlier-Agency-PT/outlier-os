@@ -55,19 +55,20 @@ import { moveTaskStatusAction, getTaskDetailAction } from "@/lib/actions/tasks";
 import { PRIORITY_LABELS, PRIORITY_COLORS, type TaskPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { TaskWithRelations, TaskSpace } from "@/lib/queries/tasks";
+import type { TaskWithRelations, TaskWithHierarchy, TaskSpace } from "@/lib/queries/tasks";
 import type { TaskTemplate } from "@/lib/queries/templates";
 
 type View = "kanban" | "tabela" | "calendario" | "carga" | "gantt";
 
 interface TasksBoardProps {
-  initialTasks: TaskWithRelations[];
+  initialTasks: TaskWithHierarchy[];
   allTasks: TaskWithRelations[];
   statuses: { id: string; key: string; label: string; color: string }[];
   clients: { id: string; label: string }[];
   members: { id: string; label: string; email: string }[];
   spaces: TaskSpace[];
-  selectedListId: string;
+  selectedListId?: string;
+  selectedSpaceId?: string;
   templates?: TaskTemplate[];
   currentUserId?: string;
   isAdmin?: boolean;
@@ -81,6 +82,7 @@ export function TasksBoard({
   members,
   spaces,
   selectedListId,
+  selectedSpaceId,
   templates = [],
   currentUserId = "",
   isAdmin = false,
@@ -113,12 +115,16 @@ export function TasksBoard({
   );
 
   const currentSpace = useMemo(() => {
+    if (selectedSpaceId) {
+      const space = spaces.find((s) => s.id === selectedSpaceId);
+      return space ? { space, list: null } : null;
+    }
     for (const space of spaces) {
       const list = space.lists?.find((l) => l.id === selectedListId);
       if (list) return { space, list };
     }
     return null;
-  }, [spaces, selectedListId]);
+  }, [spaces, selectedListId, selectedSpaceId]);
 
   const filtered = useMemo(() => {
     let result = tasks;
@@ -220,7 +226,8 @@ export function TasksBoard({
   useEffect(() => {
     if (searchParams.get("new") !== "task") return;
     setOpen(true);
-    router.replace(`/tarefas?list=${selectedListId}`, { scroll: false });
+    const backParam = selectedListId ? `list=${selectedListId}` : selectedSpaceId ? `space=${selectedSpaceId}` : "";
+    router.replace(`/tarefas${backParam ? `?${backParam}` : ""}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -238,24 +245,27 @@ export function TasksBoard({
   return (
     <div className="flex h-[calc(100vh-var(--header-height))]">
       {/* Sidebar */}
-      <TaskSidebar spaces={spaces} selectedListId={selectedListId} />
+      <TaskSidebar spaces={spaces} selectedListId={selectedListId} selectedSpaceId={selectedSpaceId} />
 
       {/* Conteúdo principal */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Breadcrumb */}
         {currentSpace && (
           <div className="px-8 py-2 text-xs text-muted-foreground border-b">
-            <button
-              onClick={() => {
-                const firstList = currentSpace.space.lists?.[0];
-                if (firstList) router.push(`?list=${firstList.id}`);
-              }}
-              className="hover:text-foreground transition-colors"
-            >
-              {currentSpace.space.name}
-            </button>
-            <span className="mx-1.5">/</span>
-            <span className="text-foreground">{currentSpace.list.name}</span>
+            {currentSpace.list ? (
+              <>
+                <button
+                  onClick={() => router.push(`?space=${currentSpace.space.id}`)}
+                  className="hover:text-foreground transition-colors"
+                >
+                  {currentSpace.space.name}
+                </button>
+                <span className="mx-1.5">/</span>
+                <span className="text-foreground">{currentSpace.list.name}</span>
+              </>
+            ) : (
+              <span className="text-foreground">{currentSpace.space.name}</span>
+            )}
           </div>
         )}
 
@@ -430,6 +440,15 @@ export function TasksBoard({
               externalEvents={[]}
             />
           </div>
+        ) : selectedSpaceId ? (
+          <div className="flex-1 overflow-auto p-8 bg-canvas">
+            <SpaceAggregatedView
+              tasks={filtered as TaskWithHierarchy[]}
+              spaces={spaces}
+              spaceId={selectedSpaceId}
+              onTaskClick={handleSelectTask}
+            />
+          </div>
         ) : (
           <div className="flex-1 overflow-auto p-8 bg-canvas">
             {view === "kanban" ? (
@@ -486,7 +505,7 @@ export function TasksBoard({
         statuses={statuses.map((s) => ({ id: s.id, label: s.label }))}
         clients={clients}
         members={members.map((m) => ({ id: m.id, label: m.label }))}
-        defaultListId={selectedListId}
+        defaultListId={selectedListId ?? currentSpace?.space.lists?.[0]?.id}
       />
 
       <ExportFilterModal
@@ -496,7 +515,7 @@ export function TasksBoard({
         tasks={filtered}
         members={members}
         spaceName={currentSpace?.space.name ?? "—"}
-        listName={currentSpace?.list.name ?? "—"}
+        listName={currentSpace?.list?.name ?? "—"}
       />
 
       <ApplyTemplateDialog
@@ -704,6 +723,116 @@ function TasksTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ─── SpaceAggregatedView ──────────────────────────────────────────────────────
+
+function SpaceAggregatedView({
+  tasks,
+  spaces,
+  spaceId,
+  onTaskClick,
+}: {
+  tasks: TaskWithHierarchy[];
+  spaces: TaskSpace[];
+  spaceId: string;
+  onTaskClick: (taskId: string) => void;
+}) {
+  const space = spaces.find((s) => s.id === spaceId);
+  if (!space) return null;
+
+  // Group tasks by list, preserving the space's list order
+  const tasksByList = new Map<string, TaskWithHierarchy[]>();
+  for (const list of space.lists) tasksByList.set(list.id, []);
+  for (const task of tasks) {
+    const listId = (task as any).list?.id;
+    if (listId && tasksByList.has(listId)) {
+      tasksByList.get(listId)!.push(task);
+    }
+  }
+
+  const listsWithTasks = space.lists.filter((l) => (tasksByList.get(l.id)?.length ?? 0) > 0);
+  const listsEmpty = space.lists.filter((l) => (tasksByList.get(l.id)?.length ?? 0) === 0);
+
+  if (tasks.length === 0) {
+    return (
+      <p className="text-center text-sm text-muted-foreground pt-16">
+        Sem tarefas neste espaço.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {listsWithTasks.map((list) => {
+        const listTasks = tasksByList.get(list.id) ?? [];
+        return (
+          <div key={list.id}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="size-2 rounded-full" style={{ backgroundColor: list.color }} />
+              <h3 className="text-sm font-semibold">{list.name}</h3>
+              <Badge variant="secondary" className="text-[10px]">
+                {listTasks.length}
+              </Badge>
+            </div>
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="px-4 py-2 font-medium">Título</th>
+                    <th className="px-4 py-2 font-medium">Estado</th>
+                    <th className="px-4 py-2 font-medium">Prioridade</th>
+                    <th className="px-4 py-2 font-medium">Cliente</th>
+                    <th className="px-4 py-2 font-medium">Responsável</th>
+                    <th className="px-4 py-2 font-medium">Estimativa</th>
+                    <th className="px-4 py-2 font-medium">Data Limite</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {listTasks.map((t) => (
+                    <tr
+                      key={t.id}
+                      onClick={() => onTaskClick(t.id)}
+                      className="hover:bg-muted/50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-2.5 font-medium">{t.title}</td>
+                      <td className="px-4 py-2.5">
+                        {t.status && <StatusBadge label={t.status.label} color={t.status.color} />}
+                      </td>
+                      <td className={cn("px-4 py-2.5", PRIORITY_COLORS[t.priority as TaskPriority])}>
+                        {t.priority !== "sem_prioridade"
+                          ? PRIORITY_LABELS[t.priority as TaskPriority]
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{t.client?.name ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{t.assignee?.full_name ?? "—"}</td>
+                      <td className="px-4 py-2.5">
+                        {t.estimate_points ? (
+                          <span className="text-muted-foreground">{t.estimate_points}h</span>
+                        ) : (
+                          <span className="text-amber-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{t.due_date ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+      {listsEmpty.map((list) => (
+        <div key={list.id}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="size-2 rounded-full" style={{ backgroundColor: list.color }} />
+            <h3 className="text-sm font-semibold text-muted-foreground">{list.name}</h3>
+            <Badge variant="secondary" className="text-[10px]">0</Badge>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
