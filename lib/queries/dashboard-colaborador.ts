@@ -13,7 +13,7 @@ export interface DailyStandup {
 }
 
 export interface TimeLogWithTask extends TimeLog {
-  task: { id: string; title: string } | null;
+  task: { id: string; title: string; description: string | null } | null;
 }
 
 const PRIORITY_RANK: Record<TaskPriority, number> = {
@@ -105,25 +105,44 @@ export async function getWeekTimeMinutes(userId: string): Promise<number> {
   );
 }
 
+export async function getTodayTimeMinutes(userId: string): Promise<number> {
+  const supabase = await createClient();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const { data } = await supabase
+    .from("task_time_logs")
+    .select("duration_minutes")
+    .eq("member_id", userId)
+    .gte("start_at", todayStart.toISOString());
+
+  return (data ?? []).reduce(
+    (sum: number, l: { duration_minutes: number | null }) => sum + (l.duration_minutes ?? 0),
+    0,
+  );
+}
+
 export async function getMyRunningTimeLog(userId: string): Promise<TimeLogWithTask | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("task_time_logs")
-    .select(`*, task:tasks(id, title)`)
+    .select(`*, task:tasks(id, title, description)`)
     .eq("member_id", userId)
     .is("end_at", null)
     .maybeSingle();
   return data as TimeLogWithTask | null;
 }
 
-export async function getMyRecentTimeLogs(userId: string, limit = 5): Promise<TimeLogWithTask[]> {
+export async function getMyRecentTimeLogs(userId: string): Promise<TimeLogWithTask[]> {
   const supabase = await createClient();
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
+  weekStart.setHours(0, 0, 0, 0);
   const { data } = await supabase
     .from("task_time_logs")
-    .select(`*, task:tasks(id, title)`)
+    .select(`*, task:tasks(id, title, description)`)
     .eq("member_id", userId)
-    .order("start_at", { ascending: false })
-    .limit(limit);
+    .gte("start_at", weekStart.toISOString())
+    .order("start_at", { ascending: false });
   return (data ?? []) as TimeLogWithTask[];
 }
 

@@ -63,11 +63,12 @@ export async function createInviteAction(
   }
 
   // Envio do email de convite
+  const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
     normalizedEmail,
     {
       data: { role },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/convite`,
+      redirectTo: `${siteUrl}/convite`,
     }
   )
 

@@ -53,7 +53,7 @@ export function NotificacoesCard({
                       </p>
                     )}
                   </div>
-                  <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/60">
+                  <span suppressHydrationWarning className="shrink-0 text-[11px] tabular-nums text-muted-foreground/60">
                     {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: pt })}
                   </span>
                 </div>

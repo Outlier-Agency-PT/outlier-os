@@ -71,7 +71,7 @@ export function GlobalCalendarView({
             label: s.label,
             color: s.color,
           }))}
-          lists={spaces.flatMap((s) => s.lists)}
+          lists={spaces.flatMap((s) => s.lists.map((l) => ({ ...l, spaceName: s.name })))}
           members={members}
           onClose={handleClose}
         />

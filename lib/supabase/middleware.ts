@@ -27,6 +27,14 @@ export async function updateSession(request: NextRequest) {
   const isPublicShare = pathname.startsWith("/share");
   const isConvite = pathname.startsWith("/convite");
 
+  // Emails de convite com token_hash a chegar a /login em vez de /convite
+  // (acontece quando o NEXT_PUBLIC_APP_URL não estava definido em Vercel)
+  if (isAuthRoute && request.nextUrl.searchParams.get("type") === "invite") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/convite";
+    return NextResponse.redirect(url);
+  }
+
   // Sem user → /login
   if (!user && !isAuthRoute && !isPublicShare && !isConvite && pathname !== "/") {
     const url = request.nextUrl.clone();
@@ -59,10 +67,15 @@ export async function updateSession(request: NextRequest) {
     } else if (isStudent) {
       correctRoute = "/incubadora";
     } else {
-      // Utilizador autenticado mas sem perfil → forçar logout para /login
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+      // Utilizador autenticado mas sem perfil ainda (ex: a meio do fluxo de convite).
+      // Permitir /convite e /login para evitar redirect loop — o utilizador pode estar
+      // a completar o registo via verifyOtp antes de ter um perfil em team_members/students.
+      if (!isConvite && !isAuthRoute) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        return NextResponse.redirect(url);
+      }
+      return supabaseResponse;
     }
 
     // Se está em /login, redirecionar para a rota correcta

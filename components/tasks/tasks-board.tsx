@@ -464,7 +464,7 @@ export function TasksBoard({
           task={selectedTaskData.task}
           comments={selectedTaskData.comments}
           statuses={statuses}
-          lists={spaces.flatMap((s) => s.lists)}
+          lists={spaces.flatMap((s) => s.lists.map((l) => ({ ...l, spaceName: s.name })))}
           members={members.map((m) => ({ id: m.id, full_name: m.label }))}
           onClose={() => {
             setSelectedTaskId(null);

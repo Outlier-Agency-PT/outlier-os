@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Square, Plus } from "lucide-react";
+import { Play, Square, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -27,26 +29,64 @@ import {
   logTimeManualAction,
   fetchMyOpenTasksAction,
   fetchMyAllTasksAction,
+  markTaskCompleteAction,
+  createTaskAction,
+  fetchTaskListsAction,
 } from "@/lib/actions/tasks";
-import { formatDuration } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
 import { toast } from "sonner";
 import type { TaskWithRelations } from "@/lib/queries/tasks";
 import type { TimeLogWithTask } from "@/lib/queries/dashboard-colaborador";
+import { PRIORITY_COLORS, PRIORITY_LABELS, type TaskPriority } from "@/lib/types";
 
 interface SimpleTask {
   id: string;
   title: string;
+  priority?: TaskPriority;
   completed_at?: string | null;
+  estimate_points?: number | null;
 }
 
 interface Props {
-  weekMinutes: number;
+  todayMinutes: number;
   runningLog: TimeLogWithTask | null;
   recentLogs: TimeLogWithTask[];
   myDayTasks: TaskWithRelations[];
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
+function getLocalDateStr(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function getDateLabel(dateStr: string): string {
+  const today = todayISO();
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (dateStr === today) return "Hoje";
+  if (dateStr === yesterday) return "Ontem";
+  const d = new Date(dateStr + "T12:00:00");
+  const weekdays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+  const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  return `${weekdays[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+function groupLogsByDate(logs: TimeLogWithTask[]) {
+  const groups = new Map<string, { label: string; totalMins: number; logs: TimeLogWithTask[] }>();
+  for (const log of logs) {
+    const dateStr = getLocalDateStr(log.start_at);
+    if (!groups.has(dateStr)) {
+      groups.set(dateStr, { label: getDateLabel(dateStr), totalMins: 0, logs: [] });
+    }
+    const g = groups.get(dateStr)!;
+    g.logs.push(log);
+    g.totalMins += log.duration_minutes ?? 0;
+  }
+  return [...groups.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, g]) => ({ date, ...g }));
+}
 
 function timeStr(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
@@ -58,7 +98,7 @@ function calcDurationMins(start: string, end: string): number {
   const [eh, em] = end.split(":").map(Number);
   const startMins = sh * 60 + sm;
   let endMins = eh * 60 + em;
-  if (endMins <= startMins) endMins += 24 * 60; // passou da meia-noite
+  if (endMins <= startMins) endMins += 24 * 60;
   return endMins - startMins;
 }
 
@@ -75,7 +115,15 @@ function fmtDur(mins: number): string {
   return `${h}h ${m}min`;
 }
 
-export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Props) {
+function fmtEstimate(pts: number | null | undefined): string {
+  if (pts == null) return "";
+  const h = Math.floor(pts);
+  const m = Math.round((pts % 1) * 60);
+  if (h === 0) return `${m}min`;
+  return `${h}h ${String(m).padStart(2, "0")}min`;
+}
+
+export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isLogPending, startLogTransition] = useTransition();
@@ -84,6 +132,26 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
   const [timerTasks, setTimerTasks] = useState<SimpleTask[]>(myDayTasks);
   const [selectedTaskId, setSelectedTaskId] = useState<string>(myDayTasks[0]?.id ?? "");
   const [elapsed, setElapsed] = useState(0);
+
+  // Mark complete dialog
+  const [completeDialog, setCompleteDialog] = useState<{ taskId: string; taskTitle: string } | null>(null);
+  const [isCompletePending, startCompleteTransition] = useTransition();
+
+  // Day sections: today starts expanded, others collapsed
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set([todayISO()]));
+  // Individual log expansion (to show description)
+  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+
+  // Quick task dialog
+  const [quickTaskOpen, setQuickTaskOpen] = useState(false);
+  const [quickTaskTitle, setQuickTaskTitle] = useState("");
+  const [quickTaskPriority, setQuickTaskPriority] = useState<TaskPriority>("sem_prioridade");
+  const [quickTaskListId, setQuickTaskListId] = useState("");
+  const [quickTaskEstHours, setQuickTaskEstHours] = useState("");
+  const [quickTaskEstMins, setQuickTaskEstMins] = useState("");
+  const [quickTaskDueDate, setQuickTaskDueDate] = useState("");
+  const [taskListGroups, setTaskListGroups] = useState<{ spaceId: string; spaceName: string; lists: { id: string; name: string }[] }[]>([]);
+  const [isQuickTaskPending, startQuickTaskTransition] = useTransition();
 
   // Manual log dialog
   const [logOpen, setLogOpen] = useState(false);
@@ -104,10 +172,10 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
           return ids.has(prev) ? prev : (res.data[0]?.id ?? "");
         });
       })
-      .catch(() => {/* mantém myDayTasks como fallback */});
+      .catch(() => {});
   }, []);
 
-  // Fetch all tasks (open + concluded) when dialog opens
+  // Fetch all tasks when log dialog opens
   useEffect(() => {
     if (!logOpen) return;
     fetchMyAllTasksAction().then((res) => {
@@ -115,41 +183,90 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
     });
   }, [logOpen]);
 
-  // Elapsed ticker for running log
+  // Fetch task lists when quick task dialog opens
+  useEffect(() => {
+    if (!quickTaskOpen || taskListGroups.length > 0) return;
+    fetchTaskListsAction().then((res) => setTaskListGroups(res.data));
+  }, [quickTaskOpen]);
+
+  // Elapsed ticker
   useEffect(() => {
     if (!runningLog) return;
     const start = new Date(runningLog.start_at).getTime();
     const tick = () => setElapsed(Math.floor((Date.now() - start) / 60000));
     tick();
-    const id = setInterval(tick, 30_000);
+    const id = setInterval(tick, 1_000);
     return () => clearInterval(id);
   }, [runningLog]);
 
+  function toggleDay(date: string) {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }
+
+  function toggleLog(logId: string) {
+    setExpandedLogs((prev) => {
+      const next = new Set(prev);
+      if (next.has(logId)) next.delete(logId);
+      else next.add(logId);
+      return next;
+    });
+  }
+
   function handleStart() {
-    if (!selectedTaskId) {
-      toast.error("Escolhe uma tarefa");
-      return;
-    }
+    if (!selectedTaskId) { toast.error("Escolhe uma tarefa"); return; }
     startTransition(async () => {
       const result = await startTimerAction(selectedTaskId);
-      if ("error" in result && result.error) {
-        toast.error("Erro ao iniciar timer");
-        return;
-      }
+      if ("error" in result && result.error) { toast.error("Erro ao iniciar timer"); return; }
       router.refresh();
     });
   }
 
   function handleStop() {
     if (!runningLog) return;
+    const taskId = runningLog.task?.id;
+    const taskTitle = runningLog.task?.title;
     startTransition(async () => {
       const result = await stopTimerAction(runningLog.id);
-      if ("error" in result && result.error) {
-        toast.error("Erro ao parar timer");
-        return;
-      }
+      if ("error" in result && result.error) { toast.error("Erro ao parar timer"); return; }
       toast.success(`Tempo registado: ${formatDuration(result.durationMinutes ?? 0)}`);
       router.refresh();
+      if (taskId && taskTitle) setCompleteDialog({ taskId, taskTitle });
+    });
+  }
+
+  function resetQuickTask() {
+    setQuickTaskTitle("");
+    setQuickTaskPriority("sem_prioridade");
+    setQuickTaskListId("");
+    setQuickTaskEstHours("");
+    setQuickTaskEstMins("");
+    setQuickTaskDueDate("");
+  }
+
+  function handleQuickTask() {
+    if (!quickTaskTitle.trim()) { toast.error("Título é obrigatório"); return; }
+    const h = parseInt(quickTaskEstHours || "0", 10);
+    const m = parseInt(quickTaskEstMins || "0", 10);
+    const estimatePoints = h + m / 60 || null;
+    startQuickTaskTransition(async () => {
+      const result = await createTaskAction({
+        title: quickTaskTitle.trim(),
+        priority: quickTaskPriority,
+        list_id: quickTaskListId || null,
+        estimate_points: estimatePoints,
+        due_date: quickTaskDueDate || null,
+      });
+      if ("error" in result && result.error) { toast.error("Erro ao criar tarefa"); return; }
+      toast.success("Tarefa criada");
+      setQuickTaskOpen(false);
+      resetQuickTask();
+      router.refresh();
+      fetchMyOpenTasksAction().then((res) => setTimerTasks(res.data));
     });
   }
 
@@ -163,41 +280,37 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
 
   function handleLogTime() {
     const durationMins = calcDurationMins(logStartTime, logEndTime);
-    if (!logTaskId) {
-      toast.error("Escolhe uma tarefa");
-      return;
-    }
-    if (durationMins === 0) {
-      toast.error("A duração tem de ser maior que 0");
-      return;
-    }
+    if (!logTaskId) { toast.error("Escolhe uma tarefa"); return; }
+    if (durationMins === 0) { toast.error("A duração tem de ser maior que 0"); return; }
     startLogTransition(async () => {
-      const result = await logTimeManualAction(
-        logTaskId,
-        durationMins,
-        logDesc || undefined,
-        logDate,
-        logStartTime,
-        logEndTime,
-      );
-      if ("error" in result && result.error) {
-        toast.error("Erro ao registar tempo");
-        return;
-      }
+      const result = await logTimeManualAction(logTaskId, durationMins, logDesc || undefined, logDate, logStartTime, logEndTime);
+      if ("error" in result && result.error) { toast.error("Erro ao registar tempo"); return; }
       toast.success("Tempo registado");
+      const doneTask = allTasks.find((t) => t.id === logTaskId);
       setLogOpen(false);
       resetLogForm();
       router.refresh();
+      if (doneTask) setCompleteDialog({ taskId: doneTask.id, taskTitle: doneTask.title });
     });
   }
 
+  const grouped = groupLogsByDate(recentLogs);
+
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-border pb-3">
         <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           As Minhas Horas
         </h2>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setQuickTaskOpen(true)}
+            className="flex items-center gap-1 text-[11px] text-muted-foreground/65 transition-colors hover:text-foreground"
+          >
+            <Plus className="size-3" />
+            Nova tarefa
+          </button>
           <button
             onClick={() => setLogOpen(true)}
             className="flex items-center gap-1 text-[11px] text-muted-foreground/65 transition-colors hover:text-foreground"
@@ -206,7 +319,7 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
             Registar tempo
           </button>
           <span className="text-[11px] tabular-nums text-muted-foreground/65">
-            {formatDuration(weekMinutes)} esta semana
+            {formatDuration(todayMinutes + (runningLog ? elapsed : 0))} hoje
           </span>
         </div>
       </div>
@@ -225,11 +338,18 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
                 <SelectValue placeholder="Escolhe uma tarefa" />
               </SelectTrigger>
               <SelectContent>
-                {timerTasks.map((task) => (
-                  <SelectItem key={task.id} value={task.id}>
-                    {task.title}
-                  </SelectItem>
-                ))}
+                {timerTasks.map((task) => {
+                  const est = fmtEstimate(task.estimate_points);
+                  const prioColor = PRIORITY_COLORS[task.priority ?? "sem_prioridade"];
+                  return (
+                    <SelectItem key={task.id} value={task.id}>
+                      <span className="flex items-center gap-1.5">
+                        <span className={cn("size-2 shrink-0 rounded-full bg-current", prioColor)} />
+                        {task.title}{est ? `  · ${est}` : ""}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             <Button size="sm" onClick={handleStart} disabled={isPending || !selectedTaskId}>
@@ -240,34 +360,231 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
         )}
       </div>
 
-      {/* Recent logs */}
-      {recentLogs.length === 0 ? (
+      {/* Logs agrupados por dia */}
+      {grouped.length === 0 ? (
         <p className="pb-4 text-sm font-light text-muted-foreground">Sem registos de tempo ainda.</p>
       ) : (
-        <ul className="divide-y divide-border">
-          {recentLogs.map((log) => (
-            <li key={log.id} className="flex items-center justify-between gap-4 py-2.5 text-sm">
-              <p className="min-w-0 truncate font-medium tracking-[-0.01em]">
-                {log.task?.title ?? "—"}
-              </p>
-              <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                {log.end_at
-                  ? `${fmtTime(log.start_at)} — ${fmtTime(log.end_at)} · ${fmtDur(log.duration_minutes ?? 0)}`
-                  : "A correr..."}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div>
+          {grouped.map(({ date, label, totalMins, logs: dayLogs }) => {
+            const isExpanded = expandedDays.has(date);
+            return (
+              <div key={date} className="border-t border-border">
+                <button
+                  onClick={() => toggleDay(date)}
+                  className="flex w-full items-center justify-between py-2 text-left"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <ChevronDown
+                      className={cn(
+                        "size-3 text-muted-foreground transition-transform duration-150",
+                        !isExpanded && "-rotate-90",
+                      )}
+                    />
+                    <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      {label}
+                    </span>
+                  </span>
+                  <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                    {fmtDur(totalMins)}
+                  </span>
+                </button>
+
+                {isExpanded && (
+                  <ul className="pb-1">
+                    {dayLogs.map((log) => {
+                      const taskDesc = log.task?.description?.trim() ?? "";
+                      const hasDesc = !!taskDesc;
+                      const isLogExpanded = expandedLogs.has(log.id);
+                      return (
+                        <li key={log.id}>
+                          <button
+                            className={cn(
+                              "flex w-full items-center justify-between gap-4 py-2 text-left",
+                              hasDesc ? "cursor-pointer" : "cursor-default",
+                            )}
+                            onClick={() => hasDesc && toggleLog(log.id)}
+                          >
+                            <p className="min-w-0 truncate pl-4 text-sm font-medium tracking-[-0.01em]">
+                              {log.task?.title ?? "—"}
+                            </p>
+                            <span className="flex shrink-0 items-center gap-1.5">
+                              <span className="text-[11px] tabular-nums text-muted-foreground">
+                                {log.end_at
+                                  ? `${fmtTime(log.start_at)} — ${fmtTime(log.end_at)} · ${fmtDur(log.duration_minutes ?? 0)}`
+                                  : "A correr..."}
+                              </span>
+                              {hasDesc && (
+                                <ChevronDown
+                                  className={cn(
+                                    "size-3 text-muted-foreground/50 transition-transform duration-150",
+                                    !isLogExpanded && "-rotate-90",
+                                  )}
+                                />
+                              )}
+                            </span>
+                          </button>
+                          {hasDesc && isLogExpanded && (
+                            <p className="pb-2 pl-4 pr-6 text-xs text-muted-foreground">
+                              {taskDesc}
+                            </p>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
+      {/* Quick task dialog */}
+      <Dialog open={quickTaskOpen} onOpenChange={(open) => { setQuickTaskOpen(open); if (!open) resetQuickTask(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="qt-title">Título</Label>
+              <Input
+                id="qt-title"
+                placeholder="O que precisas de fazer?"
+                value={quickTaskTitle}
+                onChange={(e) => setQuickTaskTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Prioridade</Label>
+                <Select value={quickTaskPriority} onValueChange={(v) => setQuickTaskPriority(v as TaskPriority)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(PRIORITY_LABELS) as [TaskPriority, string][]).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        <span className="flex items-center gap-1.5">
+                          <span className={cn("size-2 shrink-0 rounded-full bg-current", PRIORITY_COLORS[key])} />
+                          {label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="qt-due">Deadline</Label>
+                <Input
+                  id="qt-due"
+                  type="date"
+                  value={quickTaskDueDate}
+                  onChange={(e) => setQuickTaskDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Lista</Label>
+              <Select value={quickTaskListId} onValueChange={setQuickTaskListId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem lista (Backlog)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {taskListGroups.map((group) => (
+                    <SelectGroup key={group.spaceId}>
+                      <SelectLabel>{group.spaceName}</SelectLabel>
+                      {group.lists.map((list) => (
+                        <SelectItem key={list.id} value={list.id}>
+                          {list.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Estimativa</Label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={99}
+                    placeholder="0"
+                    value={quickTaskEstHours}
+                    onChange={(e) => setQuickTaskEstHours(e.target.value)}
+                    className="pr-8"
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-muted-foreground">h</span>
+                </div>
+                <div className="relative flex-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={59}
+                    placeholder="0"
+                    value={quickTaskEstMins}
+                    onChange={(e) => setQuickTaskEstMins(e.target.value)}
+                    className="pr-10"
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-muted-foreground">min</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickTaskOpen(false)}>Cancelar</Button>
+            <Button onClick={handleQuickTask} disabled={isQuickTaskPending || !quickTaskTitle.trim()}>
+              Criar tarefa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark complete dialog */}
+      <Dialog open={!!completeDialog} onOpenChange={(open) => { if (!open) setCompleteDialog(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Marcar como concluída?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Marcar a tarefa{" "}
+            <span className="font-medium text-foreground">"{completeDialog?.taskTitle}"</span>{" "}
+            como concluída?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompleteDialog(null)}>Não</Button>
+            <Button
+              disabled={isCompletePending}
+              onClick={() => {
+                if (!completeDialog) return;
+                startCompleteTransition(async () => {
+                  const result = await markTaskCompleteAction(completeDialog.taskId);
+                  if ("error" in result && result.error) {
+                    toast.error("Erro ao concluir tarefa");
+                  } else {
+                    toast.success("Tarefa marcada como concluída");
+                    router.refresh();
+                  }
+                  setCompleteDialog(null);
+                });
+              }}
+            >
+              Sim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Manual log dialog */}
-      <Dialog
-        open={logOpen}
-        onOpenChange={(open) => {
-          setLogOpen(open);
-          if (!open) resetLogForm();
-        }}
-      >
+      <Dialog open={logOpen} onOpenChange={(open) => { setLogOpen(open); if (!open) resetLogForm(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Registar tempo</DialogTitle>
@@ -281,11 +598,19 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
                   <SelectValue placeholder="Escolhe uma tarefa" />
                 </SelectTrigger>
                 <SelectContent>
-                  {allTasks.map((task) => (
-                    <SelectItem key={task.id} value={task.id}>
-                      {task.title}
-                    </SelectItem>
-                  ))}
+                  {allTasks.map((task) => {
+                    const est = fmtEstimate(task.estimate_points);
+                    const name = task.title.length > 40 ? task.title.slice(0, 40).trimEnd() + "…" : task.title;
+                    const prioColor = PRIORITY_COLORS[task.priority ?? "sem_prioridade"];
+                    return (
+                      <SelectItem key={task.id} value={task.id} className="max-w-sm">
+                        <span className="flex items-center gap-1.5">
+                          <span className={cn("size-2 shrink-0 rounded-full bg-current", prioColor)} />
+                          <span className="truncate">{name}{est ? `  · ${est}` : ""}</span>
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -295,22 +620,12 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
               <div className="flex items-center gap-2">
                 <div className="flex flex-col gap-1">
                   <span className="text-[11px] text-muted-foreground">Início</span>
-                  <Input
-                    type="time"
-                    className="w-28"
-                    value={logStartTime}
-                    onChange={(e) => setLogStartTime(e.target.value)}
-                  />
+                  <Input type="time" className="w-28" value={logStartTime} onChange={(e) => setLogStartTime(e.target.value)} />
                 </div>
                 <span className="mt-5 text-muted-foreground">→</span>
                 <div className="flex flex-col gap-1">
                   <span className="text-[11px] text-muted-foreground">Fim</span>
-                  <Input
-                    type="time"
-                    className="w-28"
-                    value={logEndTime}
-                    onChange={(e) => setLogEndTime(e.target.value)}
-                  />
+                  <Input type="time" className="w-28" value={logEndTime} onChange={(e) => setLogEndTime(e.target.value)} />
                 </div>
                 {calcDurationMins(logStartTime, logEndTime) > 0 && (
                   <span className="mt-5 text-sm text-muted-foreground">
@@ -322,37 +637,20 @@ export function MyHours({ weekMinutes, runningLog, recentLogs, myDayTasks }: Pro
 
             <div className="space-y-1.5">
               <Label htmlFor="log-date">Data</Label>
-              <Input
-                id="log-date"
-                type="date"
-                value={logDate}
-                max={todayISO()}
-                onChange={(e) => setLogDate(e.target.value)}
-              />
+              <Input id="log-date" type="date" value={logDate} max={todayISO()} onChange={(e) => setLogDate(e.target.value)} />
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="log-desc">
-                Descrição{" "}
-                <span className="font-normal text-muted-foreground">(opcional)</span>
+                Descrição <span className="font-normal text-muted-foreground">(opcional)</span>
               </Label>
-              <Textarea
-                id="log-desc"
-                placeholder="Em que trabalhaste?"
-                rows={2}
-                value={logDesc}
-                onChange={(e) => setLogDesc(e.target.value)}
-              />
+              <Textarea id="log-desc" placeholder="Em que trabalhaste?" rows={2} value={logDesc} onChange={(e) => setLogDesc(e.target.value)} />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setLogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleLogTime} disabled={isLogPending}>
-              Registar
-            </Button>
+            <Button variant="outline" onClick={() => setLogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleLogTime} disabled={isLogPending}>Registar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

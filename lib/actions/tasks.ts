@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTaskTimeLogs, getTaskDependencies, getActivityForTask } from "@/lib/queries/task-detail";
 import { z } from "zod";
+import type { TaskPriority } from "@/lib/types";
 
 const taskSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
@@ -323,18 +324,27 @@ export async function fetchMyOpenTasksAction() {
     .eq("key", "concluido")
     .maybeSingle();
 
-  let query = supabase
-    .from("tasks")
-    .select("id, title")
-    .or(`assignee_id.eq.${user.id},assignees.cs.{${user.id}}`)
-    .is("completed_at", null);
+  const SELECT = "id, title, priority, estimate_points";
+  const [{ data: byId, error: errById }, { data: byArray, error: errByArray }] = await Promise.all([
+    concludedStatus?.id
+      ? supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).neq("status_id", concludedStatus.id).is("completed_at", null).order("title")
+      : supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).is("completed_at", null).order("title"),
+    concludedStatus?.id
+      ? supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).neq("status_id", concludedStatus.id).is("completed_at", null).order("title")
+      : supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).is("completed_at", null).order("title"),
+  ]);
 
-  if (concludedStatus?.id) {
-    query = query.neq("status_id", concludedStatus.id);
+  console.log("[fetchMyOpenTasksAction] user.id:", user.id);
+  console.log("[fetchMyOpenTasksAction] concludedStatus:", concludedStatus);
+  console.log("[fetchMyOpenTasksAction] byId (assignee_id):", byId?.length ?? 0, "tarefas", errById ? `ERRO: ${errById.message}` : "", byId);
+  console.log("[fetchMyOpenTasksAction] byArray (assignees contains):", byArray?.length ?? 0, "tarefas", errByArray ? `ERRO: ${errByArray.message}` : "", byArray);
+
+  const seen = new Set<string>();
+  const tasks: { id: string; title: string; priority: TaskPriority; estimate_points: number | null }[] = [];
+  for (const t of [...(byId ?? []), ...(byArray ?? [])] as typeof tasks) {
+    if (!seen.has(t.id)) { seen.add(t.id); tasks.push(t); }
   }
-
-  const { data } = await query.order("title");
-  return { data: (data ?? []) as { id: string; title: string }[] };
+  return { data: tasks.sort((a, b) => a.title.localeCompare(b.title)) };
 }
 
 export async function fetchMyAllTasksAction() {
@@ -342,13 +352,42 @@ export async function fetchMyAllTasksAction() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: [] };
 
-  const { data } = await supabase
-    .from("tasks")
-    .select("id, title, completed_at")
-    .or(`assignee_id.eq.${user.id},assignees.cs.{${user.id}}`)
-    .order("title");
+  const SELECT = "id, title, priority, completed_at, estimate_points";
+  const [{ data: byId }, { data: byArray }, { data: myTimeLogs }] = await Promise.all([
+    supabase.from("tasks").select(SELECT).eq("assignee_id", user.id).order("title"),
+    supabase.from("tasks").select(SELECT).contains("assignees", [user.id]).order("title"),
+    supabase.from("task_time_logs").select("task_id").eq("member_id", user.id),
+  ]);
 
-  return { data: (data ?? []) as { id: string; title: string; completed_at: string | null }[] };
+  const loggedTaskIds = new Set((myTimeLogs ?? []).map((l) => l.task_id));
+
+  const seen = new Set<string>();
+  const tasks: { id: string; title: string; priority: TaskPriority; completed_at: string | null; estimate_points: number | null }[] = [];
+  for (const t of [...(byId ?? []), ...(byArray ?? [])] as typeof tasks) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    // Excluir tarefas concluídas que já têm pelo menos um registo de tempo deste utilizador
+    if (t.completed_at && loggedTaskIds.has(t.id)) continue;
+    tasks.push(t);
+  }
+  return { data: tasks.sort((a, b) => a.title.localeCompare(b.title)) };
+}
+
+export async function fetchTaskListsAction() {
+  const supabase = await createClient();
+  const [{ data: spaces }, { data: lists }] = await Promise.all([
+    supabase.from("task_spaces").select("id, name").order("position", { ascending: true }),
+    supabase.from("task_lists").select("id, name, space_id").order("position", { ascending: true }),
+  ]);
+  const spaceMap = new Map((spaces ?? []).map((s: { id: string; name: string }) => [s.id, s.name]));
+  const grouped = new Map<string, { spaceId: string; spaceName: string; lists: { id: string; name: string }[] }>();
+  for (const l of (lists ?? []) as { id: string; name: string; space_id: string }[]) {
+    if (!grouped.has(l.space_id)) {
+      grouped.set(l.space_id, { spaceId: l.space_id, spaceName: spaceMap.get(l.space_id) ?? l.space_id, lists: [] });
+    }
+    grouped.get(l.space_id)!.lists.push({ id: l.id, name: l.name });
+  }
+  return { data: [...grouped.values()] };
 }
 
 export async function getTaskTimeLogsAction(taskId: string) {

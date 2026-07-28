@@ -14,7 +14,7 @@ import type {
 interface Props {
   tasks: TaskWithRelations[];
   concludedStatusId: string | null;
-  weekMinutes: number;
+  todayMinutes: number;
   runningLog: TimeLogWithTask | null;
   recentLogs: TimeLogWithTask[];
   notifications: DashNotification[];
@@ -28,7 +28,7 @@ interface Props {
 export function ColaboradorDashboard({
   tasks,
   concludedStatusId,
-  weekMinutes,
+  todayMinutes,
   runningLog,
   recentLogs,
   notifications,
@@ -60,7 +60,7 @@ export function ColaboradorDashboard({
 
       <div className="w-full border border-border bg-card px-4 py-1 md:px-6">
         <MyHours
-          weekMinutes={weekMinutes}
+          todayMinutes={todayMinutes}
           runningLog={runningLog}
           recentLogs={recentLogs}
           myDayTasks={tasks}

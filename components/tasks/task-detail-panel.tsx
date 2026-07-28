@@ -10,7 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -45,7 +48,7 @@ interface TaskDetailPanelProps {
   task: any; // TaskWithHierarchy or TaskWithRelations
   comments: TaskComment[];
   statuses: { id: string; key: string; label: string; color: string }[];
-  lists: { id: string; name: string }[];
+  lists: { id: string; name: string; spaceName?: string }[];
   members: { id: string; full_name: string }[];
   onClose: () => void;
   onTaskUpdate?: (field: string, value: unknown) => void;
@@ -335,26 +338,56 @@ export function TaskDetailPanel({
     </div>
   );
 
-  const listField = (
-    <div>
-      <Label className="text-xs font-semibold">Lista</Label>
-      <Select
-        value={form.list_id ?? ""}
-        onValueChange={(v) => handleUpdate("list_id", v || null)}
-      >
-        <SelectTrigger className="mt-1.5 h-8 text-xs">
-          <SelectValue placeholder="Sem lista" />
-        </SelectTrigger>
-        <SelectContent>
-          {lists.map((l) => (
-            <SelectItem key={l.id} value={l.id}>
-              {l.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+  const listField = (() => {
+    // Agrupar por espaço quando a informação está disponível
+    const grouped = new Map<string, { spaceName: string; items: { id: string; name: string }[] }>();
+    for (const l of lists) {
+      const key = l.spaceName ?? "";
+      if (!grouped.has(key)) grouped.set(key, { spaceName: l.spaceName ?? "", items: [] });
+      grouped.get(key)!.items.push(l);
+    }
+    const groups = [...grouped.values()];
+    const useGroups = groups.length > 1 || (groups.length === 1 && groups[0].spaceName);
+
+    return (
+      <div>
+        <Label className="text-xs font-semibold">Lista</Label>
+        <Select
+          value={form.list_id ?? ""}
+          onValueChange={(v) => handleUpdate("list_id", v || null)}
+        >
+          <SelectTrigger className="mt-1.5 h-8 text-xs">
+            <SelectValue placeholder="Sem lista" />
+          </SelectTrigger>
+          <SelectContent>
+            {useGroups ? (
+              groups.map((group, i) => (
+                <SelectGroup key={group.spaceName}>
+                  {i > 0 && <SelectSeparator />}
+                  {group.spaceName && (
+                    <SelectLabel className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {group.spaceName}
+                    </SelectLabel>
+                  )}
+                  {group.items.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))
+            ) : (
+              lists.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  })();
 
   const assigneesField = (
     <div>

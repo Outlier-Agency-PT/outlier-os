@@ -13,7 +13,7 @@ import { AdminDashboardWrapper } from "@/components/dashboard/admin-dashboard-wr
 import {
   getMyOpenTasks,
   getConcludedStatusId,
-  getWeekTimeMinutes,
+  getTodayTimeMinutes,
   getMyRunningTimeLog,
   getMyRecentTimeLogs,
   getMyNotifications,
@@ -54,11 +54,11 @@ export default async function DashboardPage() {
       member?.role === "admin" ||
       (member?.permissions_modules ?? []).includes("incubadora");
 
-    const [tasks, concludedStatusId, weekMinutes, runningLog, recentLogs, notifResult, overdueTasks, renewals] =
+    const [tasks, concludedStatusId, todayMinutes, runningLog, recentLogs, notifResult, overdueTasks, renewals] =
       await Promise.all([
         user ? getMyOpenTasks(user.id) : Promise.resolve([]),
         getConcludedStatusId(),
-        user ? getWeekTimeMinutes(user.id) : Promise.resolve(0),
+        user ? getTodayTimeMinutes(user.id) : Promise.resolve(0),
         user ? getMyRunningTimeLog(user.id) : Promise.resolve(null),
         user ? getMyRecentTimeLogs(user.id) : Promise.resolve([]),
         user ? getMyNotifications(user.id) : Promise.resolve({ items: [], unread_count: 0 }),
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
         <ColaboradorDashboard
           tasks={tasks}
           concludedStatusId={concludedStatusId}
-          weekMinutes={weekMinutes}
+          todayMinutes={todayMinutes}
           runningLog={runningLog}
           recentLogs={recentLogs}
           notifications={notifResult.items}
@@ -97,7 +97,7 @@ export default async function DashboardPage() {
     decisions,
     colabTasks,
     concludedStatusId,
-    weekMinutes,
+    todayMinutes,
     runningLog,
     recentLogs,
     notifResult,
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
     getDecisions(),
     user ? getMyOpenTasks(user.id) : Promise.resolve([]),
     getConcludedStatusId(),
-    user ? getWeekTimeMinutes(user.id) : Promise.resolve(0),
+    user ? getTodayTimeMinutes(user.id) : Promise.resolve(0),
     user ? getMyRunningTimeLog(user.id) : Promise.resolve(null),
     user ? getMyRecentTimeLogs(user.id) : Promise.resolve([]),
     user ? getMyNotifications(user.id) : Promise.resolve({ items: [], unread_count: 0 }),
@@ -350,7 +350,7 @@ export default async function DashboardPage() {
     <ColaboradorDashboard
       tasks={colabTasks}
       concludedStatusId={concludedStatusId}
-      weekMinutes={weekMinutes}
+      todayMinutes={todayMinutes}
       runningLog={runningLog}
       recentLogs={recentLogs}
       notifications={notifResult.items}
