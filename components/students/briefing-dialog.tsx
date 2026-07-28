@@ -223,7 +223,16 @@ export function BriefingDialog({
     setNegocio({ ...emptyNegocio(), ...(data.negocio ?? {}) });
     setReviewStatus(data.review_status ?? "nao_iniciado");
     setReviewNotes(data.review_notes ?? null);
-    setObjecoes(data.objecoes ?? []);
+    // The DB column may store the array directly ([]) or wrapped in an object
+    // ({ objecoes: [] }) due to a previous bug in the save call. Handle both.
+    const rawObjecoes = data.objecoes as unknown;
+    setObjecoes(
+      Array.isArray(rawObjecoes)
+        ? rawObjecoes
+        : Array.isArray((rawObjecoes as Record<string, unknown>)?.objecoes)
+          ? (rawObjecoes as { objecoes: BriefingObjecao[] }).objecoes
+          : [],
+    );
 
     const n = data.negocio?.nicho ?? "";
     if (n && !NICHO_OPTS_FIXED.includes(n)) setNichoOutroInput(n);
@@ -1040,7 +1049,7 @@ export function BriefingDialog({
                   </Button>
                 )}
 
-                <SaveButton step="objecoes" data={{ objecoes } as unknown as Record<string, unknown>} />
+                <SaveButton step="objecoes" data={objecoes as unknown as Record<string, unknown>} />
               </TabsContent>
 
             </div>
