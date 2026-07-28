@@ -54,6 +54,24 @@ interface StudentViewProps {
   initialBudget?: number;
 }
 
+function parseBriefingComplete(data: unknown) {
+  const b = data as { negocio?: Record<string, unknown>; objecoes?: unknown };
+  const n = b.negocio ?? {};
+  const negocio = !!(
+    n.nome_negocio && n.nicho && n.publico_alvo && n.proposta_valor && n.transformacao_entregue
+  );
+  // DB may store objecoes as an array directly or wrapped as { objecoes: [] }
+  const raw = b.objecoes;
+  const arr: { objecao?: string; resposta?: string }[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as Record<string, unknown>)?.objecoes)
+      ? (raw as { objecoes: { objecao?: string; resposta?: string }[] }).objecoes
+      : [];
+  const objecoes =
+    arr.length > 0 && arr.every((o) => o.objecao?.trim() && o.resposta?.trim());
+  return { negocio, objecoes };
+}
+
 export function StudentView({
   modules,
   emergencyCalls,
@@ -83,7 +101,7 @@ export function StudentView({
   const desafiosRef = useRef<HTMLDivElement>(null);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showBriefingDialog, setShowBriefingDialog] = useState(false);
-  const [briefingStepComplete, setBriefingStepComplete] = useState({ negocio: false, objecoes: true });
+  const [briefingStepComplete, setBriefingStepComplete] = useState({ negocio: false, objecoes: false });
   const [primaryAudienceName, setPrimaryAudienceName] = useState<string | null>(null);
   const [primaryProductName, setPrimaryProductName] = useState<string | null>(null);
   const [challengeNotes, setChallengeNotes] = useState<Record<string, string>>(
@@ -111,12 +129,7 @@ export function StudentView({
   useEffect(() => {
     getStudentBriefingAction().then((data) => {
       if (!data) return;
-      const b = data as { negocio?: Record<string, unknown> };
-      const n = b.negocio ?? {};
-      setBriefingStepComplete({
-        negocio: !!(n.nome_negocio && n.nicho && n.publico_alvo && n.proposta_valor && n.transformacao_entregue),
-        objecoes: true,
-      });
+      setBriefingStepComplete(parseBriefingComplete(data));
     });
     getMyAudienceProfilesAction().then((profiles) => {
       const primary = profiles.find((p) => p.is_primary && !p.is_archived)
@@ -921,12 +934,7 @@ export function StudentView({
           if (!open) {
             getStudentBriefingAction().then((data) => {
               if (!data) return;
-              const b = data as { negocio?: Record<string, unknown> };
-              const n = b.negocio ?? {};
-              setBriefingStepComplete({
-                negocio: !!(n.nome_negocio && n.nicho && n.publico_alvo && n.proposta_valor && n.transformacao_entregue),
-                objecoes: true,
-              });
+              setBriefingStepComplete(parseBriefingComplete(data));
             });
           }
         }}
