@@ -256,9 +256,12 @@ export function BriefingDialog({
     negocio.proposta_valor &&
     negocio.transformacao_entregue
   );
+  const objecoesComplete =
+    objecoes.length > 0 &&
+    objecoes.every((o) => o.objecao.trim() !== "" && o.resposta.trim() !== "");
   const stepComplete = {
     negocio: negocioComplete,
-    objecoes: true,
+    objecoes: objecoesComplete,
   };
   const completedCount = Object.values(stepComplete).filter(Boolean).length;
 
