@@ -60,7 +60,7 @@ export function StudentSalesPage() {
       setSalesPageUrl(trimmed);
       if (isFirst) setPublishedAt(new Date().toISOString());
       setEditing(false);
-      toast.success(isFirst ? "🌐 Página publicada! Badge desbloqueado em breve." : "URL actualizado.");
+      toast.success(isFirst ? "Página publicada! Badge desbloqueado em breve." : "URL actualizado.");
     }
   }
 

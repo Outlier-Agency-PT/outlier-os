@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { AlertCircle, ChevronDown, ChevronRight, ExternalLink, Phone, Video, Zap, BookOpen, Lock, CheckCircle2, Circle, Play } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronRight, ExternalLink, Phone, Video, Zap, BookOpen, Lock, CheckCircle2, Circle, Play, User, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -379,9 +379,9 @@ export function StudentView({
           ).map(({ label, complete }) => (
             <div key={label} className="flex items-center gap-2 text-sm">
               {complete ? (
-                <span className="text-green-600">✅</span>
+                <CheckCircle2 className="size-4 text-green-600" />
               ) : (
-                <span className="text-muted-foreground">⭕</span>
+                <Circle className="size-4 text-muted-foreground" />
               )}
               <span className={complete ? "text-foreground" : "text-muted-foreground"}>
                 {label}
@@ -398,7 +398,7 @@ export function StudentView({
         {/* Cliente ideal */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-base">👤</span>
+            <User className="size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-muted-foreground">Cliente ideal</p>
               {primaryAudienceName ? (
@@ -424,7 +424,7 @@ export function StudentView({
         {/* Produto principal */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-base">📦</span>
+            <Package className="size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-muted-foreground">Produto principal</p>
               {primaryProductName ? (

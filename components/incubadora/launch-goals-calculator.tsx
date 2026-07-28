@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Info } from "lucide-react";
+import { Info, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { updateStudentLaunchAction } from "@/lib/actions/student-launches";
@@ -307,7 +307,7 @@ export function LaunchGoalsCalculator({ launch, debrief, studentId }: Props) {
 
   const scenarios = [
     { label: "Conservador", star: false, cpl: "cpl_1" as FormKey, pct: "pct_organic_1" as FormKey, s: s1 },
-    { label: "Esperado ★", star: false, cpl: "cpl_2" as FormKey, pct: "pct_organic_2" as FormKey, s: s2 },
+    { label: "Esperado", star: true, cpl: "cpl_2" as FormKey, pct: "pct_organic_2" as FormKey, s: s2 },
     { label: "Ambicioso", star: false, cpl: "cpl_3" as FormKey, pct: "pct_organic_3" as FormKey, s: s3 },
   ];
 
@@ -404,9 +404,12 @@ export function LaunchGoalsCalculator({ launch, debrief, studentId }: Props) {
       {/* 3 cenários */}
       <section>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {scenarios.map(({ label, cpl, pct, s }) => (
+          {scenarios.map(({ label, star, cpl, pct, s }) => (
             <div key={label} className="rounded border bg-card p-3 space-y-3">
-              <p className="text-xs font-semibold">{label}</p>
+              <p className="flex items-center gap-1 text-xs font-semibold">
+                {label}
+                {star && <Star className="size-3 text-amber-500 fill-amber-500" />}
+              </p>
 
               {/* Entradas */}
               <div className="space-y-2">

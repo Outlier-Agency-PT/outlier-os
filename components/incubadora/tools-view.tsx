@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, TrendingUp } from "lucide-react";
+import { AlertCircle, AlertTriangle, Check, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ToolsViewProps {
@@ -517,28 +517,48 @@ export function ToolsView({ initialTicket, initialBudget }: ToolsViewProps) {
               <div>
                 <div className="text-sm text-muted-foreground">CTR Actual vs Benchmark</div>
                 <div className="mt-1 text-lg font-medium">
-                  {inputs.ctr.toFixed(2)}% {inputs.ctr >= 1 && inputs.ctr <= 3 ? "✓" : "⚠"}
+                  <span className="flex items-center gap-1">
+                    {inputs.ctr.toFixed(2)}%
+                    {inputs.ctr >= 1 && inputs.ctr <= 3
+                      ? <Check className="size-4 text-green-600" />
+                      : <AlertTriangle className="size-4 text-amber-500" />}
+                  </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Benchmark: 1–3%</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">CPL Actual vs Benchmark</div>
                 <div className="mt-1 text-lg font-medium">
-                  {formatCurrency(results.realista.cpl)} {results.realista.cpl < 5 ? "✓" : "⚠"}
+                  <span className="flex items-center gap-1">
+                    {formatCurrency(results.realista.cpl)}
+                    {results.realista.cpl < 5
+                      ? <Check className="size-4 text-green-600" />
+                      : <AlertTriangle className="size-4 text-amber-500" />}
+                  </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Benchmark: &lt;5€ excelente</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">ROI Actual vs Benchmark</div>
                 <div className="mt-1 text-lg font-medium">
-                  {(results.realista.roi * 100).toFixed(0)}% {results.realista.roi > 3 ? "✓" : "⚠"}
+                  <span className="flex items-center gap-1">
+                    {(results.realista.roi * 100).toFixed(0)}%
+                    {results.realista.roi > 3
+                      ? <Check className="size-4 text-green-600" />
+                      : <AlertTriangle className="size-4 text-amber-500" />}
+                  </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Benchmark: &gt;3× excelente</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Taxa AoVivo→Venda vs Benchmark</div>
                 <div className="mt-1 text-lg font-medium">
-                  {inputs.tx_aovivo_venda.toFixed(2)}% {inputs.tx_aovivo_venda > 5 ? "✓" : "⚠"}
+                  <span className="flex items-center gap-1">
+                    {inputs.tx_aovivo_venda.toFixed(2)}%
+                    {inputs.tx_aovivo_venda > 5
+                      ? <Check className="size-4 text-green-600" />
+                      : <AlertTriangle className="size-4 text-amber-500" />}
+                  </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Benchmark: &gt;5% excelente</div>
               </div>

@@ -15,6 +15,7 @@ import {
   X,
   GripVertical,
   RotateCcw,
+  Star,
 } from "lucide-react";
 import {
   DndContext,
@@ -645,7 +646,7 @@ export function ProductFormDialog({
                           }`}
                         >
                           {a.name}
-                          {a.is_primary && " ★"}
+                          {a.is_primary && <Star className="inline size-3 text-amber-500 fill-amber-500 ml-1" />}
                         </button>
                       );
                     })}

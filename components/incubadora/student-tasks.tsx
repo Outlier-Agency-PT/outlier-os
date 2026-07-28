@@ -525,7 +525,7 @@ export function StudentTasks({ userId }: Props) {
               <ChevronRight className="size-4 text-emerald-600" />
             )}
             <h3 className="font-semibold text-sm text-emerald-700 dark:text-emerald-500">
-              Concluídas esta semana ✓
+              Concluídas esta semana
             </h3>
             <Badge className="rounded-full border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-xs ml-auto">
               {grouped.completedThisWeek.length}
