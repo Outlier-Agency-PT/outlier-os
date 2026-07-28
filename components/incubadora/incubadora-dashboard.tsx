@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, Users, TrendingUp, MessageCircle, Phone, ChevronRight } from "lucide-react";
+import { AlertTriangle, Users, TrendingUp, MessageCircle, Phone, ChevronRight, RefreshCw } from "lucide-react";
 import { getIncubadoraStatsAction } from "@/lib/actions/students";
 import type { IncubadoraStats } from "@/lib/queries/students";
 
@@ -130,20 +131,29 @@ function buildAlerts(s: IncubadoraStats): Alert[] {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function IncubadoraDashboard() {
-  const [stats, setStats]         = useState<IncubadoraStats | null>(null);
-  const [loading, setLoading]     = useState(true);
+  const router = useRouter();
+  const [stats, setStats]             = useState<IncubadoraStats | null>(null);
+  const [loading, setLoading]         = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [refreshing, startRefreshing] = useTransition();
 
-  async function load() {
+  async function load(background = false) {
     const data = await getIncubadoraStatsAction();
     setStats(data);
     setLastRefresh(new Date());
-    setLoading(false);
+    if (!background) setLoading(false);
+  }
+
+  function backgroundRefresh() {
+    startRefreshing(async () => {
+      await load(true);
+      router.refresh();
+    });
   }
 
   useEffect(() => {
     load();
-    const id = setInterval(load, FIVE_MINUTES);
+    const id = setInterval(backgroundRefresh, FIVE_MINUTES);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -165,6 +175,18 @@ export function IncubadoraDashboard() {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Indicador de actualização */}
+      {lastRefresh && (
+        <div className="flex justify-end">
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
+            {refreshing && (
+              <RefreshCw className="size-3 animate-spin" />
+            )}
+            Actualizado às{" "}
+            {lastRefresh.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+      )}
       {/* Row 1 — Alunos */}
       <div className="grid w-full grid-cols-2 gap-px border border-border bg-border lg:grid-cols-4">
         <KpiCard
@@ -287,20 +309,11 @@ export function IncubadoraDashboard() {
       {/* Alertas */}
       {alerts.length > 0 && (
         <div className="border border-border bg-card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3 md:px-6">
+          <div className="border-b border-border px-4 py-3 md:px-6">
             <h3 className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               <AlertTriangle className="size-3.5 text-amber-500" />
               Alertas
             </h3>
-            {lastRefresh && (
-              <span className="text-[11px] text-muted-foreground/50">
-                Actualizado às{" "}
-                {lastRefresh.toLocaleTimeString("pt-PT", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            )}
           </div>
           <ul className="divide-y divide-border">
             {alerts.map((alert, i) => (
