@@ -195,7 +195,7 @@ function csvEscape(value: string): string {
 }
 
 export function exportTasksToCSV(rows: string[][], filename: string) {
-  const lines = [EXPORT_HEADERS, ...rows].map((row) => row.map(csvEscape).join(","));
+  const lines = [EXPORT_HEADERS, ...rows].map((row) => row.map(csvEscape).join(";"));
   // BOM no início para o Excel reconhecer acentuação UTF-8 correctamente
   const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
   downloadBlob(blob, filename);

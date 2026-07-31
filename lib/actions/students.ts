@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import type { ReviewStatus } from "@/lib/types/review-status";
+import type { StudentDiaryEntry } from "@/lib/types";
 
 const studentSchema = z.object({
   name: z.string().min(1),
@@ -627,6 +628,44 @@ export async function updateStudentSalesPageByIdAction(studentId: string, salesP
   const { error } = await admin.from("students").update(updates).eq("id", studentId);
   if (error) return { error: error.message };
 
+  revalidatePath(`/incubadora/${studentId}`);
+  return { success: true };
+}
+
+// ── Diário de Bordo ──────────────────────────────────────────────────────────
+
+export async function createDiaryEntryAction(studentId: string, content: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("student_diary")
+    .insert({ student_id: studentId, content: content.trim() })
+    .select()
+    .single();
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
+  return { data: data as StudentDiaryEntry };
+}
+
+export async function updateDiaryEntryAction(entryId: string, studentId: string, content: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("student_diary")
+    .update({ content: content.trim() })
+    .eq("id", entryId)
+    .select()
+    .single();
+  if (error) return { error: error.message };
+  revalidatePath(`/incubadora/${studentId}`);
+  return { data: data as StudentDiaryEntry };
+}
+
+export async function deleteDiaryEntryAction(entryId: string, studentId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("student_diary")
+    .delete()
+    .eq("id", entryId);
+  if (error) return { error: error.message };
   revalidatePath(`/incubadora/${studentId}`);
   return { success: true };
 }

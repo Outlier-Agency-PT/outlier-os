@@ -25,10 +25,18 @@ import { PRIORITY_LABELS, type TaskPriority } from "@/lib/types";
 import { createTaskAction, type TaskInput } from "@/lib/actions/tasks";
 import { toast } from "sonner";
 import { AvatarDisplay } from "@/components/avatar-display";
+import { AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface Option {
   id: string;
   label: string;
+}
+
+interface ListOption {
+  id: string;
+  name: string;
+  spaceName?: string;
 }
 
 interface TaskFormProps {
@@ -37,13 +45,12 @@ interface TaskFormProps {
   statuses: Option[];
   clients: Option[];
   members: Option[];
+  lists: ListOption[];
   defaultStatusId?: string;
   defaultListId?: string;
 }
 
-interface MemberOption extends Option {
-  email?: string;
-}
+const DEFAULT_BACKLOG_ID = "00000000-0000-0000-0000-000000000011";
 
 export function TaskForm({
   open,
@@ -51,6 +58,7 @@ export function TaskForm({
   statuses,
   clients,
   members,
+  lists,
   defaultStatusId,
   defaultListId,
 }: TaskFormProps) {
@@ -61,7 +69,12 @@ export function TaskForm({
     title: "",
     priority: "sem_prioridade",
     status_id: defaultStatusId ?? statuses.find((s) => s.label.toLowerCase() === "a fazer")?.id ?? statuses[0]?.id ?? null,
-    list_id: defaultListId ?? "00000000-0000-0000-0000-000000000011", // Backlog por defeito
+    list_id: defaultListId ?? lists[0]?.id ?? DEFAULT_BACKLOG_ID,
+    start_date: "",
+    is_recurring: false,
+    recurrence_frequency: null,
+    recurrence_day_of_week: null,
+    recurrence_end_date: null,
   });
 
   function update<K extends keyof TaskInput>(key: K, value: TaskInput[K]) {
@@ -97,8 +110,13 @@ export function TaskForm({
       title: "",
       priority: "sem_prioridade",
       status_id: defaultStatusId ?? statuses[0]?.id ?? null,
-      list_id: defaultListId ?? "00000000-0000-0000-0000-000000000011",
+      list_id: defaultListId ?? lists[0]?.id ?? DEFAULT_BACKLOG_ID,
       estimate_points: null,
+      start_date: "",
+      is_recurring: false,
+      recurrence_frequency: null,
+      recurrence_day_of_week: null,
+      recurrence_end_date: null,
     });
     setAssignees([]);
   }
@@ -111,6 +129,7 @@ export function TaskForm({
           <DialogDescription>Cria uma tarefa nova com cliente, prioridade e responsáveis.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Título */}
           <div className="space-y-1.5">
             <Label htmlFor="title">Título *</Label>
             <Input
@@ -122,6 +141,7 @@ export function TaskForm({
             />
           </div>
 
+          {/* Descrição */}
           <div className="space-y-1.5">
             <Label htmlFor="description">Descrição</Label>
             <Textarea
@@ -133,6 +153,7 @@ export function TaskForm({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            {/* Estado */}
             <div className="space-y-1.5">
               <Label htmlFor="status">Estado</Label>
               <Select
@@ -152,6 +173,7 @@ export function TaskForm({
               </Select>
             </div>
 
+            {/* Prioridade */}
             <div className="space-y-1.5">
               <Label htmlFor="priority">Prioridade</Label>
               <Select
@@ -171,6 +193,7 @@ export function TaskForm({
               </Select>
             </div>
 
+            {/* Cliente */}
             <div className="space-y-1.5">
               <Label htmlFor="client">Cliente</Label>
               <Select
@@ -190,6 +213,7 @@ export function TaskForm({
               </Select>
             </div>
 
+            {/* Responsáveis */}
             <div className="col-span-2 space-y-1.5">
               <Label>Responsáveis</Label>
               <div className="rounded-md border p-3 space-y-3">
@@ -247,6 +271,7 @@ export function TaskForm({
               </div>
             </div>
 
+            {/* Estimativa */}
             <div className="space-y-1.5">
               <Label>Estimativa</Label>
               <div className="flex items-center gap-2">
@@ -304,7 +329,46 @@ export function TaskForm({
               </div>
             </div>
 
+            {!form.estimate_points && (
+              <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                <AlertTriangle className="w-3 h-3" />
+                Sem estimativa definida — recomendado preencher.
+              </p>
+            )}
+
+            {/* Lista */}
             <div className="col-span-2 space-y-1.5">
+              <Label htmlFor="list">Lista</Label>
+              <Select
+                value={form.list_id ?? ""}
+                onValueChange={(v) => update("list_id", v || null)}
+              >
+                <SelectTrigger id="list">
+                  <SelectValue placeholder="Selecionar lista..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {lists.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.spaceName ? `${l.spaceName} / ${l.name}` : l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Data de Início */}
+            <div className="space-y-1.5">
+              <Label htmlFor="start_date">Data de Início</Label>
+              <Input
+                id="start_date"
+                type="date"
+                value={form.start_date ?? ""}
+                onChange={(e) => update("start_date", e.target.value)}
+              />
+            </div>
+
+            {/* Data Limite */}
+            <div className="space-y-1.5">
               <Label htmlFor="due">Data Limite</Label>
               <Input
                 id="due"
@@ -312,6 +376,84 @@ export function TaskForm({
                 value={form.due_date ?? ""}
                 onChange={(e) => update("due_date", e.target.value)}
               />
+            </div>
+
+            {/* Recorrência */}
+            <div className="col-span-2 space-y-3 border-t pt-3">
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="is_recurring"
+                  checked={form.is_recurring ?? false}
+                  onCheckedChange={(v) => {
+                    update("is_recurring", v);
+                    if (!v) {
+                      update("recurrence_frequency", null);
+                      update("recurrence_day_of_week", null);
+                    }
+                  }}
+                />
+                <Label htmlFor="is_recurring" className="cursor-pointer">
+                  Esta tarefa repete-se
+                </Label>
+              </div>
+
+              {form.is_recurring && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Frequência</Label>
+                      <Select
+                        value={form.recurrence_frequency ?? ""}
+                        onValueChange={(v) => {
+                          update("recurrence_frequency", v as "daily" | "weekly");
+                          if (v !== "weekly") update("recurrence_day_of_week", null);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Todos os dias</SelectItem>
+                          <SelectItem value="weekly">Semanalmente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {form.recurrence_frequency === "weekly" && (
+                      <div className="space-y-1.5">
+                        <Label>Dia da semana</Label>
+                        <Select
+                          value={form.recurrence_day_of_week != null ? String(form.recurrence_day_of_week) : ""}
+                          onValueChange={(v) => update("recurrence_day_of_week", parseInt(v, 10))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecionar..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Segunda-feira</SelectItem>
+                            <SelectItem value="2">Terça-feira</SelectItem>
+                            <SelectItem value="3">Quarta-feira</SelectItem>
+                            <SelectItem value="4">Quinta-feira</SelectItem>
+                            <SelectItem value="5">Sexta-feira</SelectItem>
+                            <SelectItem value="6">Sábado</SelectItem>
+                            <SelectItem value="0">Domingo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="recurrence_end_date">Repetir até (opcional)</Label>
+                    <Input
+                      id="recurrence_end_date"
+                      type="date"
+                      value={form.recurrence_end_date ?? ""}
+                      onChange={(e) => update("recurrence_end_date", e.target.value || null)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

@@ -35,6 +35,7 @@ import {
   updateTimeLogAction,
   deleteTimeLogAction,
 } from "@/lib/actions/tasks";
+import { getRecentLogsAction } from "@/lib/actions/time-logs";
 import { cn, formatDuration } from "@/lib/utils";
 import { toast } from "sonner";
 import type { TaskWithRelations } from "@/lib/queries/tasks";
@@ -125,10 +126,11 @@ function fmtEstimate(pts: number | null | undefined): string {
   return `${h}h ${String(m).padStart(2, "0")}min`;
 }
 
-export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Props) {
+export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myDayTasks }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isLogPending, startLogTransition] = useTransition();
+  const [recentLogs, setRecentLogs] = useState<TimeLogWithTask[]>(initialLogs);
 
   // Timer
   const [timerTasks, setTimerTasks] = useState<SimpleTask[]>(myDayTasks);
@@ -213,6 +215,19 @@ export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Pr
     const id = setInterval(tick, 1_000);
     return () => clearInterval(id);
   }, [runningLog]);
+
+  // Sincroniza com TodayTasks: remove tarefa concluída do dropdown do timer
+  // e actualiza a lista de logs sem depender do router.refresh()
+  useEffect(() => {
+    function handleTaskCompleted(e: Event) {
+      const { taskId } = (e as CustomEvent<{ taskId: string }>).detail;
+      setTimerTasks((prev) => prev.filter((t) => t.id !== taskId));
+      setSelectedTaskId((prev) => (prev === taskId ? "" : prev));
+      getRecentLogsAction().then((fresh) => setRecentLogs(fresh)).catch(() => {});
+    }
+    window.addEventListener("outlier:task-completed", handleTaskCompleted);
+    return () => window.removeEventListener("outlier:task-completed", handleTaskCompleted);
+  }, []);
 
   function toggleDay(date: string) {
     setExpandedDays((prev) => {
@@ -534,7 +549,14 @@ export function MyHours({ todayMinutes, runningLog, recentLogs, myDayTasks }: Pr
                               )}
                               onClick={() => hasDesc && toggleLog(log.id)}
                             >
-                              {log.task?.title ?? "—"}
+                              <span className="flex items-baseline gap-1.5 truncate">
+                {log.task?.title ?? "—"}
+                {log.task?.estimate_points != null && (
+                  <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                    Estimativa: {fmtEstimate(log.task.estimate_points)}
+                  </span>
+                )}
+              </span>
                             </button>
                             <span className="flex shrink-0 items-center gap-1.5">
                               <span className="text-[11px] tabular-nums text-muted-foreground">

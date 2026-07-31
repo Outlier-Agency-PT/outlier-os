@@ -4,28 +4,37 @@ import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getStudentById, getStudentBriefing } from "@/lib/queries/students";
+import { getStudentById, getStudentBriefing, getStudentDiary } from "@/lib/queries/students";
 import { getUserRoles } from "@/lib/supabase/roles";
 import { createClient } from "@/lib/supabase/server";
 import { StudentDetailClient } from "@/components/students/student-detail-client";
 import { getStudentProgressDetail } from "@/lib/queries/incubadora";
+import { getMeetingsByStudent, getMeetings } from "@/lib/queries/meetings";
+import { getStudentReports } from "@/lib/queries/student-reports";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
-export default async function StudentDetailPage({ params }: PageProps) {
-  const { id } = await params;
+const VALID_TABS = ["visao-geral", "acompanhamento", "diario", "reunioes", "relatorios"];
+
+export default async function StudentDetailPage({ params, searchParams }: PageProps) {
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const [{ student, sessions, checklist, notes }, roles, briefing, memberData] = await Promise.all([
-    getStudentById(id),
-    getUserRoles(),
-    getStudentBriefing(id),
-    supabase.from("team_members").select("role").eq("id", user?.id ?? "").maybeSingle(),
-  ]);
+
+  const [{ student, sessions, checklist, notes }, roles, briefing, memberData, diary] =
+    await Promise.all([
+      getStudentById(id),
+      getUserRoles(),
+      getStudentBriefing(id),
+      supabase.from("team_members").select("role").eq("id", user?.id ?? "").maybeSingle(),
+      getStudentDiary(id),
+    ]);
 
   if (!student) notFound();
 
@@ -36,9 +45,21 @@ export default async function StudentDetailPage({ params }: PageProps) {
     teamRole === "admin" ||
     teamRole === "membro";
 
-  const progressDetail = student.user_id
-    ? await getStudentProgressDetail(student.user_id)
-    : null;
+  const isStudentOwner = !!user && !!student.user_id && user.id === student.user_id;
+
+  const [progressDetail, studentMeetings, allMeetings, studentReports] = await Promise.all([
+    student.user_id ? getStudentProgressDetail(student.user_id) : null,
+    getMeetingsByStudent(id),
+    isStaff ? getMeetings() : [],
+    getStudentReports(id),
+  ]);
+
+  // Protege a tab "acompanhamento" de ser acessível por alunos via URL
+  const rawTab = sp.tab ?? "visao-geral";
+  const initialTab =
+    VALID_TABS.includes(rawTab) && (rawTab !== "acompanhamento" || isStaff)
+      ? rawTab
+      : "visao-geral";
 
   return (
     <>
@@ -72,6 +93,12 @@ export default async function StudentDetailPage({ params }: PageProps) {
         isStaff={isStaff}
         initialBriefing={briefing}
         progressDetail={progressDetail}
+        initialDiary={diary}
+        initialMeetings={studentMeetings}
+        allMeetings={allMeetings}
+        initialTab={initialTab}
+        isStudentOwner={isStudentOwner}
+        initialReports={studentReports}
       />
     </>
   );

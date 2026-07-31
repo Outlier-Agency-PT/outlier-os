@@ -505,6 +505,7 @@ export function TasksBoard({
         statuses={statuses.map((s) => ({ id: s.id, label: s.label }))}
         clients={clients}
         members={members.map((m) => ({ id: m.id, label: m.label }))}
+        lists={spaces.flatMap((s) => s.lists.map((l) => ({ ...l, spaceName: s.name })))}
         defaultListId={selectedListId ?? currentSpace?.space.lists?.[0]?.id}
       />
 
@@ -655,9 +656,12 @@ function TaskCard({ task, onClick }: { task: TaskWithRelations; onClick: () => v
               {task.estimate_points}h
             </Badge>
           ) : (
-            <span className="inline-flex cursor-pointer items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700">
-              ! Sem estimativa
-            </span>
+            <Badge
+              variant="outline"
+              className="text-xs px-1.5 py-0 border-amber-400 text-amber-600 bg-amber-50"
+            >
+              Sem estimativa
+            </Badge>
           )}
         </div>
       </div>
@@ -715,7 +719,12 @@ function TasksTable({
                 {t.estimate_points ? (
                   <span className="text-muted-foreground">{t.estimate_points}h</span>
                 ) : (
-                  <span className="cursor-pointer text-amber-600">— Definir</span>
+                  <Badge
+                    variant="outline"
+                    className="text-xs px-1.5 py-0 border-amber-400 text-amber-600 bg-amber-50"
+                  >
+                    Sem estimativa
+                  </Badge>
                 )}
               </td>
               <td className="px-4 py-3 text-muted-foreground">{t.due_date ?? "—"}</td>
@@ -812,7 +821,12 @@ function SpaceAggregatedView({
                         {t.estimate_points ? (
                           <span className="text-muted-foreground">{t.estimate_points}h</span>
                         ) : (
-                          <span className="text-amber-600">—</span>
+                          <Badge
+                            variant="outline"
+                            className="text-xs px-1.5 py-0 border-amber-400 text-amber-600 bg-amber-50"
+                          >
+                            Sem estimativa
+                          </Badge>
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{t.due_date ?? "—"}</td>

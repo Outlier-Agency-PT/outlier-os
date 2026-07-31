@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ReviewStatus } from "@/lib/types/review-status";
+import type { StudentDiaryEntry } from "@/lib/types";
 
 export interface Student {
   id: string;
@@ -406,6 +407,18 @@ export async function getPendingReminders(): Promise<PendingReminder[]> {
       };
     })
     .filter((r): r is PendingReminder => r.urgency !== null);
+}
+
+// ── Diário de Bordo ──────────────────────────────────────────────────────────
+
+export async function getStudentDiary(studentId: string): Promise<StudentDiaryEntry[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("student_diary")
+    .select("*")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as StudentDiaryEntry[];
 }
 
 // ── Incubadora Stats ──────────────────────────────────────────────────────────

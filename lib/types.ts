@@ -2,6 +2,18 @@
 // Quando regenerares tipos com `npm run db:types`, podes substituir por imports daqui.
 
 export type ClientType = "one_shot" | "long_term" | "interno" | "incubadora" | "mentoria";
+export type InviteStatus = "pending" | "accepted" | "expired";
+
+export interface Invite {
+  id: string;
+  email: string;
+  role: "admin" | "membro" | "aluno";
+  invited_by: string;
+  status: InviteStatus;
+  created_at: string;
+  expires_at: string | null;
+  department: string | null;
+}
 export type TaskPriority = "sem_prioridade" | "baixa" | "media" | "alta" | "urgente";
 export type MemberRole = "admin" | "membro";
 export type TransactionType = "receita" | "despesa";
@@ -330,3 +342,26 @@ export const DECISION_IMPACT_LABELS: Record<DecisionImpact, string> = {
   alto: "Alto",
   critico: "Crítico",
 };
+
+// ============================================================
+// Incubadora — Diário de Bordo do aluno
+// ============================================================
+
+export interface StudentDiaryEntry {
+  id: string;
+  student_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================
+// Reuniões — tabela de junção meeting_students
+// ============================================================
+
+export interface MeetingStudent {
+  id: string;
+  meeting_id: string;
+  student_id: string;
+  created_at: string;
+}

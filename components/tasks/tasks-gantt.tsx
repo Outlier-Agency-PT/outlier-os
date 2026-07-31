@@ -123,7 +123,7 @@ function GanttSkeleton() {
 
 function BarTooltip({ task }: { task: GanttTask }) {
   return (
-    <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2.5 py-1.5 text-[11px] text-background shadow-lg">
+    <div className="pointer-events-none absolute bottom-full right-0 z-50 mb-1.5 whitespace-nowrap rounded bg-foreground px-2.5 py-1.5 text-[11px] text-background shadow-lg">
       <p className="font-semibold">{task.title}</p>
       <p className="mt-0.5 text-[10px] opacity-70">
         {task.start_date ?? "—"} → {task.due_date ?? "—"}
@@ -178,7 +178,7 @@ function DraggableGanttBar({ task, days, colW, onTaskClick }: DraggableBarProps)
     if (offset < 0 || offset >= totalDays) return null;
     const left = offset * colW + colW / 2;
     return (
-      <div className="relative h-full w-full">
+      <div className="relative h-full w-full overflow-hidden bg-transparent">
         <button
           onClick={() => onTaskClick(task.id)}
           onMouseEnter={() => setHovered(true)}
@@ -315,7 +315,7 @@ function TaskRow({
   onTaskClick: (id: string) => void;
 }) {
   return (
-    <div className="flex border-b" style={{ height: ROW_H }}>
+    <div className="flex border-b isolate" style={{ height: ROW_H }}>
       {/* Coluna esquerda */}
       <div
         className="flex shrink-0 items-center gap-2 border-r px-3"
@@ -421,6 +421,7 @@ export function TasksGantt({ onTaskClick }: TasksGanttProps) {
   const [anchor, setAnchor] = useState<Date>(() => startOfMonth(new Date()));
   const [noDatesOpen, setNoDatesOpen] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getTasksForGanttAction().then((data) => {
@@ -452,6 +453,18 @@ export function TasksGantt({ onTaskClick }: TasksGanttProps) {
   }, [days, headerRows]);
 
   const effectiveColW = headerRows === "week" ? colW / 7 : colW;
+
+  useEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (headerRef.current) {
+        headerRef.current.scrollLeft = el.scrollLeft;
+      }
+    };
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Keep a ref so handleDragEnd always sees the latest colW without stale closures
   const effectiveColWRef = useRef(effectiveColW);
@@ -767,12 +780,14 @@ export function TasksGantt({ onTaskClick }: TasksGanttProps) {
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* Header fixo da timeline */}
             <div
+              ref={headerRef}
               className="shrink-0 border-b bg-muted/20 overflow-hidden"
               style={{ height: HEADER_H }}
             >
-              <div style={{ width: timelineTotalW }}>
+              <div style={{ minWidth: LEFT_COL + timelineTotalW }}>
                 {granularity === "semana" ? (
                   <div className="flex h-full">
+                    <div style={{ width: LEFT_COL }} className="shrink-0" />
                     {daysForBars.map((d, i) => {
                       const isCurrentDay = isToday(d);
                       return (
@@ -801,6 +816,7 @@ export function TasksGantt({ onTaskClick }: TasksGanttProps) {
                   </div>
                 ) : (
                   <div className="flex h-full">
+                    <div style={{ width: LEFT_COL }} className="shrink-0" />
                     {days.map((w, i) => {
                       const hasToday = daysForBars
                         .slice(i * 7, i * 7 + 7)
@@ -829,7 +845,7 @@ export function TasksGantt({ onTaskClick }: TasksGanttProps) {
             </div>
 
             {/* Corpo — scroll */}
-            <div ref={timelineRef} className="flex-1 overflow-auto">
+            <div ref={timelineRef} className="flex-1 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <div style={{ minWidth: timelineTotalW }}>
                 {grouped.map(([spaceName, spaceTasks]) => (
                   <SpaceGroup

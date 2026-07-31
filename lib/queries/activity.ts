@@ -41,6 +41,7 @@ export async function getRecentActivity(limit = 10): Promise<Activity[]> {
   const { data } = await supabase
     .from("activity_log")
     .select(`*, member:team_members(full_name)`)
+    .not("member_id", "is", null)
     .order("created_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as Activity[];

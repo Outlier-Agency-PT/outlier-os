@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search } from "lucide-react";
@@ -25,20 +25,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createProcessAction, type ProcessInput } from "@/lib/actions/processes";
+import { DatePicker } from "@/components/ui/date-picker";
+import { createProcessAction, updateProcessAction, type ProcessInput, type DecisionData } from "@/lib/actions/processes";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { DOC_TYPES } from "@/lib/constants/process-types";
+import { RichTextEditor } from "@/components/processes/rich-text-editor";
+import { ChecklistItemsEditor } from "@/components/processes/checklist-items-editor";
+import { DOC_TYPES, TEMPLATE_TARGETS, type TemplateTarget } from "@/lib/constants/process-types";
 import type { Process, ProcessCategory } from "@/lib/queries/processes";
+import type { TeamMember } from "@/lib/types";
 
 interface Props {
   processes: Process[];
   categories: ProcessCategory[];
+  members: TeamMember[];
 }
 
-export function ProcessesView({ processes, categories }: Props) {
+export function ProcessesView({ processes, categories, members }: Props) {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -60,7 +63,6 @@ export function ProcessesView({ processes, categories }: Props) {
 
   return (
     <div className="grid grid-cols-[200px_1fr]">
-      {/* Sidebar de categorias */}
       <aside className="border-r bg-muted/30 p-4">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Categorias
@@ -95,7 +97,6 @@ export function ProcessesView({ processes, categories }: Props) {
         </div>
       </aside>
 
-      {/* Lista */}
       <div>
         <div className="flex items-center gap-2 border-b px-6 py-4">
           <div className="relative flex-1 max-w-md">
@@ -171,33 +172,109 @@ export function ProcessesView({ processes, categories }: Props) {
         </div>
       </div>
 
-      <CreateProcessDialog open={open} onOpenChange={setOpen} categories={categories} />
+      <CreateProcessDialog
+        open={open}
+        onOpenChange={setOpen}
+        categories={categories}
+        members={members}
+      />
     </div>
   );
 }
 
-function CreateProcessDialog({
+function defaultDecision(f: ProcessInput): DecisionData {
+  return {
+    context: f.decision_data?.context ?? "",
+    alternatives: f.decision_data?.alternatives ?? "",
+    decided_by_id: f.decision_data?.decided_by_id ?? "",
+    decided_by_name: f.decision_data?.decided_by_name ?? "",
+    decided_at: f.decision_data?.decided_at ?? "",
+    impact: f.decision_data?.impact ?? "",
+  };
+}
+
+export function CreateProcessDialog({
   open,
   onOpenChange,
   categories,
+  members,
+  initialData,
+  processId,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   categories: ProcessCategory[];
+  members: TeamMember[];
+  initialData?: Process;
+  processId?: string;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<ProcessInput>({ title: "", doc_type: "processo", published: true });
-  const [tagsInput, setTagsInput] = useState("");
-  const [preview, setPreview] = useState(false);
+  const [form, setForm] = useState<ProcessInput>(
+    initialData
+      ? {
+          title: initialData.title,
+          description: initialData.description ?? "",
+          doc_type: initialData.doc_type,
+          category_id: initialData.category_id ?? "",
+          content_md: initialData.content_md ?? "",
+          miro_link: initialData.miro_link ?? "",
+          tags: initialData.tags ?? [],
+          published: initialData.published,
+          version: initialData.version ?? null,
+          last_reviewed_at: initialData.last_reviewed_at ?? null,
+          decision_data: initialData.decision_data ?? null,
+          template_target: initialData.template_target ?? null,
+        }
+      : { title: "", doc_type: "processo", published: true, version: null, last_reviewed_at: null, template_target: null as TemplateTarget | null }
+  );
+  const [tagsInput, setTagsInput] = useState(
+    initialData ? (initialData.tags ?? []).join(", ") : ""
+  );
+  const isDecision = form.doc_type === "decisao";
+
+  useEffect(() => {
+    if (initialData) {
+      setForm({
+        title: initialData.title,
+        description: initialData.description ?? "",
+        doc_type: initialData.doc_type,
+        category_id: initialData.category_id ?? "",
+        content_md: initialData.content_md ?? "",
+        miro_link: initialData.miro_link ?? "",
+        tags: initialData.tags ?? [],
+        published: initialData.published,
+        version: initialData.version ?? null,
+        last_reviewed_at: initialData.last_reviewed_at ?? null,
+        decision_data: initialData.decision_data ?? null,
+        template_target: initialData.template_target ?? null,
+      });
+      setTagsInput((initialData.tags ?? []).join(", "));
+    }
+  }, [initialData, open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const result = await createProcessAction({
-      ...form,
-      tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean),
-    });
+    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+
+    if (processId) {
+      const result = await updateProcessAction(processId, { ...form, tags });
+      setLoading(false);
+      if (result.errors) {
+        toast.error(result.errors[0]);
+        return;
+      }
+      toast.success("Processo actualizado.");
+      onSuccess?.();
+      onOpenChange(false);
+      router.refresh();
+      return;
+    }
+
+    const result = await createProcessAction({ ...form, tags });
     setLoading(false);
     if ("error" in result && result.error) {
       const msg = "_form" in result.error ? result.error._form?.[0] : Object.values(result.error)[0]?.[0];
@@ -212,15 +289,14 @@ function CreateProcessDialog({
     }
     setForm({ title: "", doc_type: "processo", published: true });
     setTagsInput("");
-    setPreview(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Processo</DialogTitle>
-          <DialogDescription>Documenta um SOP. Markdown suportado no conteúdo.</DialogDescription>
+          <DialogTitle>{processId ? "Editar processo" : "Novo Processo"}</DialogTitle>
+          <DialogDescription>Documenta um SOP, checklist, playbook ou decisão.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -245,7 +321,15 @@ function CreateProcessDialog({
             <Label htmlFor="doc_type">Tipo</Label>
             <Select
               value={form.doc_type ?? "processo"}
-              onValueChange={(v) => setForm((f) => ({ ...f, doc_type: v as ProcessInput["doc_type"] }))}
+              onValueChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  doc_type: v as ProcessInput["doc_type"],
+                  decision_data: v !== "decisao" ? undefined : f.decision_data,
+                  ...(v !== "playbook" && { version: null, last_reviewed_at: null }),
+                  ...(v !== "template" && { template_target: null }),
+                }))
+              }
             >
               <SelectTrigger id="doc_type">
                 <SelectValue placeholder="Selecionar tipo..." />
@@ -257,6 +341,167 @@ function CreateProcessDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {form.doc_type === "playbook" && (
+            <div className="space-y-3 rounded-md border p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Campos do Playbook
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Versão</Label>
+                  <Input
+                    placeholder="ex: v1.0, v2.3"
+                    value={form.version ?? ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, version: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Data de revisão</Label>
+                  <DatePicker
+                    value={form.last_reviewed_at ?? ""}
+                    onChange={(val) =>
+                      setForm((f) => ({ ...f, last_reviewed_at: val }))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {form.doc_type === "template" && (
+            <div className="space-y-3 rounded-md border p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Campos do Template
+              </p>
+              <div className="space-y-1.5">
+                <Label>Destino ao usar o template</Label>
+                <Select
+                  value={form.template_target ?? ""}
+                  onValueChange={(val) =>
+                    setForm((f) => ({
+                      ...f,
+                      template_target: val as TemplateTarget,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar destino..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATE_TARGETS.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Define o que é criado quando alguém usa este template.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {isDecision && (
+            <div className="space-y-3 rounded-md border p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Campos da Decisão
+              </p>
+
+              <div className="space-y-1.5">
+                <Label>Contexto da decisão *</Label>
+                <Textarea
+                  placeholder="Qual o problema ou situação que motivou esta decisão?"
+                  value={form.decision_data?.context ?? ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      decision_data: { ...defaultDecision(f), context: e.target.value },
+                    }))
+                  }
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Alternativas consideradas *</Label>
+                <Textarea
+                  placeholder="Quais as opções que foram avaliadas antes desta decisão?"
+                  value={form.decision_data?.alternatives ?? ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      decision_data: { ...defaultDecision(f), alternatives: e.target.value },
+                    }))
+                  }
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Quem decidiu</Label>
+                <Select
+                  value={form.decision_data?.decided_by_id ?? ""}
+                  onValueChange={(val) => {
+                    const member = members.find((m) => m.id === val);
+                    setForm((f) => ({
+                      ...f,
+                      decision_data: {
+                        ...defaultDecision(f),
+                        decided_by_id: val,
+                        decided_by_name: member?.full_name ?? member?.email ?? "",
+                      },
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar membro" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.full_name ?? m.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Data da decisão</Label>
+                <DatePicker
+                  value={form.decision_data?.decided_at ?? ""}
+                  onChange={(val) =>
+                    setForm((f) => ({
+                      ...f,
+                      decision_data: { ...defaultDecision(f), decided_at: val },
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Impacto esperado *</Label>
+                <Textarea
+                  placeholder="O que se espera que mude ou melhore com esta decisão?"
+                  value={form.decision_data?.impact ?? ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      decision_data: { ...defaultDecision(f), impact: e.target.value },
+                    }))
+                  }
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="cat">Categoria</Label>
@@ -284,6 +529,7 @@ function CreateProcessDialog({
               />
             </div>
           </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="tags">Tags</Label>
             <Input
@@ -293,52 +539,36 @@ function CreateProcessDialog({
               placeholder="Separadas por vírgula"
             />
           </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label>Conteúdo (Markdown)</Label>
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={!preview ? "default" : "outline"}
-                  onClick={() => setPreview(false)}
-                >
-                  Editar
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={preview ? "default" : "outline"}
-                  onClick={() => setPreview(true)}
-                >
-                  Pré-visualizar
-                </Button>
-              </div>
-            </div>
-            {preview ? (
-              <div className="prose prose-sm max-w-none dark:prose-invert min-h-[192px] rounded-md border px-3 py-2">
-                {form.content_md?.trim() ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {form.content_md}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Nenhum conteúdo para pré-visualizar.</p>
-                )}
-              </div>
-            ) : (
-              <Textarea
-                id="content"
+
+          {form.doc_type === "checklist" ? (
+            <div className="space-y-1.5">
+              <Label>Itens do checklist</Label>
+              <ChecklistItemsEditor
                 value={form.content_md ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, content_md: e.target.value }))}
-                rows={8}
-                className="font-mono text-sm"
-                placeholder="# Passo 1&#10;&#10;Descreve o passo..."
+                onChange={(md) => setForm((f) => ({ ...f, content_md: md }))}
               />
-            )}
-          </div>
+            </div>
+          ) : !isDecision ? (
+            <div className="space-y-1.5">
+              <RichTextEditor
+                value={form.content_md ?? ""}
+                onChange={(md) => setForm((f) => ({ ...f, content_md: md }))}
+                docType={form.doc_type}
+                templateTarget={form.template_target ?? undefined}
+                placeholder={
+                  form.doc_type === "playbook"
+                    ? "## Secção 1\nConteúdo...\n\n## Secção 2\nConteúdo..."
+                    : "Descreve o processo passo a passo..."
+                }
+              />
+            </div>
+          ) : null}
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>{loading ? "A criar..." : "Criar"}</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (processId ? "A guardar..." : "A criar...") : (processId ? "Guardar alterações" : "Criar")}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

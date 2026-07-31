@@ -10,6 +10,7 @@ import { ColaboradorDashboard } from "@/components/dashboard/colaborador/colabor
 import { DepartmentMetrics } from "@/components/dashboard/department-metrics";
 import { AdminCheckpoints } from "@/components/dashboard/admin-checkpoints";
 import { AdminDashboardWrapper } from "@/components/dashboard/admin-dashboard-wrapper";
+import { TodayTasks } from "@/components/dashboard/today-tasks";
 import {
   getMyOpenTasks,
   getConcludedStatusId,
@@ -74,6 +75,7 @@ export default async function DashboardPage() {
         <ColaboradorDashboard
           tasks={tasks}
           concludedStatusId={concludedStatusId}
+          memberId={user?.id ?? ""}
           todayMinutes={todayMinutes}
           runningLog={runningLog}
           recentLogs={recentLogs}
@@ -204,6 +206,11 @@ export default async function DashboardPage() {
 
   const adminView = (
     <div className="flex flex-col gap-6 p-4 md:p-8">
+
+      {/* Tarefas de hoje do admin */}
+      <div className="w-full border border-border bg-card">
+        <TodayTasks memberId={user?.id ?? ""} />
+      </div>
 
       {/* Camada estratégica — dois painéis numa superfície unificada */}
       <div className="grid w-full gap-px border border-border bg-border lg:grid-cols-2">
@@ -350,6 +357,7 @@ export default async function DashboardPage() {
     <ColaboradorDashboard
       tasks={colabTasks}
       concludedStatusId={concludedStatusId}
+      memberId={user?.id ?? ""}
       todayMinutes={todayMinutes}
       runningLog={runningLog}
       recentLogs={recentLogs}

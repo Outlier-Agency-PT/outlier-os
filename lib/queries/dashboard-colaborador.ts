@@ -13,7 +13,7 @@ export interface DailyStandup {
 }
 
 export interface TimeLogWithTask extends TimeLog {
-  task: { id: string; title: string; description: string | null } | null;
+  task: { id: string; title: string; description: string | null; estimate_points: number | null } | null;
 }
 
 const PRIORITY_RANK: Record<TaskPriority, number> = {
@@ -125,7 +125,7 @@ export async function getMyRunningTimeLog(userId: string): Promise<TimeLogWithTa
   const supabase = await createClient();
   const { data } = await supabase
     .from("task_time_logs")
-    .select(`*, task:tasks(id, title, description)`)
+    .select(`*, task:tasks(id, title, description, estimate_points)`)
     .eq("member_id", userId)
     .is("end_at", null)
     .maybeSingle();
@@ -139,7 +139,7 @@ export async function getMyRecentTimeLogs(userId: string): Promise<TimeLogWithTa
   weekStart.setHours(0, 0, 0, 0);
   const { data } = await supabase
     .from("task_time_logs")
-    .select(`*, task:tasks(id, title, description)`)
+    .select(`*, task:tasks(id, title, description, estimate_points)`)
     .eq("member_id", userId)
     .gte("start_at", weekStart.toISOString())
     .order("start_at", { ascending: false });
@@ -267,4 +267,52 @@ export async function getUpcomingRenewals(): Promise<DashRenewal[]> {
     const diff = Math.ceil((end.getTime() - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
     return { ...s, dias_restantes: diff };
   });
+}
+
+// ── Tarefas de Hoje ───────────────────────────────────────────────────────────
+
+export interface TodayTask {
+  id: string;
+  title: string;
+  priority: "sem_prioridade" | "baixa" | "media" | "alta" | "urgente";
+  estimate_points: number | null;
+  status_id: string | null;
+  status: {
+    id: string;
+    key: string;
+    label: string;
+    color: string;
+  } | null;
+}
+
+export async function getTodayTasks(userId: string): Promise<TodayTask[]> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().split("T")[0];
+  const concludedId = await getConcludedStatusId();
+
+  let query = supabase
+    .from("tasks")
+    .select(`
+      id,
+      title,
+      priority,
+      estimate_points,
+      status_id,
+      status:task_statuses(id, key, label, color)
+    `)
+    .eq("assignee_id", userId)
+    .eq("due_date", today)
+    .is("completed_at", null);
+
+  if (concludedId) {
+    query = query.neq("status_id", concludedId);
+  }
+
+  const { data, error } = await query.order("priority", { ascending: false });
+
+  if (error) {
+    console.error("[getTodayTasks]", error.message);
+    return [];
+  }
+  return (data ?? []) as unknown as TodayTask[];
 }

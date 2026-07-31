@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { Invite, InviteStatus } from '@/lib/types'
 
 export type InviteRole = 'admin' | 'membro' | 'aluno'
 
@@ -158,4 +159,138 @@ export async function acceptInviteAction(
   }
 
   return { success: true, role }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers privados
+// ---------------------------------------------------------------------------
+
+async function requireAdmin(): Promise<string | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return 'Não autenticado.'
+
+  const { data: tm } = await supabase
+    .from('team_members')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!tm || tm.role !== 'admin') {
+    return 'Sem permissão. Apenas admins podem gerir convites.'
+  }
+
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// listInvitesAction
+// ---------------------------------------------------------------------------
+
+export async function listInvitesAction(
+  statusFilter: InviteStatus | 'all' = 'all'
+): Promise<{ data: Invite[] } | { error: string }> {
+  const authError = await requireAdmin()
+  if (authError) return { error: authError }
+
+  const admin = createAdminClient()
+  let query = admin
+    .from('invites')
+    .select('id, email, role, invited_by, status, created_at, expires_at, department')
+    .order('created_at', { ascending: false })
+
+  if (statusFilter !== 'all') {
+    query = query.eq('status', statusFilter)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('[listInvitesAction]', error)
+    return { error: 'Erro ao carregar convites.' }
+  }
+
+  return { data: data as Invite[] }
+}
+
+// ---------------------------------------------------------------------------
+// cancelInviteAction
+// ---------------------------------------------------------------------------
+
+export async function cancelInviteAction(
+  inviteId: string
+): Promise<{ success: true } | { error: string }> {
+  const authError = await requireAdmin()
+  if (authError) return { error: authError }
+
+  const admin = createAdminClient()
+
+  const { data: invite } = await admin
+    .from('invites')
+    .select('id, status')
+    .eq('id', inviteId)
+    .maybeSingle()
+
+  if (!invite) return { error: 'Convite não encontrado.' }
+  if (invite.status !== 'pending') return { error: 'Só é possível cancelar convites pendentes.' }
+
+  const { error } = await admin.from('invites').delete().eq('id', inviteId)
+
+  if (error) {
+    console.error('[cancelInviteAction]', error)
+    return { error: 'Erro ao cancelar o convite.' }
+  }
+
+  return { success: true }
+}
+
+// ---------------------------------------------------------------------------
+// resendInviteAction
+// ---------------------------------------------------------------------------
+
+export async function resendInviteAction(
+  inviteId: string
+): Promise<{ success: true } | { error: string }> {
+  const authError = await requireAdmin()
+  if (authError) return { error: authError }
+
+  const admin = createAdminClient()
+
+  const { data: invite } = await admin
+    .from('invites')
+    .select('id, email, role, status')
+    .eq('id', inviteId)
+    .maybeSingle()
+
+  if (!invite) return { error: 'Convite não encontrado.' }
+  if (invite.status !== 'pending') return { error: 'Só é possível reenviar convites pendentes.' }
+
+  const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const { error: updateError } = await admin
+    .from('invites')
+    .update({ expires_at: newExpiresAt })
+    .eq('id', inviteId)
+
+  if (updateError) {
+    console.error('[resendInviteAction] update:', updateError)
+    return { error: 'Erro ao renovar o convite.' }
+  }
+
+  const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '')
+
+  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
+    invite.email,
+    {
+      data: { role: invite.role },
+      redirectTo: `${siteUrl}/convite`,
+    }
+  )
+
+  if (inviteError) {
+    console.error('[resendInviteAction] invite:', inviteError)
+    return { error: 'Erro ao reenviar o email de convite.' }
+  }
+
+  return { success: true }
 }

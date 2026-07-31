@@ -6,6 +6,15 @@ import { z } from "zod";
 
 const DOC_TYPE_VALUES = ["processo", "playbook", "guia", "template", "checklist", "decisao", "trilha"] as const;
 
+export interface DecisionData {
+  context: string;
+  alternatives: string;
+  decided_by_id: string;
+  decided_by_name: string;
+  decided_at: string; // ISO date string
+  impact: string;
+}
+
 const processSchema = z.object({
   title: z.string().min(1),
   description: z.string().nullable().optional(),
@@ -15,6 +24,17 @@ const processSchema = z.object({
   miro_link: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
   published: z.boolean().default(true),
+  decision_data: z.object({
+    context: z.string().min(1),
+    alternatives: z.string().min(1),
+    decided_by_id: z.string(),
+    decided_by_name: z.string(),
+    decided_at: z.string(),
+    impact: z.string().min(1),
+  }).nullable().optional(),
+  version: z.string().nullable().optional(),
+  last_reviewed_at: z.string().nullable().optional(),
+  template_target: z.enum(["processo", "briefing", "tarefas"]).nullable().optional(),
 });
 
 export type ProcessInput = z.infer<typeof processSchema>;
@@ -46,15 +66,40 @@ export async function createProcessAction(input: ProcessInput) {
   return { data };
 }
 
-export async function updateProcessAction(id: string, input: Partial<ProcessInput>) {
+export async function updateProcessAction(
+  id: string,
+  input: Partial<ProcessInput>
+) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { errors: ["Não autenticado"] };
+
+  const [{ data: member }, { data: process }] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("role")
+      .eq("id", user.id)
+      .eq("active", true)
+      .single(),
+    supabase
+      .from("processes")
+      .select("created_by")
+      .eq("id", id)
+      .single(),
+  ]);
+
+  const isAdmin = member?.role === "admin";
+  const isOwner = process?.created_by === user.id;
+  if (!isAdmin && !isOwner) return { errors: ["Sem permissão"] };
+
   const { data, error } = await supabase
     .from("processes")
     .update(clean(input))
     .eq("id", id)
     .select()
     .single();
-  if (error) return { error: { _form: [error.message] } };
+
+  if (error) return { errors: [error.message] };
   revalidatePath("/processos");
   revalidatePath(`/processos/${id}`);
   return { data };
@@ -62,6 +107,18 @@ export async function updateProcessAction(id: string, input: Partial<ProcessInpu
 
 export async function deleteProcessAction(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado" };
+
+  const [{ data: member }, { data: process }] = await Promise.all([
+    supabase.from("team_members").select("role").eq("id", user.id).maybeSingle(),
+    supabase.from("processes").select("created_by").eq("id", id).single(),
+  ]);
+
+  const isAdmin = member?.role === "admin";
+  const isOwner = process?.created_by === user.id;
+  if (!isAdmin && !isOwner) return { error: "Sem permissão" };
+
   const { error } = await supabase.from("processes").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/processos");

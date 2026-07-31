@@ -31,9 +31,10 @@ import type { Meeting } from "@/lib/queries/meetings";
 interface Props {
   meetings: Meeting[];
   clients: { id: string; name: string }[];
+  students: { id: string; name: string }[];
 }
 
-export function MeetingsView({ meetings, clients }: Props) {
+export function MeetingsView({ meetings, clients, students }: Props) {
   const [view, setView] = useState<"agenda" | "lista">("agenda");
   const [weekStart, setWeekStart] = useState(() => {
     const d = new Date();
@@ -202,7 +203,12 @@ export function MeetingsView({ meetings, clients }: Props) {
         )}
       </div>
 
-      <CreateMeetingDialog open={open} onOpenChange={setOpen} clients={clients} />
+      <CreateMeetingDialog
+        open={open}
+        onOpenChange={setOpen}
+        clients={clients}
+        students={students}
+      />
     </>
   );
 }
@@ -211,10 +217,12 @@ function CreateMeetingDialog({
   open,
   onOpenChange,
   clients,
+  students,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   clients: { id: string; name: string }[];
+  students: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -222,6 +230,7 @@ function CreateMeetingDialog({
     title: "",
     scheduled_at: new Date().toISOString().slice(0, 16),
     duration_minutes: 60,
+    student_ids: [],
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -237,12 +246,29 @@ function CreateMeetingDialog({
     toast.success("Reunião criada");
     onOpenChange(false);
     router.refresh();
-    setForm({ title: "", scheduled_at: new Date().toISOString().slice(0, 16), duration_minutes: 60 });
+    setForm({
+      title: "",
+      scheduled_at: new Date().toISOString().slice(0, 16),
+      duration_minutes: 60,
+      student_ids: [],
+    });
   }
+
+  function toggleStudent(id: string) {
+    setForm((f) => {
+      const ids = f.student_ids ?? [];
+      return {
+        ...f,
+        student_ids: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+      };
+    });
+  }
+
+  const selectedCount = form.student_ids?.length ?? 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Reunião</DialogTitle>
           <DialogDescription>Calendariza com cliente, agenda e duração.</DialogDescription>
@@ -304,6 +330,38 @@ function CreateMeetingDialog({
               />
             </div>
           </div>
+
+          {/* Alunos */}
+          {students.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>
+                Alunos{" "}
+                <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <div className="max-h-36 overflow-y-auto rounded-md border p-2 space-y-1">
+                {students.map((s) => (
+                  <label
+                    key={s.id}
+                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-accent"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.student_ids?.includes(s.id) ?? false}
+                      onChange={() => toggleStudent(s.id)}
+                      className="size-3.5 rounded"
+                    />
+                    {s.name}
+                  </label>
+                ))}
+              </div>
+              {selectedCount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedCount} aluno{selectedCount !== 1 ? "s" : ""} seleccionado{selectedCount !== 1 ? "s" : ""}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="agenda">Agenda</Label>
             <Textarea

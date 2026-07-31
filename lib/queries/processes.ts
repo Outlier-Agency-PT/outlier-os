@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { DOC_TYPES } from "@/lib/constants/process-types";
 import type { DocType } from "@/lib/constants/process-types";
+import type { DecisionData } from "@/lib/actions/processes";
 
 export { DOC_TYPES, type DocType };
 
@@ -23,9 +24,14 @@ export interface Process {
   external_links: Array<{ label: string; url: string }> | null;
   tags: string[] | null;
   published: boolean;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
   category: { id: string; label: string; color: string } | null;
+  decision_data: DecisionData | null;
+  version: string | null;
+  last_reviewed_at: string | null;
+  template_target: 'processo' | 'briefing' | 'tarefas' | null;
 }
 
 export async function getProcesses(filters?: { categoryId?: string }): Promise<Process[]> {
@@ -47,6 +53,19 @@ export async function getProcessById(id: string): Promise<Process | null> {
     .eq("id", id)
     .maybeSingle();
   return (data ?? null) as Process | null;
+}
+
+export async function getChecklistProgress(
+  processId: string,
+  userId: string
+): Promise<number[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("checklist_progress")
+    .select("item_index")
+    .eq("process_id", processId)
+    .eq("user_id", userId);
+  return data?.map((r) => r.item_index) ?? [];
 }
 
 export async function getProcessCategories(): Promise<ProcessCategory[]> {

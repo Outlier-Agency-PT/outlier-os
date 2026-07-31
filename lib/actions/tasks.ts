@@ -22,12 +22,18 @@ const taskSchema = z.object({
   launch_id: z.string().uuid().nullable().optional(),
   assignee_id: z.string().uuid().nullable().optional(),
   due_date: z.string().nullable().optional(),
+  start_date: z.string().nullable().optional(),
   estimate_points: z.number().nullable().optional(),
   list_id: z.string().uuid().nullable().optional(),
   parent_task_id: z.string().uuid().nullable().optional(),
   assignees: z.array(z.string().uuid()).optional(),
   position: z.number().optional(),
   completed_at: z.string().nullable().optional(),
+  is_recurring: z.boolean().optional(),
+  recurrence_frequency: z.enum(["daily", "weekly"]).nullable().optional(),
+  recurrence_day_of_week: z.number().int().min(0).max(6).nullable().optional(),
+  recurrence_template_id: z.string().uuid().nullable().optional(),
+  recurrence_end_date: z.string().nullable().optional(),
 });
 
 export type TaskInput = z.infer<typeof taskSchema>;
@@ -647,6 +653,31 @@ export async function getTasksForGanttAction() {
   return getTasksForGantt();
 }
 
+export async function getTodayTasksAction(userId: string) {
+  const { getTodayTasks } = await import("@/lib/queries/dashboard-colaborador");
+  return getTodayTasks(userId);
+}
+
+export async function markTaskDoneAction(taskId: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { data: concluido } = await supabase
+    .from("task_statuses")
+    .select("id")
+    .eq("key", "concluido")
+    .maybeSingle();
+
+  const update: Record<string, unknown> = {
+    completed_at: new Date().toISOString(),
+  };
+  if (concluido?.id) update.status_id = concluido.id;
+
+  const { error } = await supabase.from("tasks").update(update).eq("id", taskId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard");
+  return {};
+}
+
 const taskDatesSchema = z.object({
   start_date: z.string().nullable().optional(),
   due_date: z.string().nullable().optional(),
@@ -671,4 +702,101 @@ export async function updateTaskDatesAction(
   if (error) return { error: error.message };
   revalidatePath("/tarefas");
   return { success: true };
+}
+
+export async function generateRecurringTasksAction(): Promise<{ success: boolean; generated: number } | { error: string }> {
+  const admin = createAdminClient();
+
+  const { data: templates, error: fetchError } = await admin
+    .from("tasks")
+    .select("*")
+    .eq("is_recurring", true)
+    .is("recurrence_template_id", null);
+
+  if (fetchError) return { error: fetchError.message };
+  if (!templates || templates.length === 0) return { success: true, generated: 0 };
+
+  const { data: aFazerStatus } = await admin
+    .from("task_statuses")
+    .select("id")
+    .eq("key", "a_fazer")
+    .maybeSingle();
+
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const todayDow = today.getUTCDay(); // 0=domingo
+
+  // Intervalo da semana corrente (segunda a domingo)
+  const diffToMonday = todayDow === 0 ? 6 : todayDow - 1;
+  const monday = new Date(today);
+  monday.setUTCDate(today.getUTCDate() - diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const mondayStr = monday.toISOString().slice(0, 10);
+  const sundayStr = sunday.toISOString().slice(0, 10);
+
+  let generated = 0;
+
+  for (const t of templates as Record<string, any>[]) {
+    // Não gera se a recorrência já terminou
+    if (t.recurrence_end_date && todayStr > t.recurrence_end_date) continue;
+
+    if (t.recurrence_frequency === "daily") {
+      const { data: existing } = await admin
+        .from("tasks")
+        .select("id")
+        .eq("recurrence_template_id", t.id)
+        .eq("due_date", todayStr)
+        .maybeSingle();
+
+      if (!existing) {
+        const { error } = await admin.from("tasks").insert({
+          title: t.title,
+          description: t.description ?? null,
+          priority: t.priority,
+          assignee_id: t.assignee_id ?? null,
+          assignees: t.assignees ?? [],
+          estimate_points: t.estimate_points ?? null,
+          list_id: t.list_id ?? null,
+          status_id: aFazerStatus?.id ?? t.status_id ?? null,
+          due_date: todayStr,
+          is_recurring: false,
+          recurrence_template_id: t.id,
+          created_by: t.created_by ?? null,
+        });
+        if (!error) generated++;
+      }
+    } else if (t.recurrence_frequency === "weekly") {
+      if (t.recurrence_day_of_week === null || t.recurrence_day_of_week !== todayDow) continue;
+
+      const { data: existing } = await admin
+        .from("tasks")
+        .select("id")
+        .eq("recurrence_template_id", t.id)
+        .gte("due_date", mondayStr)
+        .lte("due_date", sundayStr)
+        .maybeSingle();
+
+      if (!existing) {
+        const { error } = await admin.from("tasks").insert({
+          title: t.title,
+          description: t.description ?? null,
+          priority: t.priority,
+          assignee_id: t.assignee_id ?? null,
+          assignees: t.assignees ?? [],
+          estimate_points: t.estimate_points ?? null,
+          list_id: t.list_id ?? null,
+          status_id: aFazerStatus?.id ?? t.status_id ?? null,
+          due_date: todayStr,
+          is_recurring: false,
+          recurrence_template_id: t.id,
+          created_by: t.created_by ?? null,
+        });
+        if (!error) generated++;
+      }
+    }
+  }
+
+  revalidatePath("/tarefas");
+  return { success: true, generated };
 }

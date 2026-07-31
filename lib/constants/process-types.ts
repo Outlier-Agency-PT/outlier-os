@@ -9,3 +9,11 @@ export const DOC_TYPES = [
 ] as const;
 
 export type DocType = (typeof DOC_TYPES)[number]["value"];
+
+export const TEMPLATE_TARGETS = [
+  { value: "processo", label: "Novo Processo" },
+  { value: "briefing", label: "Briefing de Aluno" },
+  { value: "tarefas",  label: "Lista de Tarefas" },
+] as const;
+
+export type TemplateTarget = (typeof TEMPLATE_TARGETS)[number]["value"];

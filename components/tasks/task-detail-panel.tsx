@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { TaskComments } from "./task-comments";
 import { SubtasksList } from "./subtasks-list";
 import { TaskDependencies } from "./task-dependencies";
@@ -208,14 +209,51 @@ export function TaskDetailPanel({
     }
   }
 
+  const DOW_LABELS: Record<number, string> = {
+    0: "Domingo", 1: "Segunda", 2: "Terça",
+    3: "Quarta", 4: "Quinta", 5: "Sexta", 6: "Sábado",
+  };
+
+  function formatEndDate(dateStr: string | null | undefined): string {
+    if (!dateStr) return "";
+    const [y, m, d] = dateStr.split("-");
+    return ` · até ${d}/${m}/${y}`;
+  }
+
+  const recurrenceBadgeLabel = (() => {
+    if (!form.is_recurring || form.recurrence_template_id) return null;
+    const end = formatEndDate(form.recurrence_end_date);
+    if (form.recurrence_frequency === "daily") {
+      return `↻ Recorrente · Todos os dias${end}`;
+    }
+    if (form.recurrence_frequency === "weekly") {
+      const dow = form.recurrence_day_of_week != null
+        ? DOW_LABELS[form.recurrence_day_of_week] ?? ""
+        : "";
+      return `↻ Recorrente · Semanalmente às ${dow}${end}`;
+    }
+    return "↻ Recorrente";
+  })();
+
+  const recurrenceBadge = recurrenceBadgeLabel ? (
+    <Badge variant="outline" className="text-xs border-blue-400 text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-700">
+      {recurrenceBadgeLabel}
+    </Badge>
+  ) : form.recurrence_template_id ? (
+    <Badge variant="outline" className="text-xs border-gray-300 text-gray-500 bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700">
+      ↻ Gerada automaticamente
+    </Badge>
+  ) : null;
+
   const titleField = (
-    <div>
+    <div className="space-y-1.5">
       <Label className="text-xs font-semibold">Título</Label>
       <Input
         value={form.title}
         onChange={(e) => handleUpdate("title", e.target.value)}
         className="mt-1.5 h-8 text-sm"
       />
+      {recurrenceBadge}
     </div>
   );
 

@@ -12,6 +12,7 @@ export interface Meeting {
   attendee_ids: string[] | null;
   created_at: string;
   client: { id: string; name: string } | null;
+  meeting_students?: { student_id: string }[];
 }
 
 export async function getMeetings(filters?: { from?: string; to?: string }): Promise<Meeting[]> {
@@ -34,4 +35,14 @@ export async function getMeetingById(id: string): Promise<Meeting | null> {
     .eq("id", id)
     .maybeSingle();
   return (data ?? null) as Meeting | null;
+}
+
+export async function getMeetingsByStudent(studentId: string): Promise<Meeting[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("meetings")
+    .select(`*, client:clients(id, name), meeting_students!inner(student_id)`)
+    .eq("meeting_students.student_id", studentId)
+    .order("scheduled_at", { ascending: false });
+  return (data ?? []) as Meeting[];
 }

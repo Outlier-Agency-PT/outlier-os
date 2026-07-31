@@ -37,6 +37,7 @@ export function MyDay({ tasks, concludedStatusId }: Props) {
         return;
       }
       toast.success("Tarefa concluída");
+      window.dispatchEvent(new CustomEvent("outlier:task-completed", { detail: { taskId } }));
       router.refresh();
     });
   }
