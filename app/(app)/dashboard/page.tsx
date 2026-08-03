@@ -55,19 +55,18 @@ export default async function DashboardPage() {
       member?.role === "admin" ||
       (member?.permissions_modules ?? []).includes("incubadora");
 
-    const [tasks, concludedStatusId, todayMinutes, runningLog, recentLogs, notifResult, overdueTasks, renewals] =
+    const concludedStatusId = await getConcludedStatusId();
+    const [tasks, todayMinutes, runningLog, recentLogs, notifResult, overdueTasks, renewals, incubadora] =
       await Promise.all([
-        user ? getMyOpenTasks(user.id) : Promise.resolve([]),
-        getConcludedStatusId(),
+        user ? getMyOpenTasks(user.id, concludedStatusId) : Promise.resolve([]),
         user ? getTodayTimeMinutes(user.id) : Promise.resolve(0),
         user ? getMyRunningTimeLog(user.id) : Promise.resolve(null),
         user ? getMyRecentTimeLogs(user.id) : Promise.resolve([]),
         user ? getMyNotifications(user.id) : Promise.resolve({ items: [], unread_count: 0 }),
         user ? getMyOverdueTasks(user.id) : Promise.resolve([]),
         hasIncubadora ? getUpcomingRenewals() : Promise.resolve([]),
+        hasIncubadora ? getIncubadoraSummary() : Promise.resolve(null),
       ]);
-
-    const incubadora = hasIncubadora ? await getIncubadoraSummary() : null;
 
     return (
       <>
@@ -90,6 +89,11 @@ export default async function DashboardPage() {
     );
   }
 
+  // getWeekStart() é síncrono — calculado antes do Batch A
+  const adminWeekStart = getWeekStart();
+  const concludedStatusId = await getConcludedStatusId();
+
+  // Batch A: todas as queries independentes em paralelo
   const [
     taskClosedRes,
     launchClosedRes,
@@ -98,12 +102,19 @@ export default async function DashboardPage() {
     focusInitiatives,
     decisions,
     colabTasks,
-    concludedStatusId,
     todayMinutes,
     runningLog,
     recentLogs,
     notifResult,
     overdueTasks,
+    renewalAlerts,
+    renewalsColab,
+    incubadora,
+    krsData,
+    departmentTaskCounts,
+    contentsPublished,
+    launchesDelivered,
+    adminCheckpoints,
   ] = await Promise.all([
     supabase.from("task_statuses").select("id").eq("key", "concluido").maybeSingle(),
     supabase.from("launch_statuses").select("id").in("key", ["concluido", "cancelado"]),
@@ -111,47 +122,49 @@ export default async function DashboardPage() {
     getRecentActivity(10),
     getInitiatives({ focus: true }),
     getDecisions(),
-    user ? getMyOpenTasks(user.id) : Promise.resolve([]),
-    getConcludedStatusId(),
+    user ? getMyOpenTasks(user.id, concludedStatusId) : Promise.resolve([]),
     user ? getTodayTimeMinutes(user.id) : Promise.resolve(0),
     user ? getMyRunningTimeLog(user.id) : Promise.resolve(null),
     user ? getMyRecentTimeLogs(user.id) : Promise.resolve([]),
     user ? getMyNotifications(user.id) : Promise.resolve({ items: [], unread_count: 0 }),
     user ? getMyOverdueTasks(user.id) : Promise.resolve([]),
+    getStudentsWithRenewalAlerts(),
+    getUpcomingRenewals(),
+    getIncubadoraSummary(),
+    supabase.from("key_results").select("initial_value, current_value, target_value"),
+    getDepartmentTaskCounts(concludedStatusId),
+    getContentsPublishedThisMonth(),
+    getLaunchesDeliveredThisMonth(),
+    getWeeklyCheckpoints(adminWeekStart),
   ]);
 
-  const [clientesRes, tarefasRes, lancamentosRes, renewalAlerts, renewalsColab, incubadora] =
-    await Promise.all([
-      clientActiveRes.data?.id
-        ? supabase
-            .from("clients")
-            .select("*", { count: "exact", head: true })
-            .eq("status_id", clientActiveRes.data.id)
-        : supabase.from("clients").select("*", { count: "exact", head: true }),
-      taskClosedRes.data?.id
-        ? supabase
-            .from("tasks")
-            .select("*", { count: "exact", head: true })
-            .neq("status_id", taskClosedRes.data.id)
-        : supabase.from("tasks").select("*", { count: "exact", head: true }),
-      launchClosedRes.data && launchClosedRes.data.length > 0
-        ? supabase
-            .from("launches")
-            .select("*", { count: "exact", head: true })
-            .not(
-              "status_id",
-              "in",
-              `(${launchClosedRes.data.map((s: { id: string }) => s.id).join(",")})`,
-            )
-        : supabase.from("launches").select("*", { count: "exact", head: true }),
-      getStudentsWithRenewalAlerts(),
-      getUpcomingRenewals(),
-      getIncubadoraSummary(),
-    ]);
+  // Batch B: só as 3 queries que dependem dos status IDs do Batch A
+  const [clientesRes, tarefasRes, lancamentosRes] = await Promise.all([
+    clientActiveRes.data?.id
+      ? supabase
+          .from("clients")
+          .select("*", { count: "exact", head: true })
+          .eq("status_id", clientActiveRes.data.id)
+      : supabase.from("clients").select("*", { count: "exact", head: true }),
+    taskClosedRes.data?.id
+      ? supabase
+          .from("tasks")
+          .select("*", { count: "exact", head: true })
+          .neq("status_id", taskClosedRes.data.id)
+      : supabase.from("tasks").select("*", { count: "exact", head: true }),
+    launchClosedRes.data && launchClosedRes.data.length > 0
+      ? supabase
+          .from("launches")
+          .select("*", { count: "exact", head: true })
+          .not(
+            "status_id",
+            "in",
+            `(${launchClosedRes.data.map((s: { id: string }) => s.id).join(",")})`,
+          )
+      : supabase.from("launches").select("*", { count: "exact", head: true }),
+  ]);
 
-  const { data: krs } = await supabase
-    .from("key_results")
-    .select("initial_value, current_value, target_value");
+  const krs = krsData.data;
   let okrAvg: number | null = null;
   if (krs && krs.length > 0) {
     let total = 0;
@@ -181,14 +194,6 @@ export default async function DashboardPage() {
     },
   ];
 
-  const adminWeekStart = getWeekStart();
-  const [departmentTaskCounts, contentsPublished, launchesDelivered, adminCheckpoints] =
-    await Promise.all([
-      getDepartmentTaskCounts(),
-      getContentsPublishedThisMonth(),
-      getLaunchesDeliveredThisMonth(),
-      getWeeklyCheckpoints(adminWeekStart),
-    ]);
   const adminFriday = new Date(adminWeekStart);
   adminFriday.setDate(adminWeekStart.getDate() + 4);
   const fmtD = (d: Date) =>

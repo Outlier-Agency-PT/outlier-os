@@ -13,15 +13,18 @@ interface Props {
 
 export function AdminDashboardWrapper({ adminView, colaboradorView }: Props) {
   const [view, setView] = useState<DashView>("admin");
+  const [mounted, setMounted] = useState<Set<DashView>>(new Set(["admin"]));
 
   useLayoutEffect(() => {
     const saved = localStorage.getItem(PREF_KEY);
     if (saved === "admin" || saved === "colaborador") {
       setView(saved);
+      setMounted(new Set([saved]));
     }
   }, []);
 
   function switchView(v: DashView) {
+    setMounted((prev) => new Set([...prev, v]));
     setView(v);
     localStorage.setItem(PREF_KEY, v);
   }
@@ -55,8 +58,12 @@ export function AdminDashboardWrapper({ adminView, colaboradorView }: Props) {
         </div>
       </div>
 
-      <div className={view === "admin" ? undefined : "hidden"}>{adminView}</div>
-      <div className={view === "colaborador" ? undefined : "hidden"}>{colaboradorView}</div>
+      <div className={view === "admin" ? undefined : "hidden"}>
+        {mounted.has("admin") && adminView}
+      </div>
+      <div className={view === "colaborador" ? undefined : "hidden"}>
+        {mounted.has("colaborador") && colaboradorView}
+      </div>
     </>
   );
 }

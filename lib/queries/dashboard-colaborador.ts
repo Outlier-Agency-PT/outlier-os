@@ -34,9 +34,9 @@ export async function getConcludedStatusId(): Promise<string | null> {
   return data?.id ?? null;
 }
 
-export async function getMyOpenTasks(userId: string): Promise<TaskWithRelations[]> {
+export async function getMyOpenTasks(userId: string, concludedStatusId?: string | null): Promise<TaskWithRelations[]> {
   const supabase = await createClient();
-  const concludedStatusId = await getConcludedStatusId();
+  const concludedId = concludedStatusId !== undefined ? concludedStatusId : await getConcludedStatusId();
 
   const SELECT = `
       *,
@@ -51,8 +51,8 @@ export async function getMyOpenTasks(userId: string): Promise<TaskWithRelations[
 
   const [{ data: byId, error: errById }, { data: byArray, error: errByArray }] =
     await Promise.all([
-      concludedStatusId ? baseById.neq("status_id", concludedStatusId) : baseById,
-      concludedStatusId ? baseByArray.neq("status_id", concludedStatusId) : baseByArray,
+      concludedId ? baseById.neq("status_id", concludedId) : baseById,
+      concludedId ? baseByArray.neq("status_id", concludedId) : baseByArray,
     ]);
 
   if (errById)
@@ -212,7 +212,7 @@ export async function getIncubadoraSummary(): Promise<DashIncubadoraSummary> {
   const supabase = await createClient();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ count: ativos }, { data: recentStudentIds }, { count: tickets }] = await Promise.all([
+  const [{ count: ativos }, { data: recentStudentIds }, { count: tickets }, { data: activeStudents }] = await Promise.all([
     supabase
       .from("students")
       .select("*", { count: "exact", head: true })
@@ -225,15 +225,14 @@ export async function getIncubadoraSummary(): Promise<DashIncubadoraSummary> {
       .from("support_tickets")
       .select("*", { count: "exact", head: true })
       .eq("status", "aberto"),
+    supabase
+      .from("students")
+      .select("user_id")
+      .eq("status", "ativo")
+      .not("user_id", "is", null),
   ]);
 
   const activeWithRecent = new Set((recentStudentIds ?? []).map((r: { student_id: string }) => r.student_id));
-  // "em risco" = alunos ativos cujo user_id não aparece nas completions recentes
-  const { data: activeStudents } = await supabase
-    .from("students")
-    .select("user_id")
-    .eq("status", "ativo")
-    .not("user_id", "is", null);
 
   const emRisco = (activeStudents ?? []).filter(
     (s: { user_id: string | null }) => s.user_id && !activeWithRecent.has(s.user_id),
@@ -285,10 +284,10 @@ export interface TodayTask {
   } | null;
 }
 
-export async function getTodayTasks(userId: string): Promise<TodayTask[]> {
+export async function getTodayTasks(userId: string, concludedStatusId?: string | null): Promise<TodayTask[]> {
   const supabase = await createClient();
   const today = new Date().toISOString().split("T")[0];
-  const concludedId = await getConcludedStatusId();
+  const concludedId = concludedStatusId !== undefined ? concludedStatusId : await getConcludedStatusId();
 
   let query = supabase
     .from("tasks")

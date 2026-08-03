@@ -49,8 +49,8 @@ async function getOpenTasksCountForMembers(
   return count ?? 0;
 }
 
-export async function getDepartmentTaskCounts(): Promise<DepartmentTaskCounts> {
-  const concludedStatusId = await getConcludedStatusId();
+export async function getDepartmentTaskCounts(concludedStatusId?: string | null): Promise<DepartmentTaskCounts> {
+  const concludedId = concludedStatusId !== undefined ? concludedStatusId : await getConcludedStatusId();
 
   const [vendasIds, marketingIds, opsDesignIds, desenvolvimentoIds] = await Promise.all([
     getDepartmentMemberIds(["Vendas"]),
@@ -60,10 +60,10 @@ export async function getDepartmentTaskCounts(): Promise<DepartmentTaskCounts> {
   ]);
 
   const [vendas, marketing, operacoesDesign, desenvolvimento] = await Promise.all([
-    getOpenTasksCountForMembers(vendasIds, concludedStatusId),
-    getOpenTasksCountForMembers(marketingIds, concludedStatusId),
-    getOpenTasksCountForMembers(opsDesignIds, concludedStatusId),
-    getOpenTasksCountForMembers(desenvolvimentoIds, concludedStatusId),
+    getOpenTasksCountForMembers(vendasIds, concludedId),
+    getOpenTasksCountForMembers(marketingIds, concludedId),
+    getOpenTasksCountForMembers(opsDesignIds, concludedId),
+    getOpenTasksCountForMembers(desenvolvimentoIds, concludedId),
   ]);
 
   return { vendas, marketing, operacoesDesign, desenvolvimento };
