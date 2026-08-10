@@ -10,11 +10,12 @@ const PAGE_SIZE = 24;
 export default async function ProcessosPage({
   searchParams,
 }: {
-  searchParams: { page?: string; search?: string; category?: string };
+  searchParams: Promise<{ page?: string; search?: string; category?: string }>;
 }) {
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const search = searchParams.search ?? "";
-  const categoryId = searchParams.category ?? null;
+  const { page: pageParam, search: searchParam, category } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const search = searchParam ?? "";
+  const categoryId = category ?? null;
 
   const [{ data: processes, total }, categories, members] = await Promise.all([
     getProcesses({ page, pageSize: PAGE_SIZE, search, categoryId }),
