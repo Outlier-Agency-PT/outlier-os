@@ -9,6 +9,7 @@ import { TodayTasks } from "@/components/dashboard/today-tasks";
 import { TaskForm } from "@/components/tasks/task-form";
 import { fetchTaskFormDataAction } from "@/lib/actions/tasks";
 import { fetchMyOpenTasksAction } from "@/lib/actions/tasks";
+import type { SimpleTask } from "./my-hours";
 import type { TaskWithRelations } from "@/lib/queries/tasks";
 import type { ReactNode } from "react";
 import type {
@@ -60,7 +61,7 @@ export function ColaboradorDashboard({
     members: { id: string; label: string }[];
     lists: { id: string; name: string; spaceName?: string }[];
   }>({ statuses: [], clients: [], members: [], lists: [] });
-  const [timerTaskList, setTimerTaskList] = useState<TaskWithRelations[]>(tasks);
+  const [timerTaskList, setTimerTaskList] = useState<SimpleTask[]>(tasks);
 
   useEffect(() => {
     if (!taskFormOpen || taskFormReady) return;

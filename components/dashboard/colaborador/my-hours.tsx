@@ -34,11 +34,10 @@ import {
 import { getRecentLogsAction } from "@/lib/actions/time-logs";
 import { cn, formatDuration } from "@/lib/utils";
 import { toast } from "sonner";
-import type { TaskWithRelations } from "@/lib/queries/tasks";
 import type { TimeLogWithTask } from "@/lib/queries/dashboard-colaborador";
 import { PRIORITY_COLORS, type TaskPriority } from "@/lib/types";
 
-interface SimpleTask {
+export interface SimpleTask {
   id: string;
   title: string;
   priority?: TaskPriority;
@@ -50,7 +49,7 @@ interface Props {
   todayMinutes: number;
   runningLog: TimeLogWithTask | null;
   recentLogs: TimeLogWithTask[];
-  myDayTasks: TaskWithRelations[];
+  myDayTasks: SimpleTask[];
   onNewTask: () => void;
 }
 
