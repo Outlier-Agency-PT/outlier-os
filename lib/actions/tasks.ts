@@ -379,6 +379,32 @@ export async function fetchMyAllTasksAction() {
   return { data: tasks.sort((a, b) => a.title.localeCompare(b.title)) };
 }
 
+export async function fetchTaskFormDataAction() {
+  const supabase = await createClient();
+  const [{ data: statuses }, { data: clients }, { data: members }, { data: spaces }, { data: lists }] =
+    await Promise.all([
+      supabase.from("task_statuses").select("id, label").eq("active", true).order("sort_order", { ascending: true }),
+      supabase.from("clients").select("id, name").order("name", { ascending: true }),
+      supabase.from("team_members").select("id, full_name").order("full_name", { ascending: true }),
+      supabase.from("task_spaces").select("id, name").order("position", { ascending: true }),
+      supabase.from("task_lists").select("id, name, space_id").order("position", { ascending: true }),
+    ]);
+
+  const spaceMap = new Map((spaces ?? []).map((s: { id: string; name: string }) => [s.id, s.name]));
+  const flatLists = (lists ?? []).map((l: { id: string; name: string; space_id: string }) => ({
+    id: l.id,
+    name: l.name,
+    spaceName: spaceMap.get(l.space_id) ?? undefined,
+  }));
+
+  return {
+    statuses: (statuses ?? []).map((s: { id: string; label: string }) => ({ id: s.id, label: s.label })),
+    clients: (clients ?? []).map((c: { id: string; name: string }) => ({ id: c.id, label: c.name })),
+    members: (members ?? []).map((m: { id: string; full_name: string }) => ({ id: m.id, label: m.full_name })),
+    lists: flatLists,
+  };
+}
+
 export async function fetchTaskListsAction() {
   const supabase = await createClient();
   const [{ data: spaces }, { data: lists }] = await Promise.all([

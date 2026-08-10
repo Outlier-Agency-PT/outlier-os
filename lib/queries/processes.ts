@@ -34,15 +34,34 @@ export interface Process {
   template_target: 'processo' | 'briefing' | 'tarefas' | null;
 }
 
-export async function getProcesses(filters?: { categoryId?: string }): Promise<Process[]> {
+export interface GetProcessesResult {
+  data: Process[];
+  total: number;
+}
+
+export async function getProcesses(filters?: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  categoryId?: string | null;
+}): Promise<GetProcessesResult> {
   const supabase = await createClient();
+  const page = Math.max(1, filters?.page ?? 1);
+  const pageSize = filters?.pageSize ?? 24;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   let q = supabase
     .from("processes")
-    .select(`*, category:process_categories(id, label, color)`)
-    .order("updated_at", { ascending: false });
+    .select(`*, category:process_categories(id, label, color)`, { count: "exact" })
+    .order("updated_at", { ascending: false })
+    .range(from, to);
+
   if (filters?.categoryId) q = q.eq("category_id", filters.categoryId);
-  const { data } = await q;
-  return (data ?? []) as Process[];
+  if (filters?.search?.trim()) q = q.ilike("title", `%${filters.search.trim()}%`);
+
+  const { data, count } = await q;
+  return { data: (data ?? []) as Process[], total: count ?? 0 };
 }
 
 export async function getProcessById(id: string): Promise<Process | null> {

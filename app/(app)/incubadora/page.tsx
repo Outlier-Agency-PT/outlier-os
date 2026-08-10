@@ -97,7 +97,6 @@ export default async function IncubadoraPage(props: {
       <div className="p-4 md:p-8">
         <IncubadoraDashboard />
       </div>
-      <ModulesPanel modules={modules} />
       <StudentsView
         students={students}
         members={members.map((m) => ({ id: m.id, full_name: m.full_name }))}
@@ -106,6 +105,7 @@ export default async function IncubadoraPage(props: {
         pendingReminders={pendingReminders}
       />
       <StudentsROIDashboard />
+      <ModulesPanel modules={modules} />
     </>
   );
 }

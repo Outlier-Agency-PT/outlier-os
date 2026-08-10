@@ -21,6 +21,7 @@ export default async function TemplatesPage() {
       <PageHeader
         title="Templates de Tarefas"
         description={`${templates.length} ${templates.length === 1 ? "template" : "templates"}`}
+        backHref="/tarefas"
       />
       <TemplatesManager
         templates={templates}

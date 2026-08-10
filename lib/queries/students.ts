@@ -38,6 +38,15 @@ export interface Student {
   sales_page_published_at: string | null;
   motivation: string | null;
   priority: "alta" | "media" | "baixa" | null;
+  mentoria_individual: boolean | null;
+  renewal_date_1: string | null;
+  renewal_date_2: string | null;
+  renewal_year_1: string | null;
+  renewal_year_2: string | null;
+  strategic_session_date: string | null;
+  suggested_level: string | null;
+  appears_in_sessions: string | null;
+  coach_notes: string | null;
   created_at: string;
   coach: { id: string; full_name: string } | null;
 }

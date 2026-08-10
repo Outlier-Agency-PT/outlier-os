@@ -134,16 +134,63 @@ export async function getMyRunningTimeLog(userId: string): Promise<TimeLogWithTa
 
 export async function getMyRecentTimeLogs(userId: string): Promise<TimeLogWithTask[]> {
   const supabase = await createClient();
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
-  weekStart.setHours(0, 0, 0, 0);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 84); // 12 semanas
+  cutoff.setHours(0, 0, 0, 0);
   const { data } = await supabase
     .from("task_time_logs")
     .select(`*, task:tasks(id, title, description, estimate_points)`)
     .eq("member_id", userId)
-    .gte("start_at", weekStart.toISOString())
+    .gte("start_at", cutoff.toISOString())
     .order("start_at", { ascending: false });
   return (data ?? []) as TimeLogWithTask[];
+}
+
+// ── Horas da equipa (admin) ───────────────────────────────────────────────────
+
+export interface TeamMemberHours {
+  member_id: string;
+  full_name: string;
+  week_minutes: number;
+  today_minutes: number;
+  has_running: boolean;
+}
+
+export async function getTeamWeeklyHours(weekStart: Date): Promise<TeamMemberHours[]> {
+  const supabase = await createClient();
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [{ data: members }, { data: logs }] = await Promise.all([
+    supabase.from("team_members").select("id, full_name").order("full_name"),
+    supabase
+      .from("task_time_logs")
+      .select("member_id, duration_minutes, start_at, end_at")
+      .gte("start_at", weekStart.toISOString())
+      .lt("start_at", weekEnd.toISOString()),
+  ]);
+
+  if (!members || members.length === 0) return [];
+
+  const map = new Map<string, TeamMemberHours>();
+  for (const m of members as { id: string; full_name: string }[]) {
+    map.set(m.id, { member_id: m.id, full_name: m.full_name, week_minutes: 0, today_minutes: 0, has_running: false });
+  }
+
+  for (const log of (logs ?? []) as { member_id: string; duration_minutes: number | null; start_at: string; end_at: string | null }[]) {
+    const entry = map.get(log.member_id);
+    if (!entry) continue;
+    const mins = log.duration_minutes ?? 0;
+    entry.week_minutes += mins;
+    if (log.start_at >= todayStart.toISOString()) entry.today_minutes += mins;
+    if (!log.end_at) entry.has_running = true;
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.week_minutes - a.week_minutes);
 }
 
 // ── Extra dashboard blocks ────────────────────────────────────────────────────

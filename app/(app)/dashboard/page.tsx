@@ -1,12 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { Users, CheckSquare, Rocket, Target } from "lucide-react";
-import { getRecentActivity, describeActivity } from "@/lib/queries/activity";
+import { getRecentActivity } from "@/lib/queries/activity";
 import { getInitiatives } from "@/lib/queries/initiatives";
 import { getDecisions } from "@/lib/queries/decisions";
 import { FocusWeek } from "@/components/dashboard/focus-week";
 import { PendingDecisions } from "@/components/dashboard/pending-decisions";
 import { ColaboradorDashboard } from "@/components/dashboard/colaborador/colaborador-dashboard";
+import { CheckpointSummaryCard } from "@/components/dashboard/colaborador/weekly-checkpoint";
 import { DepartmentMetrics } from "@/components/dashboard/department-metrics";
 import { AdminCheckpoints } from "@/components/dashboard/admin-checkpoints";
 import { AdminDashboardWrapper } from "@/components/dashboard/admin-dashboard-wrapper";
@@ -21,6 +22,7 @@ import {
   getMyOverdueTasks,
   getIncubadoraSummary,
   getUpcomingRenewals,
+  getTeamWeeklyHours,
 } from "@/lib/queries/dashboard-colaborador";
 import {
   getDepartmentTaskCounts,
@@ -30,8 +32,10 @@ import {
 import { getWeeklyCheckpoints } from "@/lib/actions/checkpoints";
 import { getWeekStart } from "@/lib/utils/week-utils";
 import { getStudentsWithRenewalAlerts } from "@/lib/queries/students";
-import { formatRelative } from "@/lib/utils";
+import { getTeamMembers } from "@/lib/queries/team";
 import Link from "next/link";
+import { RecentActivityFeed } from "@/components/dashboard/recent-activity-feed";
+import { TeamHours } from "@/components/dashboard/team-hours";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +88,7 @@ export default async function DashboardPage() {
           incubadora={incubadora}
           renewals={renewals}
           hasIncubadora={hasIncubadora}
+          checkpointCard={<CheckpointSummaryCard />}
         />
       </>
     );
@@ -115,11 +120,13 @@ export default async function DashboardPage() {
     contentsPublished,
     launchesDelivered,
     adminCheckpoints,
+    teamMembers,
+    teamHours,
   ] = await Promise.all([
     supabase.from("task_statuses").select("id").eq("key", "concluido").maybeSingle(),
     supabase.from("launch_statuses").select("id").in("key", ["concluido", "cancelado"]),
     supabase.from("client_statuses").select("id").eq("key", "ativo").maybeSingle(),
-    getRecentActivity(10),
+    getRecentActivity(20),
     getInitiatives({ focus: true }),
     getDecisions(),
     user ? getMyOpenTasks(user.id, concludedStatusId) : Promise.resolve([]),
@@ -136,6 +143,8 @@ export default async function DashboardPage() {
     getContentsPublishedThisMonth(),
     getLaunchesDeliveredThisMonth(),
     getWeeklyCheckpoints(adminWeekStart),
+    getTeamMembers(),
+    getTeamWeeklyHours(adminWeekStart),
   ]);
 
   // Batch B: só as 3 queries que dependem dos status IDs do Batch A
@@ -312,39 +321,18 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Atividade — sem wrapper de card, lista editorial pura */}
-      <div>
-        <div className="border-b border-border pb-3">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Atividade Recente
-          </h2>
-        </div>
-        {activity.length === 0 ? (
-          <p className="py-6 text-sm font-light text-muted-foreground">
-            Sem atividade ainda. Cria clientes, tarefas ou lançamentos para preencher o feed.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {activity.map((a) => (
-              <li
-                key={a.id}
-                className="flex items-baseline justify-between gap-4 py-3"
-              >
-                <p className="min-w-0 flex-1 text-sm leading-snug">
-                  <span className="font-medium tracking-[-0.01em]">
-                    {a.member?.full_name ?? "Sistema"}
-                  </span>{" "}
-                  <span className="font-light text-muted-foreground">
-                    {describeActivity(a)}
-                  </span>
-                </p>
-                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/45">
-                  {formatRelative(a.created_at)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="w-full border border-border bg-card px-4 py-1 md:px-6">
+        <TeamHours
+          initialData={teamHours}
+          initialWeekStart={adminWeekStart}
+        />
+      </div>
+
+      <div className="w-full border border-border bg-card px-4 py-1 md:px-6">
+        <RecentActivityFeed
+          initialActivity={activity}
+          members={teamMembers.map((m) => ({ id: m.id, full_name: m.full_name }))}
+        />
       </div>
 
       {/* Checkpoints da Equipa */}
@@ -372,6 +360,7 @@ export default async function DashboardPage() {
       incubadora={incubadora}
       renewals={renewalsColab}
       hasIncubadora={true}
+      checkpointCard={<CheckpointSummaryCard />}
     />
   );
 

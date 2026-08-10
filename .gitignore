@@ -52,3 +52,6 @@ supabase/.temp
 .secrets.local
 
 .vercel
+
+# dados locais de auditoria / tokens de API
+_auditoria/

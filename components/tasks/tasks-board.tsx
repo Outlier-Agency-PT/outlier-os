@@ -441,12 +441,14 @@ export function TasksBoard({
             />
           </div>
         ) : selectedSpaceId ? (
-          <div className="flex-1 overflow-auto p-8 bg-canvas">
+          <div className="overflow-auto p-4 bg-canvas min-h-0">
             <SpaceAggregatedView
               tasks={filtered as TaskWithHierarchy[]}
               spaces={spaces}
               spaceId={selectedSpaceId}
               onTaskClick={handleSelectTask}
+              view={view}
+              statuses={statuses}
             />
           </div>
         ) : (
@@ -550,12 +552,13 @@ function Column({
   onTaskClick: (taskId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status.id });
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "w-72 shrink-0 rounded-lg border bg-muted/30 p-3 transition-colors",
+        "w-72 shrink-0 rounded-lg border bg-background p-3 transition-colors",
         isOver && "bg-muted",
       )}
     >
@@ -572,9 +575,25 @@ function Column({
         {tasks.length === 0 ? (
           <p className="px-2 text-xs text-muted-foreground">Sem tarefas</p>
         ) : (
-          tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task.id)} />
-          ))
+          (() => {
+            const LIMIT = 5;
+            const visible = expanded ? tasks : tasks.slice(0, LIMIT);
+            return (
+              <>
+                {visible.map((task) => (
+                  <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task.id)} />
+                ))}
+                {tasks.length > LIMIT && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground py-1 transition-colors"
+                  >
+                    {expanded ? "Ver menos" : `Ver mais ${tasks.length - LIMIT}`}
+                  </button>
+                )}
+              </>
+            );
+          })()
         )}
       </div>
     </div>
@@ -671,6 +690,15 @@ function TaskCard({ task, onClick }: { task: TaskWithRelations; onClick: () => v
 
 // ─── TasksTable ───────────────────────────────────────────────────────────────
 
+function formatLoggedTime(minutes?: number): string {
+  if (!minutes) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 function TasksTable({
   tasks,
   onTaskClick,
@@ -692,6 +720,7 @@ function TasksTable({
             <th className="px-4 py-3 font-medium">Cliente</th>
             <th className="px-4 py-3 font-medium">Responsáveis</th>
             <th className="px-4 py-3 font-medium">Estimativa</th>
+            <th className="px-4 py-3 font-medium">Timer</th>
             <th className="px-4 py-3 font-medium">Data Limite</th>
           </tr>
         </thead>
@@ -727,6 +756,9 @@ function TasksTable({
                   </Badge>
                 )}
               </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {t.completed_at ? formatLoggedTime(t.total_logged_minutes) : "—"}
+              </td>
               <td className="px-4 py-3 text-muted-foreground">{t.due_date ?? "—"}</td>
             </tr>
           ))}
@@ -739,16 +771,63 @@ function TasksTable({
 // ─── SpaceAggregatedView ──────────────────────────────────────────────────────
 
 function SpaceAggregatedView({
-  tasks,
+  tasks: initialTasks,
   spaces,
   spaceId,
   onTaskClick,
+  view,
+  statuses,
 }: {
   tasks: TaskWithHierarchy[];
   spaces: TaskSpace[];
   spaceId: string;
   onTaskClick: (taskId: string) => void;
+  view: View;
+  statuses: { id: string; key: string; label: string; color: string }[];
 }) {
+  const [tasks, setTasks] = useState<TaskWithHierarchy[]>(initialTasks);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const taskId = String(active.id);
+    const overId = String(over.id);
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const overTask = tasks.find((t) => t.id === overId);
+    if (overTask) {
+      if (overTask.status_id !== task.status_id) return;
+      const columnTasks = tasks.filter((t) => t.status_id === task.status_id);
+      const activeIndex = columnTasks.findIndex((t) => t.id === taskId);
+      const overIndex = columnTasks.findIndex((t) => t.id === overId);
+      if (activeIndex === overIndex) return;
+      const newTasks = [...tasks];
+      const [movedTask] = newTasks.splice(activeIndex, 1);
+      newTasks.splice(overIndex, 0, movedTask);
+      setTasks(newTasks);
+    } else {
+      const newStatusId = overId;
+      const targetStatus = statuses.find((s) => s.id === newStatusId);
+      if (!targetStatus) return;
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...t, status_id: newStatusId, status: targetStatus } : t,
+        ),
+      );
+      const result = await moveTaskStatusAction(taskId, newStatusId);
+      if ("error" in result && result.error) {
+        toast.error("Falha ao mover tarefa");
+        setTasks(initialTasks);
+      }
+    }
+  }
+
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) return null;
 
@@ -773,8 +852,50 @@ function SpaceAggregatedView({
     );
   }
 
-  return (
-    <div className="space-y-8">
+  return view === "kanban" ? (
+    isMounted ? (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="space-y-4">
+        {listsWithTasks.map((list) => {
+          const listTasks = tasksByList.get(list.id) ?? [];
+          return (
+            <div key={list.id}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="size-2 rounded-full" style={{ backgroundColor: list.color }} />
+                <h3 className="text-sm font-semibold">{list.name}</h3>
+                <Badge variant="secondary" className="text-[10px]">{listTasks.length}</Badge>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-4 items-start">
+                {statuses.map((status) => (
+                  <Column
+                    key={status.id}
+                    status={status}
+                    tasks={listTasks.filter((t) => t.status?.id === status.id) as TaskWithRelations[]}
+                    onTaskClick={onTaskClick}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {listsEmpty.map((list) => (
+          <div key={list.id}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="size-2 rounded-full" style={{ backgroundColor: list.color }} />
+              <h3 className="text-sm font-semibold text-muted-foreground">{list.name}</h3>
+              <Badge variant="secondary" className="text-[10px]">0</Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </DndContext>
+    ) : null
+  ) : (
+    <div className="space-y-4">
       {listsWithTasks.map((list) => {
         const listTasks = tasksByList.get(list.id) ?? [];
         return (
@@ -786,55 +907,60 @@ function SpaceAggregatedView({
                 {listTasks.length}
               </Badge>
             </div>
+
             <div className="overflow-hidden rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
-                    <th className="px-4 py-2 font-medium">Título</th>
-                    <th className="px-4 py-2 font-medium">Estado</th>
-                    <th className="px-4 py-2 font-medium">Prioridade</th>
-                    <th className="px-4 py-2 font-medium">Cliente</th>
-                    <th className="px-4 py-2 font-medium">Responsável</th>
-                    <th className="px-4 py-2 font-medium">Estimativa</th>
-                    <th className="px-4 py-2 font-medium">Data Limite</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {listTasks.map((t) => (
-                    <tr
-                      key={t.id}
-                      onClick={() => onTaskClick(t.id)}
-                      className="hover:bg-muted/50 cursor-pointer transition-colors"
-                    >
-                      <td className="px-4 py-2.5 font-medium">{t.title}</td>
-                      <td className="px-4 py-2.5">
-                        {t.status && <StatusBadge label={t.status.label} color={t.status.color} />}
-                      </td>
-                      <td className={cn("px-4 py-2.5", PRIORITY_COLORS[t.priority as TaskPriority])}>
-                        {t.priority !== "sem_prioridade"
-                          ? PRIORITY_LABELS[t.priority as TaskPriority]
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{t.client?.name ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{t.assignee?.full_name ?? "—"}</td>
-                      <td className="px-4 py-2.5">
-                        {t.estimate_points ? (
-                          <span className="text-muted-foreground">{t.estimate_points}h</span>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="text-xs px-1.5 py-0 border-amber-400 text-amber-600 bg-amber-50"
-                          >
-                            Sem estimativa
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{t.due_date ?? "—"}</td>
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                      <th className="px-4 py-2 font-medium">Título</th>
+                      <th className="px-4 py-2 font-medium">Estado</th>
+                      <th className="px-4 py-2 font-medium">Prioridade</th>
+                      <th className="px-4 py-2 font-medium">Cliente</th>
+                      <th className="px-4 py-2 font-medium">Responsável</th>
+                      <th className="px-4 py-2 font-medium">Estimativa</th>
+                      <th className="px-4 py-2 font-medium">Timer</th>
+                      <th className="px-4 py-2 font-medium">Data Limite</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {listTasks.map((t) => (
+                      <tr
+                        key={t.id}
+                        onClick={() => onTaskClick(t.id)}
+                        className="hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <td className="px-4 py-2.5 font-medium">{t.title}</td>
+                        <td className="px-4 py-2.5">
+                          {t.status && <StatusBadge label={t.status.label} color={t.status.color} />}
+                        </td>
+                        <td className={cn("px-4 py-2.5", PRIORITY_COLORS[t.priority as TaskPriority])}>
+                          {t.priority !== "sem_prioridade"
+                            ? PRIORITY_LABELS[t.priority as TaskPriority]
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{t.client?.name ?? "—"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{t.assignee?.full_name ?? "—"}</td>
+                        <td className="px-4 py-2.5">
+                          {t.estimate_points ? (
+                            <span className="text-muted-foreground">{t.estimate_points}h</span>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-xs px-1.5 py-0 border-amber-400 text-amber-600 bg-amber-50"
+                            >
+                              Sem estimativa
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground">
+                          {t.completed_at ? formatLoggedTime(t.total_logged_minutes) : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{t.due_date ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
           </div>
         );
       })}

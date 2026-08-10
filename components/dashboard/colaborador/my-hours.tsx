@@ -10,9 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -30,8 +28,6 @@ import {
   fetchMyOpenTasksAction,
   fetchMyAllTasksAction,
   markTaskCompleteAction,
-  createTaskAction,
-  fetchTaskListsAction,
   updateTimeLogAction,
   deleteTimeLogAction,
 } from "@/lib/actions/tasks";
@@ -40,7 +36,7 @@ import { cn, formatDuration } from "@/lib/utils";
 import { toast } from "sonner";
 import type { TaskWithRelations } from "@/lib/queries/tasks";
 import type { TimeLogWithTask } from "@/lib/queries/dashboard-colaborador";
-import { PRIORITY_COLORS, PRIORITY_LABELS, type TaskPriority } from "@/lib/types";
+import { PRIORITY_COLORS, type TaskPriority } from "@/lib/types";
 
 interface SimpleTask {
   id: string;
@@ -55,6 +51,7 @@ interface Props {
   runningLog: TimeLogWithTask | null;
   recentLogs: TimeLogWithTask[];
   myDayTasks: TaskWithRelations[];
+  onNewTask: () => void;
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -89,6 +86,49 @@ function groupLogsByDate(logs: TimeLogWithTask[]) {
   return [...groups.entries()]
     .sort((a, b) => b[0].localeCompare(a[0]))
     .map(([date, g]) => ({ date, ...g }));
+}
+
+function getWeekStartStr(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  const day = d.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+}
+
+function getWeekLabel(weekStart: string): string {
+  const todayWeek = getWeekStartStr(todayISO());
+  if (weekStart === todayWeek) return "Esta semana";
+  const lastWeekDate = new Date(todayWeek + "T12:00:00");
+  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+  const lastWeek = `${lastWeekDate.getFullYear()}-${String(lastWeekDate.getMonth() + 1).padStart(2, "0")}-${String(lastWeekDate.getDate()).padStart(2, "0")}`;
+  if (weekStart === lastWeek) return "Semana passada";
+  const start = new Date(weekStart + "T12:00:00");
+  const end = new Date(weekStart + "T12:00:00");
+  end.setDate(end.getDate() + 6);
+  const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  if (start.getMonth() === end.getMonth()) {
+    return `${start.getDate()}–${end.getDate()} ${months[start.getMonth()]}`;
+  }
+  return `${start.getDate()} ${months[start.getMonth()]} – ${end.getDate()} ${months[end.getMonth()]}`;
+}
+
+function groupLogsByWeek(logs: TimeLogWithTask[]) {
+  const dayGroups = groupLogsByDate(logs);
+  const weekMap = new Map<string, { label: string; totalMins: number; days: ReturnType<typeof groupLogsByDate> }>();
+  for (const day of dayGroups) {
+    const ws = getWeekStartStr(day.date);
+    if (!weekMap.has(ws)) {
+      weekMap.set(ws, { label: getWeekLabel(ws), totalMins: 0, days: [] });
+    }
+    const w = weekMap.get(ws)!;
+    w.days.push(day);
+    w.totalMins += day.totalMins;
+  }
+  return [...weekMap.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([weekStart, w]) => ({ weekStart, ...w }));
 }
 
 function timeStr(date: Date) {
@@ -126,7 +166,7 @@ function fmtEstimate(pts: number | null | undefined): string {
   return `${h}h ${String(m).padStart(2, "0")}min`;
 }
 
-export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myDayTasks }: Props) {
+export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myDayTasks, onNewTask }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isLogPending, startLogTransition] = useTransition();
@@ -141,21 +181,13 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
   const [completeDialog, setCompleteDialog] = useState<{ taskId: string; taskTitle: string } | null>(null);
   const [isCompletePending, startCompleteTransition] = useTransition();
 
+  // Week sections: current week expanded, others collapsed
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(() => new Set([getWeekStartStr(todayISO())]));
   // Day sections: today starts expanded, others collapsed
   const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set([todayISO()]));
   // Individual log expansion (to show description)
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
 
-  // Quick task dialog
-  const [quickTaskOpen, setQuickTaskOpen] = useState(false);
-  const [quickTaskTitle, setQuickTaskTitle] = useState("");
-  const [quickTaskPriority, setQuickTaskPriority] = useState<TaskPriority>("sem_prioridade");
-  const [quickTaskListId, setQuickTaskListId] = useState("");
-  const [quickTaskEstHours, setQuickTaskEstHours] = useState("");
-  const [quickTaskEstMins, setQuickTaskEstMins] = useState("");
-  const [quickTaskDueDate, setQuickTaskDueDate] = useState("");
-  const [taskListGroups, setTaskListGroups] = useState<{ spaceId: string; spaceName: string; lists: { id: string; name: string }[] }[]>([]);
-  const [isQuickTaskPending, startQuickTaskTransition] = useTransition();
 
   // Inline edit
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
@@ -200,11 +232,6 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
     });
   }, [logOpen, editingLogId]);
 
-  // Fetch task lists when quick task dialog opens
-  useEffect(() => {
-    if (!quickTaskOpen || taskListGroups.length > 0) return;
-    fetchTaskListsAction().then((res) => setTaskListGroups(res.data));
-  }, [quickTaskOpen]);
 
   // Elapsed ticker
   useEffect(() => {
@@ -228,6 +255,15 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
     window.addEventListener("outlier:task-completed", handleTaskCompleted);
     return () => window.removeEventListener("outlier:task-completed", handleTaskCompleted);
   }, []);
+
+  function toggleWeek(ws: string) {
+    setExpandedWeeks((prev) => {
+      const next = new Set(prev);
+      if (next.has(ws)) next.delete(ws);
+      else next.add(ws);
+      return next;
+    });
+  }
 
   function toggleDay(date: string) {
     setExpandedDays((prev) => {
@@ -266,37 +302,6 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
       toast.success(`Tempo registado: ${formatDuration(result.durationMinutes ?? 0)}`);
       router.refresh();
       if (taskId && taskTitle) setCompleteDialog({ taskId, taskTitle });
-    });
-  }
-
-  function resetQuickTask() {
-    setQuickTaskTitle("");
-    setQuickTaskPriority("sem_prioridade");
-    setQuickTaskListId("");
-    setQuickTaskEstHours("");
-    setQuickTaskEstMins("");
-    setQuickTaskDueDate("");
-  }
-
-  function handleQuickTask() {
-    if (!quickTaskTitle.trim()) { toast.error("Título é obrigatório"); return; }
-    const h = parseInt(quickTaskEstHours || "0", 10);
-    const m = parseInt(quickTaskEstMins || "0", 10);
-    const estimatePoints = h + m / 60 || null;
-    startQuickTaskTransition(async () => {
-      const result = await createTaskAction({
-        title: quickTaskTitle.trim(),
-        priority: quickTaskPriority,
-        list_id: quickTaskListId || null,
-        estimate_points: estimatePoints,
-        due_date: quickTaskDueDate || null,
-      });
-      if ("error" in result && result.error) { toast.error("Erro ao criar tarefa"); return; }
-      toast.success("Tarefa criada");
-      setQuickTaskOpen(false);
-      resetQuickTask();
-      router.refresh();
-      fetchMyOpenTasksAction().then((res) => setTimerTasks(res.data));
     });
   }
 
@@ -360,7 +365,7 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
     });
   }
 
-  const grouped = groupLogsByDate(recentLogs);
+  const weekGroups = groupLogsByWeek(recentLogs);
 
   return (
     <div>
@@ -371,7 +376,7 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
         </h2>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setQuickTaskOpen(true)}
+            onClick={onNewTask}
             className="flex items-center gap-1 text-[11px] text-muted-foreground/65 transition-colors hover:text-foreground"
           >
             <Plus className="size-3" />
@@ -426,38 +431,65 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
         )}
       </div>
 
-      {/* Logs agrupados por dia */}
-      {grouped.length === 0 ? (
+      {/* Logs agrupados por semana → dia */}
+      {weekGroups.length === 0 ? (
         <p className="pb-4 text-sm font-light text-muted-foreground">Sem registos de tempo ainda.</p>
       ) : (
         <div>
-          {grouped.map(({ date, label, totalMins, logs: dayLogs }) => {
-            const isExpanded = expandedDays.has(date);
+          {weekGroups.map(({ weekStart, label: weekLabel, totalMins: weekMins, days }) => {
+            const isWeekExpanded = expandedWeeks.has(weekStart);
             return (
-              <div key={date} className="border-t border-border">
+              <div key={weekStart} className="border-t border-border">
+                {/* Cabeçalho da semana */}
                 <button
-                  onClick={() => toggleDay(date)}
+                  onClick={() => toggleWeek(weekStart)}
                   className="flex w-full items-center justify-between py-2 text-left"
                 >
                   <span className="flex items-center gap-1.5">
                     <ChevronDown
                       className={cn(
                         "size-3 text-muted-foreground transition-transform duration-150",
-                        !isExpanded && "-rotate-90",
+                        !isWeekExpanded && "-rotate-90",
                       )}
                     />
                     <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                      {label}
+                      {weekLabel}
                     </span>
                   </span>
                   <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                    {fmtDur(totalMins)}
+                    {fmtDur(weekMins)}
                   </span>
                 </button>
 
-                {isExpanded && (
-                  <ul className="pb-1">
-                    {dayLogs.map((log) => {
+                {isWeekExpanded && (
+                  <div className="pl-4">
+                    {days.map(({ date, label, totalMins, logs: dayLogs }) => {
+                      const isExpanded = expandedDays.has(date);
+                      return (
+                        <div key={date} className="border-t border-border/50">
+                          <button
+                            onClick={() => toggleDay(date)}
+                            className="flex w-full items-center justify-between py-1.5 text-left"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <ChevronDown
+                                className={cn(
+                                  "size-3 text-muted-foreground/60 transition-transform duration-150",
+                                  !isExpanded && "-rotate-90",
+                                )}
+                              />
+                              <span className="text-[11px] font-medium uppercase tracking-[0.10em] text-muted-foreground/80">
+                                {label}
+                              </span>
+                            </span>
+                            <span className="text-[11px] tabular-nums text-muted-foreground/50">
+                              {fmtDur(totalMins)}
+                            </span>
+                          </button>
+
+                          {isExpanded && (
+                            <ul className="pb-1">
+                              {dayLogs.map((log) => {
                       const taskDesc = log.task?.description?.trim() ?? "";
                       const hasDesc = !!taskDesc;
                       const isLogExpanded = expandedLogs.has(log.id);
@@ -599,8 +631,13 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
                           )}
                         </li>
                       );
+                              })}
+                            </ul>
+                          )}
+                        </div>
+                      );
                     })}
-                  </ul>
+                  </div>
                 )}
               </div>
             );
@@ -608,114 +645,6 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
         </div>
       )}
 
-      {/* Quick task dialog */}
-      <Dialog open={quickTaskOpen} onOpenChange={(open) => { setQuickTaskOpen(open); if (!open) resetQuickTask(); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova tarefa</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="qt-title">Título</Label>
-              <Input
-                id="qt-title"
-                placeholder="O que precisas de fazer?"
-                value={quickTaskTitle}
-                onChange={(e) => setQuickTaskTitle(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Prioridade</Label>
-                <Select value={quickTaskPriority} onValueChange={(v) => setQuickTaskPriority(v as TaskPriority)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.entries(PRIORITY_LABELS) as [TaskPriority, string][]).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        <span className="flex items-center gap-1.5">
-                          <span className={cn("size-2 shrink-0 rounded-full bg-current", PRIORITY_COLORS[key])} />
-                          {label}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="qt-due">Deadline</Label>
-                <Input
-                  id="qt-due"
-                  type="date"
-                  value={quickTaskDueDate}
-                  onChange={(e) => setQuickTaskDueDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Lista</Label>
-              <Select value={quickTaskListId} onValueChange={setQuickTaskListId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem lista (Backlog)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {taskListGroups.map((group) => (
-                    <SelectGroup key={group.spaceId}>
-                      <SelectLabel>{group.spaceName}</SelectLabel>
-                      {group.lists.map((list) => (
-                        <SelectItem key={list.id} value={list.id}>
-                          {list.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Estimativa</Label>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={99}
-                    placeholder="0"
-                    value={quickTaskEstHours}
-                    onChange={(e) => setQuickTaskEstHours(e.target.value)}
-                    className="pr-8"
-                  />
-                  <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-muted-foreground">h</span>
-                </div>
-                <div className="relative flex-1">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={59}
-                    placeholder="0"
-                    value={quickTaskEstMins}
-                    onChange={(e) => setQuickTaskEstMins(e.target.value)}
-                    className="pr-10"
-                  />
-                  <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-muted-foreground">min</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setQuickTaskOpen(false)}>Cancelar</Button>
-            <Button onClick={handleQuickTask} disabled={isQuickTaskPending || !quickTaskTitle.trim()}>
-              Criar tarefa
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Mark complete dialog */}
       <Dialog open={!!completeDialog} onOpenChange={(open) => { if (!open) setCompleteDialog(null); }}>

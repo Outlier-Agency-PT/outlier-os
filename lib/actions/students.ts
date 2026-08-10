@@ -25,6 +25,15 @@ const studentSchema = z.object({
   mindmap_url: z.string().url().nullable().optional().or(z.literal("")),
   motivation: z.string().nullable().optional(),
   priority: z.enum(["alta", "media", "baixa"]).nullable().optional(),
+  mentoria_individual: z.boolean().optional(),
+  renewal_date_1: z.string().optional().nullable(),
+  renewal_date_2: z.string().optional().nullable(),
+  renewal_year_1: z.string().optional().nullable(),
+  renewal_year_2: z.string().optional().nullable(),
+  strategic_session_date: z.string().optional().nullable(),
+  suggested_level: z.string().optional().nullable(),
+  appears_in_sessions: z.string().optional().nullable(),
+  coach_notes: z.string().optional().nullable(),
 });
 
 export type StudentInput = z.infer<typeof studentSchema>;

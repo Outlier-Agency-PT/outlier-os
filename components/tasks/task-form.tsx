@@ -129,6 +129,7 @@ export function TaskForm({
           <DialogDescription>Cria uma tarefa nova com cliente, prioridade e responsáveis.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
           {/* Título */}
           <div className="space-y-1.5">
             <Label htmlFor="title">Título *</Label>
@@ -457,6 +458,7 @@ export function TaskForm({
             </div>
           </div>
 
+        </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar

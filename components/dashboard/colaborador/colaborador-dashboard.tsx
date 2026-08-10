@@ -1,9 +1,16 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { MyDay } from "./my-day";
 import { MyHours } from "./my-hours";
-import { CheckpointSummaryCard } from "./weekly-checkpoint";
 import { DashboardExtraBlocks } from "./dashboard-extra-blocks";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
+import { TaskForm } from "@/components/tasks/task-form";
+import { fetchTaskFormDataAction } from "@/lib/actions/tasks";
+import { fetchMyOpenTasksAction } from "@/lib/actions/tasks";
 import type { TaskWithRelations } from "@/lib/queries/tasks";
+import type { ReactNode } from "react";
 import type {
   TimeLogWithTask,
   DashNotification,
@@ -25,6 +32,7 @@ interface Props {
   incubadora: DashIncubadoraSummary | null;
   renewals: DashRenewal[];
   hasIncubadora: boolean;
+  checkpointCard: ReactNode;
 }
 
 export function ColaboradorDashboard({
@@ -40,7 +48,28 @@ export function ColaboradorDashboard({
   incubadora,
   renewals,
   hasIncubadora,
+  checkpointCard,
 }: Props) {
+  const router = useRouter();
+
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
+  const [taskFormReady, setTaskFormReady] = useState(false);
+  const [taskFormData, setTaskFormData] = useState<{
+    statuses: { id: string; label: string }[];
+    clients: { id: string; label: string }[];
+    members: { id: string; label: string }[];
+    lists: { id: string; name: string; spaceName?: string }[];
+  }>({ statuses: [], clients: [], members: [], lists: [] });
+  const [timerTaskList, setTimerTaskList] = useState<TaskWithRelations[]>(tasks);
+
+  useEffect(() => {
+    if (!taskFormOpen || taskFormReady) return;
+    fetchTaskFormDataAction().then((data) => {
+      setTaskFormData(data);
+      setTaskFormReady(true);
+    });
+  }, [taskFormOpen]);
+
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8">
       <div className="w-full border border-border bg-card">
@@ -52,7 +81,7 @@ export function ColaboradorDashboard({
           <MyDay tasks={tasks} concludedStatusId={concludedStatusId} />
         </div>
         <div className="w-full overflow-hidden bg-card px-4 py-1 md:px-6">
-          <CheckpointSummaryCard />
+          {checkpointCard}
         </div>
       </div>
 
@@ -70,9 +99,27 @@ export function ColaboradorDashboard({
           todayMinutes={todayMinutes}
           runningLog={runningLog}
           recentLogs={recentLogs}
-          myDayTasks={tasks}
+          myDayTasks={timerTaskList}
+          onNewTask={() => setTaskFormOpen(true)}
         />
       </div>
+
+      {taskFormReady && (
+        <TaskForm
+          open={taskFormOpen}
+          onOpenChange={(open) => {
+            setTaskFormOpen(open);
+            if (!open) {
+              fetchMyOpenTasksAction().then((res) => setTimerTaskList(res.data));
+              router.refresh();
+            }
+          }}
+          statuses={taskFormData.statuses}
+          clients={taskFormData.clients}
+          members={taskFormData.members}
+          lists={taskFormData.lists}
+        />
+      )}
     </div>
   );
 }

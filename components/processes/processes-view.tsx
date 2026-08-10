@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,27 +39,43 @@ interface Props {
   processes: Process[];
   categories: ProcessCategory[];
   members: TeamMember[];
+  total: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  categoryId: string | null;
 }
 
-export function ProcessesView({ processes, categories, members }: Props) {
-  const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
+function buildUrl(params: { page?: number; search?: string; category?: string | null }) {
+  const p = new URLSearchParams();
+  if (params.search) p.set("search", params.search);
+  if (params.category) p.set("category", params.category);
+  if (params.page && params.page > 1) p.set("page", String(params.page));
+  const qs = p.toString();
+  return `/processos${qs ? `?${qs}` : ""}`;
+}
 
-  const filtered = useMemo(() => {
-    let result = processes;
-    if (activeCategory) result = result.filter((p) => p.category_id === activeCategory);
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.description?.toLowerCase().includes(q) ||
-          p.tags?.some((t) => t.toLowerCase().includes(q)),
-      );
+export function ProcessesView({ processes, categories, members, total, page, pageSize, search, categoryId }: Props) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState(search);
+  const isFirstRender = useRef(true);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-    return result;
-  }, [processes, search, activeCategory]);
+    const timeout = setTimeout(() => {
+      router.push(buildUrl({ search: searchInput, category: categoryId, page: 1 }));
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [searchInput]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCategory = useCallback((id: string | null) => {
+    router.push(buildUrl({ search: searchInput, category: id, page: 1 }));
+  }, [searchInput, router]);
 
   return (
     <div className="grid grid-cols-[200px_1fr]">
@@ -69,41 +85,37 @@ export function ProcessesView({ processes, categories, members }: Props) {
         </p>
         <div className="space-y-1">
           <button
-            onClick={() => setActiveCategory(null)}
+            onClick={() => handleCategory(null)}
             className={cn(
               "block w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors",
-              !activeCategory ? "bg-accent" : "hover:bg-accent/50",
+              !categoryId ? "bg-accent" : "hover:bg-accent/50",
             )}
           >
-            Todos ({processes.length})
+            Todos ({total})
           </button>
-          {categories.map((c) => {
-            const count = processes.filter((p) => p.category_id === c.id).length;
-            return (
-              <button
-                key={c.id}
-                onClick={() => setActiveCategory(c.id)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors",
-                  activeCategory === c.id ? "bg-accent" : "hover:bg-accent/50",
-                )}
-              >
-                <span className="size-2 rounded-full" style={{ backgroundColor: c.color }} />
-                <span className="flex-1">{c.label}</span>
-                <span className="text-xs text-muted-foreground">{count}</span>
-              </button>
-            );
-          })}
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => handleCategory(c.id)}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors",
+                categoryId === c.id ? "bg-accent" : "hover:bg-accent/50",
+              )}
+            >
+              <span className="size-2 rounded-full" style={{ backgroundColor: c.color }} />
+              <span className="flex-1">{c.label}</span>
+            </button>
+          ))}
         </div>
       </aside>
 
-      <div>
+      <div className="flex flex-col">
         <div className="flex items-center gap-2 border-b px-6 py-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Pesquisar processos..."
               className="pl-9"
             />
@@ -114,16 +126,16 @@ export function ProcessesView({ processes, categories, members }: Props) {
           </Button>
         </div>
 
-        <div className="p-6">
-          {filtered.length === 0 ? (
+        <div className="flex-1 p-6">
+          {processes.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center text-sm text-muted-foreground">
-                {search || activeCategory ? "Sem processos." : "Sem processos. Cria o primeiro."}
+                {search || categoryId ? "Sem processos para os filtros activos." : "Sem processos. Cria o primeiro."}
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
-              {filtered.map((p) => (
+              {processes.map((p) => (
                 <Link key={p.id} href={`/processos/${p.id}`}>
                   <Card className="transition-shadow hover:shadow-md">
                     <CardContent className="p-4">
@@ -170,6 +182,32 @@ export function ProcessesView({ processes, categories, members }: Props) {
             </div>
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 border-t px-6 py-4">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => router.push(buildUrl({ search, category: categoryId, page: page - 1 }))}
+            >
+              <ChevronLeft className="size-4" />
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {page} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => router.push(buildUrl({ search, category: categoryId, page: page + 1 }))}
+            >
+              Próxima
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       <CreateProcessDialog

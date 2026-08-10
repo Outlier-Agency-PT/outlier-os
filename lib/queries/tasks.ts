@@ -6,6 +6,7 @@ export interface TaskWithRelations extends Task {
   client: { id: string; name: string } | null;
   assignee: { id: string; full_name: string; email: string } | null;
   isBlocked?: boolean;
+  total_logged_minutes?: number;
 }
 
 export interface TaskSpace {
@@ -123,7 +124,8 @@ export async function getTasksByList(listId: string): Promise<TaskWithHierarchy[
       status:task_statuses(id, key, label, color),
       client:clients(id, name),
       assignee:team_members!tasks_assignee_id_fkey(id, full_name, email),
-      list:task_lists(id, name)
+      list:task_lists(id, name),
+      task_time_logs(duration_minutes)
       `,
     )
     .eq("list_id", listId)
@@ -150,8 +152,14 @@ export async function getTasksByList(listId: string): Promise<TaskWithHierarchy[
       .eq("parent_task_id", rootTask.id)
       .order("position", { ascending: true });
 
+    const rawLogs = (rootTask as any).task_time_logs ?? [];
+    const total_logged_minutes: number = (rawLogs as { duration_minutes: number | null }[]).reduce(
+      (sum, l) => sum + (l.duration_minutes ?? 0),
+      0,
+    );
     tasksWithSubtasks.push({
       ...rootTask,
+      total_logged_minutes,
       subtasks: (subtasks ?? []) as TaskWithHierarchy[],
     });
   }
@@ -201,14 +209,21 @@ export async function getTasksBySpace(spaceId: string): Promise<TaskWithHierarch
       status:task_statuses(id, key, label, color),
       client:clients(id, name),
       assignee:team_members!tasks_assignee_id_fkey(id, full_name, email),
-      list:task_lists(id, name)`,
+      list:task_lists(id, name),
+      task_time_logs(duration_minutes)`,
     )
     .in("list_id", listIds)
     .is("parent_task_id", null)
     .order("list_id", { ascending: true })
     .order("position", { ascending: true });
 
-  return (rootTasks ?? []) as TaskWithHierarchy[];
+  return ((rootTasks ?? []) as any[]).map((row) => ({
+    ...row,
+    total_logged_minutes: ((row.task_time_logs ?? []) as { duration_minutes: number | null }[]).reduce(
+      (sum, l) => sum + (l.duration_minutes ?? 0),
+      0,
+    ),
+  })) as TaskWithHierarchy[];
 }
 
 // ─── Gantt ───────────────────────────────────────────────────────────────────
