@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { Activity } from "@/lib/utils/activity-helpers";
 export type { Activity } from "@/lib/utils/activity-helpers";
 export { describeActivity } from "@/lib/utils/activity-helpers";
 

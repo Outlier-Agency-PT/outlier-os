@@ -63,8 +63,7 @@ export function StudentsROIDashboard() {
 
   const filtered = search
     ? students.filter((s) =>
-        s.name?.toLowerCase().includes(search.toLowerCase()) ||
-        s.email?.toLowerCase().includes(search.toLowerCase())
+        s.name?.toLowerCase().includes(search.toLowerCase())
       )
     : students;
 
