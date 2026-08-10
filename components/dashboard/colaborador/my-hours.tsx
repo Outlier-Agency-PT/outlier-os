@@ -317,7 +317,9 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
     if (!logTaskId) { toast.error("Escolhe uma tarefa"); return; }
     if (durationMins === 0) { toast.error("A duração tem de ser maior que 0"); return; }
     startLogTransition(async () => {
-      const result = await logTimeManualAction(logTaskId, durationMins, logDesc || undefined, logDate, logStartTime, logEndTime);
+      const startISO = new Date(`${logDate}T${logStartTime}:00`).toISOString();
+      const endISO = new Date(`${logDate}T${logEndTime}:00`).toISOString();
+      const result = await logTimeManualAction(logTaskId, durationMins, logDesc || undefined, startISO, endISO);
       if ("error" in result && result.error) { toast.error("Erro ao registar tempo"); return; }
       toast.success("Tempo registado");
       const doneTask = allTasks.find((t) => t.id === logTaskId);
@@ -346,7 +348,9 @@ export function MyHours({ todayMinutes, runningLog, recentLogs: initialLogs, myD
     const dur = calcDurationMins(editStartTime, editEndTime);
     if (dur === 0) { toast.error("A duração tem de ser maior que 0"); return; }
     startEditTransition(async () => {
-      const result = await updateTimeLogAction(editingLogId, editTaskId, editLogDate, editStartTime, editEndTime);
+      const startISO = new Date(`${editLogDate}T${editStartTime}:00`).toISOString();
+      const endISO = new Date(`${editLogDate}T${editEndTime}:00`).toISOString();
+      const result = await updateTimeLogAction(editingLogId, editTaskId, startISO, endISO);
       if ("error" in result && result.error) { toast.error("Erro ao actualizar registo"); return; }
       toast.success("Registo actualizado");
       setEditingLogId(null);

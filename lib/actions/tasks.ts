@@ -274,9 +274,8 @@ export async function logTimeManualAction(
   taskId: string,
   durationMinutes: number,
   description?: string,
-  logDate?: string,   // "YYYY-MM-DD"
-  startTime?: string, // "HH:MM"
-  endTime?: string,   // "HH:MM"
+  startISO?: string, // UTC ISO string built on the client
+  endISO?: string,   // UTC ISO string built on the client
 ) {
   const supabase = await createClient();
   const {
@@ -287,15 +286,13 @@ export async function logTimeManualAction(
   let startAt: Date;
   let endAt: Date;
 
-  if (logDate && startTime && endTime) {
-    startAt = new Date(`${logDate}T${startTime}:00`);
-    endAt = new Date(`${logDate}T${endTime}:00`);
-    // passa da meia-noite
+  if (startISO && endISO) {
+    startAt = new Date(startISO);
+    endAt = new Date(endISO);
     if (endAt <= startAt) endAt = new Date(endAt.getTime() + 24 * 60 * 60 * 1000);
   } else {
-    const ref = logDate ? new Date(logDate + "T12:00:00") : new Date();
-    endAt = new Date(ref.getTime());
-    startAt = new Date(ref.getTime() - durationMinutes * 60000);
+    endAt = new Date();
+    startAt = new Date(Date.now() - durationMinutes * 60000);
   }
 
   const actualDuration = Math.round((endAt.getTime() - startAt.getTime()) / 60000) || durationMinutes;
@@ -577,9 +574,8 @@ export async function getTaskDetailAction(taskId: string) {
 export async function updateTimeLogAction(
   logId: string,
   taskId: string,
-  logDate: string,
-  startTime: string,
-  endTime: string,
+  startISO: string, // UTC ISO string built on the client
+  endISO: string,   // UTC ISO string built on the client
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -592,8 +588,8 @@ export async function updateTimeLogAction(
     .single();
   if (!existing || (existing as { member_id: string }).member_id !== user.id) return { error: "Sem permissão" };
 
-  const startAt = new Date(`${logDate}T${startTime}:00`);
-  let endAt = new Date(`${logDate}T${endTime}:00`);
+  const startAt = new Date(startISO);
+  let endAt = new Date(endISO);
   if (endAt <= startAt) endAt = new Date(endAt.getTime() + 24 * 60 * 60 * 1000);
   const durationMinutes = Math.round((endAt.getTime() - startAt.getTime()) / 60000);
 
