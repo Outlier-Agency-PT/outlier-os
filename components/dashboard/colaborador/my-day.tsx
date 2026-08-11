@@ -3,10 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckSquare } from "lucide-react";
-import { moveTaskStatusAction } from "@/lib/actions/tasks";
+import { moveTaskStatusAction, getTaskDetailAction, fetchTaskFormDataAction } from "@/lib/actions/tasks";
 import { PRIORITY_LABELS, PRIORITY_COLORS, type TaskPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
 import type { TaskWithRelations } from "@/lib/queries/tasks";
 
 const INITIAL_LIMIT = 5;
@@ -21,6 +22,42 @@ export function MyDay({ tasks, concludedStatusId }: Props) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
   const [, startTransition] = useTransition();
+
+  const [panelTask, setPanelTask] = useState<any | null>(null);
+  const [panelComments, setPanelComments] = useState<any[]>([]);
+  const [panelFormData, setPanelFormData] = useState<{
+    statuses: { id: string; key: string; label: string; color: string }[];
+    lists: { id: string; name: string; spaceName?: string }[];
+    members: { id: string; full_name: string }[];
+  } | null>(null);
+  const [panelLoading, setPanelLoading] = useState(false);
+
+  async function handleOpenTask(taskId: string) {
+    setPanelLoading(true);
+    try {
+      const [detail, formData] = await Promise.all([
+        getTaskDetailAction(taskId),
+        fetchTaskFormDataAction(),
+      ]);
+      setPanelTask(detail.task);
+      setPanelComments(detail.comments);
+      setPanelFormData({
+        statuses: formData.statuses.map((s) => ({ ...s, key: "", color: "" })),
+        lists: formData.lists,
+        members: formData.members.map((m) => ({ id: m.id, full_name: m.label })),
+      });
+    } catch {
+      toast.error("Erro ao carregar tarefa");
+    } finally {
+      setPanelLoading(false);
+    }
+  }
+
+  function handleClosePanel() {
+    setPanelTask(null);
+    setPanelComments([]);
+    setPanelFormData(null);
+  }
 
   function handleComplete(taskId: string) {
     if (!concludedStatusId) {
@@ -75,8 +112,13 @@ export function MyDay({ tasks, concludedStatusId }: Props) {
                 >
                   <CheckSquare className="size-4" />
                 </button>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium tracking-[-0.01em]">{task.title}</p>
+                <button
+                  type="button"
+                  onClick={() => handleOpenTask(task.id)}
+                  disabled={panelLoading}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <p className="truncate text-sm font-medium tracking-[-0.01em] hover:underline">{task.title}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     {task.priority !== "sem_prioridade" && (
                       <span className={cn("text-[11px] font-medium", PRIORITY_COLORS[task.priority as TaskPriority])}>
@@ -90,7 +132,7 @@ export function MyDay({ tasks, concludedStatusId }: Props) {
                       <span className="text-[11px] text-muted-foreground/65">· {task.due_date}</span>
                     )}
                   </div>
-                </div>
+                </button>
               </li>
             ))}
           </ul>
@@ -114,6 +156,20 @@ export function MyDay({ tasks, concludedStatusId }: Props) {
             </button>
           )}
         </>
+      )}
+
+      {panelTask && panelFormData && (
+        <TaskDetailPanel
+          task={panelTask}
+          comments={panelComments}
+          statuses={panelFormData.statuses}
+          lists={panelFormData.lists}
+          members={panelFormData.members}
+          onClose={handleClosePanel}
+          onTaskUpdate={(field, value) => {
+            setPanelTask((prev: any) => prev ? { ...prev, [field]: value } : null);
+          }}
+        />
       )}
     </div>
   );
