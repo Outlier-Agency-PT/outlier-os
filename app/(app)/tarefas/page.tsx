@@ -19,31 +19,27 @@ export default async function TarefasPage(props: {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: member } = await supabase
-    .from("team_members")
-    .select("role")
-    .eq("id", user?.id ?? "")
-    .maybeSingle();
-
-  const isAdmin = member?.role === "admin";
   const currentUserId = user?.id ?? "";
 
   // UUID da lista padrão "Backlog"
   const DEFAULT_LIST_ID = "00000000-0000-0000-0000-000000000011";
   const listId = selectedListId || DEFAULT_LIST_ID;
 
-  const [tasks, statuses, clients, members, spaces, templates] = await Promise.all([
-    isAdmin ? getTasks() : getTasks({ assigneeId: currentUserId }),
+  // Correr em paralelo: member query + todos os queries independentes de isAdmin
+  const [memberResult, statuses, clients, members, spaces, templates, listTasks] = await Promise.all([
+    supabase.from("team_members").select("role").eq("id", currentUserId).maybeSingle(),
     getStatuses("task_statuses"),
     getClients(),
     getTeamMembers(),
     getTaskSpaces(),
     getTaskTemplates(),
+    selectedSpaceId ? getTasksBySpace(selectedSpaceId) : getTasksByList(listId),
   ]);
 
-  const listTasks = selectedSpaceId
-    ? await getTasksBySpace(selectedSpaceId)
-    : await getTasksByList(listId);
+  const isAdmin = memberResult.data?.role === "admin";
+
+  // getTasks depende de isAdmin, corre após member resolver
+  const tasks = await (isAdmin ? getTasks() : getTasks({ assigneeId: currentUserId }));
 
   const rootCount = (tasks as any[]).filter((t) => !t.parent_task_id).length;
   const subCount = tasks.length - rootCount;

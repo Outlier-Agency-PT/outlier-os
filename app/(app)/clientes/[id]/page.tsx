@@ -24,15 +24,15 @@ interface PageProps {
 
 export default async function ClienteDetalhePage({ params }: PageProps) {
   const { id } = await params;
-  const client = await getClientById(id);
-  if (!client) notFound();
 
-  const [tasks, contents, allLaunches, activity] = await Promise.all([
+  const [client, tasks, contents, allLaunches, activity] = await Promise.all([
+    getClientById(id),
     getTasks({ clientId: id }),
     getContents({ clientId: id }),
     getLaunches(),
     getActivityForClient(id, 15),
   ]);
+  if (!client) notFound();
   const launches = allLaunches.filter((l) => l.client_id === id);
   const openTasks = tasks.filter((t) => t.status?.key !== "concluido").length;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

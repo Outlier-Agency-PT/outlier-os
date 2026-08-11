@@ -41,12 +41,18 @@ function slugify(text: string): string {
 
 export default async function ProcessDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [process, categories, members, rawLists] = await Promise.all([
+
+  const supabase = await createClient();
+
+  // Batch 1: auth + dados do processo (todos independentes)
+  const [{ data: { user } }, process, categories, members, rawLists] = await Promise.all([
+    supabase.auth.getUser(),
     getProcessById(id),
     getProcessCategories(),
     getTeamMembers(),
     fetchTaskListsAction(),
   ]);
+
   const lists = "data" in rawLists
     ? rawLists.data.flatMap((space) =>
         space.lists.map((l) => ({
@@ -58,28 +64,24 @@ export default async function ProcessDetailPage({ params }: PageProps) {
     : [];
   if (!process) notFound();
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
   const currentUserId = user?.id ?? "";
-
-  const { data: member } = await supabase
-    .from("team_members")
-    .select("role")
-    .eq("id", currentUserId)
-    .maybeSingle();
-
-  const isAdmin = member?.role === "admin";
-  const isOwner = process.created_by === currentUserId;
-  const canManage = isAdmin || isOwner;
-
   const isChecklist = process.doc_type === "checklist";
   const isDecision = process.doc_type === "decisao";
   const isPlaybook = process.doc_type === "playbook";
   const isTemplate = process.doc_type === "template";
   const checklistItems = isChecklist ? extractChecklistItems(process.content_md) : [];
-  const completedIndexes = isChecklist && currentUserId
-    ? await getChecklistProgress(process.id, currentUserId)
-    : [];
+
+  // Batch 2: member query + checklist progress (ambos dependem de currentUserId)
+  const [{ data: member }, completedIndexes] = await Promise.all([
+    supabase.from("team_members").select("role").eq("id", currentUserId).maybeSingle(),
+    isChecklist && currentUserId
+      ? getChecklistProgress(process.id, currentUserId)
+      : Promise.resolve([]),
+  ]);
+
+  const isAdmin = member?.role === "admin";
+  const isOwner = process.created_by === currentUserId;
+  const canManage = isAdmin || isOwner;
 
   const headings = extractHeadings(process.content_md);
   const hasToc =

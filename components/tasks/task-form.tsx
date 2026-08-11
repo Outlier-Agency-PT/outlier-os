@@ -123,13 +123,13 @@ export function TaskForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Nova Tarefa</DialogTitle>
           <DialogDescription>Cria uma tarefa nova com cliente, prioridade e responsáveis.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="overflow-y-auto flex-1 space-y-4 pr-1">
           {/* Título */}
           <div className="space-y-1.5">
             <Label htmlFor="title">Título *</Label>

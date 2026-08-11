@@ -17,23 +17,19 @@ export default async function ReuniaoSemanalPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: member } = await supabase
-    .from("team_members")
-    .select("role")
-    .eq("id", user?.id ?? "")
-    .maybeSingle();
-
-  const isAdmin = member?.role === "admin";
   const weekStart = getWeekStart();
   const weekEnd = addDays(weekStart, 7);
   const weekStartStr = weekStart.toISOString().slice(0, 10);
 
-  const [checkpoints, userDepartments, incMetrics, devMetrics] = await Promise.all([
+  const [memberResult, checkpoints, userDepartments, incMetrics, devMetrics] = await Promise.all([
+    supabase.from("team_members").select("role").eq("id", user?.id ?? "").maybeSingle(),
     getWeeklyCheckpoints(weekStart),
     getUserDepartments(),
     getAutoMetrics("incubadora", weekStart, weekEnd),
     getAutoMetrics("desenvolvimento", weekStart, weekEnd),
   ]);
+
+  const isAdmin = memberResult.data?.role === "admin";
 
   return (
     <>

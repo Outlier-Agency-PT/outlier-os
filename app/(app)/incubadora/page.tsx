@@ -32,10 +32,12 @@ export default async function IncubadoraPage(props: {
   if (!isAluno && !isStaff) redirect("/dashboard");
 
   if (isAluno && user) {
-    const progressDetail = await getStudentProgressDetail(user.id);
-    const challenges = await getChallenges(user.id);
+    const [progressDetail, challenges, studentProfile] = await Promise.all([
+      getStudentProgressDetail(user.id),
+      getChallenges(user.id),
+      getStudentProfileQuery(user.id),
+    ]);
     const successTracks = await getSuccessTracks(user.id, progressDetail, challenges);
-    const studentProfile = await getStudentProfileQuery(user.id);
 
     const headerConfig = {
       metodo: { title: "Incubadora", description: "Minha área de aprendizagem" },

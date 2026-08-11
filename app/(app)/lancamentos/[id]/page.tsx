@@ -18,10 +18,9 @@ interface PageProps {
 
 export default async function LaunchDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const launch = await getLaunchById(id);
-  if (!launch) notFound();
 
-  const tasks = await getTasks();
+  const [launch, tasks] = await Promise.all([getLaunchById(id), getTasks()]);
+  if (!launch) notFound();
   const launchTasks = tasks.filter((t) => t.launch_id === id);
   const completed = launchTasks.filter((t) => t.status?.key === "concluido").length;
   const progress = launchTasks.length ? Math.round((completed / launchTasks.length) * 100) : 0;
