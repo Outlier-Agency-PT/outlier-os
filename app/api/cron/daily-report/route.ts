@@ -5,8 +5,8 @@ import { getTeamMetricsAdmin } from "@/lib/queries/team-metrics";
 
 export const dynamic = "force-dynamic";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
+// Não instanciar ao nível do módulo — Resend v6 lança excepção se a key for
+// undefined, o que crasha o módulo inteiro antes de qualquer handler correr.
 const FROM = "ads@outlieragency.pt";
 const TO = ["suzyany@outlieragency.pt"];
 
@@ -177,6 +177,9 @@ export async function POST(request: Request) {
     console.error("[daily-report] Supabase env vars missing");
     return NextResponse.json({ error: "Supabase env vars not configured" }, { status: 500 });
   }
+
+  // Instanciar aqui, depois de confirmar que a key existe
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
     // Period = yesterday (UTC full day)
