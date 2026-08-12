@@ -166,49 +166,76 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  console.log("[daily-report] start");
+
+  // Validate required env vars up front so the error is explicit
+  if (!process.env.RESEND_API_KEY) {
+    console.error("[daily-report] RESEND_API_KEY not set");
+    return NextResponse.json({ error: "RESEND_API_KEY not configured" }, { status: 500 });
+  }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("[daily-report] Supabase env vars missing");
+    return NextResponse.json({ error: "Supabase env vars not configured" }, { status: 500 });
+  }
+
   try {
     // Period = yesterday (UTC full day)
     const now = new Date();
     const y = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1));
     const periodStart = new Date(Date.UTC(y.getUTCFullYear(), y.getUTCMonth(), y.getUTCDate(), 0, 0, 0, 0));
     const periodEnd = new Date(Date.UTC(y.getUTCFullYear(), y.getUTCMonth(), y.getUTCDate(), 23, 59, 59, 999));
+    console.log("[daily-report] period", periodStart.toISOString(), "→", periodEnd.toISOString());
 
     // Get concluded status id via admin client (no user session in cron)
     const supabase = createAdminClient();
-    const { data: statusData } = await supabase
+    console.log("[daily-report] querying task_statuses");
+    const { data: statusData, error: statusError } = await supabase
       .from("task_statuses")
       .select("id")
       .eq("key", "concluido")
       .maybeSingle();
+    if (statusError) {
+      console.error("[daily-report] task_statuses query error:", statusError);
+      return NextResponse.json({ error: "DB error: task_statuses", detail: statusError.message }, { status: 500 });
+    }
     const concludedStatusId = statusData?.id ?? null;
+    console.log("[daily-report] concludedStatusId:", concludedStatusId);
 
+    console.log("[daily-report] fetching team metrics");
     const { global: g, members } = await getTeamMetricsAdmin(periodStart, periodEnd, concludedStatusId);
+    console.log("[daily-report] metrics ok — members:", members.length, "global:", g);
 
     const dateLabel = fmtDate(y);
     const subject = `Relatório Diário Outlier OS — ${dateLabel}`;
     const html = buildEmailHtml(dateLabel, g, members);
+    console.log("[daily-report] html built, length:", html.length);
 
-    const { error } = await resend.emails.send({
+    console.log("[daily-report] sending via Resend from:", FROM, "to:", TO);
+    const { data: emailData, error: emailError } = await resend.emails.send({
       from: FROM,
       to: TO,
       subject,
       html,
     });
 
-    if (error) {
-      console.error("[daily-report] Resend error:", error);
-      return NextResponse.json({ error: "Failed to send email", detail: error }, { status: 500 });
+    if (emailError) {
+      console.error("[daily-report] Resend error:", JSON.stringify(emailError));
+      return NextResponse.json({ error: "Failed to send email", detail: emailError }, { status: 500 });
     }
 
+    console.log("[daily-report] email sent, id:", emailData?.id);
     return NextResponse.json({
       ok: true,
+      emailId: emailData?.id,
       period: { start: periodStart.toISOString(), end: periodEnd.toISOString() },
       recipients: TO,
       global: g,
       members: members.length,
     });
   } catch (err) {
-    console.error("[daily-report] Unexpected error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[daily-report] unexpected error:", message, stack);
+    return NextResponse.json({ error: "Internal server error", detail: message }, { status: 500 });
   }
 }
