@@ -26,6 +26,7 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = pathname.startsWith("/login");
   const isPublicShare = pathname.startsWith("/share");
   const isConvite = pathname.startsWith("/convite");
+  const isCronRoute = pathname.startsWith("/api/cron/");
 
   // Emails de convite com token_hash a chegar a /login em vez de /convite
   // (acontece quando o NEXT_PUBLIC_APP_URL não estava definido em Vercel)
@@ -36,7 +37,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Sem user → /login
-  if (!user && !isAuthRoute && !isPublicShare && !isConvite && pathname !== "/") {
+  if (!user && !isAuthRoute && !isPublicShare && !isConvite && !isCronRoute && pathname !== "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
