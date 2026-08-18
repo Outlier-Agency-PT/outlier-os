@@ -17,6 +17,8 @@ import {
   Gauge,
   PenLine,
   CalendarCheck,
+  TrendingUp,
+  BarChart2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,6 +29,8 @@ export type ModuleKey =
   | "mentorias"
   | "reuniao-semanal"
   | "clientes"
+  | "comercial"
+  | "marketing"
   | "tarefas"
   | "whiteboard"
   | "lancamentos"
@@ -67,6 +71,8 @@ export const MODULES: ModuleDef[] = [
   // OPERACIONAL
   { key: "reuniao-semanal", label: "Reunião Semanal", href: "/reuniao-semanal", icon: CalendarCheck, section: "operacional" },
   { key: "clientes", label: "Clientes", href: "/clientes", icon: Users, section: "operacional" },
+  { key: "comercial", label: "Comercial", href: "/comercial", icon: TrendingUp, section: "operacional" },
+  { key: "marketing", label: "Marketing", href: "/marketing", icon: BarChart2, section: "operacional" },
   { key: "tarefas", label: "Tarefas", href: "/tarefas", icon: CheckSquare, section: "operacional" },
   { key: "whiteboard", label: "Whiteboard", href: "/whiteboard", icon: PenLine, section: "operacional" },
   { key: "lancamentos", label: "Lançamentos", href: "/lancamentos", icon: Rocket, section: "operacional" },
