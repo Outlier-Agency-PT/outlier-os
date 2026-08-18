@@ -10,11 +10,12 @@ import { getTaskTemplates } from "@/lib/queries/templates";
 export const dynamic = "force-dynamic";
 
 export default async function TarefasPage(props: {
-  searchParams: Promise<{ list?: string; space?: string }>;
+  searchParams: Promise<{ list?: string; space?: string; assignee?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const selectedListId = searchParams.list;
   const selectedSpaceId = searchParams.space;
+  const assigneeParam = searchParams.assignee;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -39,7 +40,9 @@ export default async function TarefasPage(props: {
   const isAdmin = memberResult.data?.role === "admin";
 
   // getTasks depende de isAdmin, corre após member resolver
-  const tasks = await (isAdmin ? getTasks() : getTasks({ assigneeId: currentUserId }));
+  const tasks = await (isAdmin
+    ? getTasks({ assigneeId: assigneeParam === "all" ? undefined : currentUserId })
+    : getTasks({ assigneeId: currentUserId }));
 
   const rootCount = (tasks as any[]).filter((t) => !t.parent_task_id).length;
   const subCount = tasks.length - rootCount;

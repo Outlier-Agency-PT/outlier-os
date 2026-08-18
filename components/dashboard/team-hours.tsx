@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { fetchTeamWeeklyHoursAction } from "@/lib/actions/team-hours";
-import type { TeamMemberHours } from "@/lib/queries/dashboard-colaborador";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
+import { fetchTeamWeeklyHoursAction, fetchMemberLogsAction } from "@/lib/actions/team-hours";
+import type { TeamMemberHours, TimeLogWithTask } from "@/lib/queries/dashboard-colaborador";
 import { getWeekStart } from "@/lib/utils/week-utils";
+import { MemberHoursReadonly } from "@/components/dashboard/member-hours-readonly";
 
 interface TeamHoursProps {
   initialData: TeamMemberHours[];
@@ -34,6 +35,8 @@ export function TeamHours({ initialData, initialWeekStart }: TeamHoursProps) {
   const [weekStart, setWeekStart] = useState<Date>(initialWeekStart);
   const [data, setData] = useState<TeamMemberHours[]>(initialData);
   const [isPending, startTransition] = useTransition();
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
+  const [memberLogs, setMemberLogs] = useState<Record<string, { recentLogs: TimeLogWithTask[]; runningLog: TimeLogWithTask | null }>>({});
 
   const currentWeekStart = getWeekStart();
   const isCurrentWeek = isSameWeek(weekStart, currentWeekStart);
@@ -54,6 +57,20 @@ export function TeamHours({ initialData, initialWeekStart }: TeamHoursProps) {
       const result = await fetchTeamWeeklyHoursAction(currentWeekStart.toISOString());
       setData(result);
     });
+  }
+
+  function toggleMember(memberId: string) {
+    if (expandedMemberId === memberId) {
+      setExpandedMemberId(null);
+      return;
+    }
+    setExpandedMemberId(memberId);
+    if (!memberLogs[memberId]) {
+      startTransition(async () => {
+        const result = await fetchMemberLogsAction(memberId);
+        setMemberLogs((prev) => ({ ...prev, [memberId]: result }));
+      });
+    }
   }
 
   const totalWeekMinutes = data.reduce((s, m) => s + m.week_minutes, 0);
@@ -105,25 +122,48 @@ export function TeamHours({ initialData, initialWeekStart }: TeamHoursProps) {
           <>
             <ul className="divide-y divide-border">
               {data.map((m) => (
-                <li key={m.member_id} className="flex items-baseline justify-between gap-4 py-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium tracking-[-0.01em] truncate">
-                      {m.full_name}
-                    </span>
-                    {m.has_running && (
-                      <span className="size-1.5 rounded-full bg-green-500 shrink-0" title="Temporizador activo" />
-                    )}
-                  </div>
-                  <div className="flex items-baseline gap-4 shrink-0">
-                    {isCurrentWeek && (
-                      <span className="text-[11px] tabular-nums text-muted-foreground/50 w-16 text-right">
-                        {m.today_minutes > 0 ? `hoje ${fmtMinutes(m.today_minutes)}` : ""}
+                <li key={m.member_id}>
+                  <div
+                    className="flex items-baseline justify-between gap-4 py-3 cursor-pointer hover:bg-muted/30 -mx-1 px-1 rounded"
+                    onClick={() => toggleMember(m.member_id)}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {expandedMemberId === m.member_id ? (
+                        <ChevronUp className="size-3 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="text-sm font-medium tracking-[-0.01em] truncate">
+                        {m.full_name}
                       </span>
-                    )}
-                    <span className={`text-sm tabular-nums font-light w-16 text-right ${m.week_minutes === 0 ? "text-muted-foreground/40" : ""}`}>
-                      {fmtMinutes(m.week_minutes)}
-                    </span>
+                      {m.has_running && (
+                        <span className="size-1.5 rounded-full bg-green-500 shrink-0" title="Temporizador activo" />
+                      )}
+                    </div>
+                    <div className="flex items-baseline gap-4 shrink-0">
+                      {isCurrentWeek && (
+                        <span className="text-[11px] tabular-nums text-muted-foreground/50 w-16 text-right">
+                          {m.today_minutes > 0 ? `hoje ${fmtMinutes(m.today_minutes)}` : ""}
+                        </span>
+                      )}
+                      <span className={`text-sm tabular-nums font-light w-16 text-right ${m.week_minutes === 0 ? "text-muted-foreground/40" : ""}`}>
+                        {fmtMinutes(m.week_minutes)}
+                      </span>
+                    </div>
                   </div>
+                  {expandedMemberId === m.member_id && (
+                    <div className="pb-3 pl-4">
+                      {isPending && !memberLogs[m.member_id] ? (
+                        <p className="text-xs text-muted-foreground">A carregar...</p>
+                      ) : memberLogs[m.member_id] ? (
+                        <MemberHoursReadonly
+                          recentLogs={memberLogs[m.member_id].recentLogs}
+                          runningLog={memberLogs[m.member_id].runningLog}
+                          memberName={m.full_name}
+                        />
+                      ) : null}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

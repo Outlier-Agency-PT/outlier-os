@@ -93,7 +93,8 @@ export function TasksBoard({
   const [view, setView] = useState<View>("kanban");
   const [search, setSearch] = useState("");
   const [filterClientId, setFilterClientId] = useState<string | null>(null);
-  const [filterAssigneeId, setFilterAssigneeId] = useState<string | "all">(currentUserId || "all");
+  const initialAssignee = searchParams.get("assignee") === "all" ? "all" : (currentUserId || "all");
+  const [filterAssigneeId, setFilterAssigneeId] = useState<string | "all">(initialAssignee);
   const [open, setOpen] = useState(false);
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
-import { Users, CheckSquare, Rocket, Target } from "lucide-react";
+import { Users, CheckSquare, Rocket, Target, TrendingUp, BarChart2 } from "lucide-react";
 import { getRecentActivity } from "@/lib/queries/activity";
 import { getInitiatives } from "@/lib/queries/initiatives";
 import { getDecisions } from "@/lib/queries/decisions";
@@ -122,6 +122,9 @@ export default async function DashboardPage() {
     adminCheckpoints,
     teamMembers,
     teamHours,
+    comercialRes,
+    marketingLeadsRes,
+    roasRes,
   ] = await Promise.all([
     supabase.from("task_statuses").select("id").eq("key", "concluido").maybeSingle(),
     supabase.from("launch_statuses").select("id").in("key", ["concluido", "cancelado"]),
@@ -145,6 +148,9 @@ export default async function DashboardPage() {
     getWeeklyCheckpoints(adminWeekStart),
     getTeamMembers(),
     getTeamWeeklyHours(adminWeekStart),
+    supabase.from("commercial_closer_metrics").select("valor_vendas, month_name, year").eq("funnel", "incubadora").eq("closer_name", "TOTAL"),
+    supabase.from("marketing_funnel_monthly").select("leads, month_name, year").eq("funnel", "incubadora"),
+    supabase.from("marketing_roas_monthly").select("receita_fechada, fechos, month_name, year"),
   ]);
 
   // Batch B: só as 3 queries que dependem dos status IDs do Batch A
@@ -192,15 +198,33 @@ export default async function DashboardPage() {
     okrAvg = count > 0 ? total / count : null;
   }
 
+  const currentMonth = new Date().toLocaleString("pt-PT", { month: "long" }).toUpperCase();
+  const currentYear = new Date().getFullYear();
+
+  const receitaMes = (comercialRes.data ?? [])
+    .find(r => r.month_name === currentMonth && r.year === currentYear)?.valor_vendas ?? null;
+
+  const leadsMes = (marketingLeadsRes.data ?? [])
+    .filter(r => r.month_name?.slice(0, 3).toUpperCase() === currentMonth.slice(0, 3).toUpperCase() && r.year === currentYear)
+    .reduce((sum, r) => sum + (r.leads ?? 0), 0);
+
+  const roasMes = (roasRes.data ?? [])
+    .find(r => r.month_name?.slice(0, 3).toLowerCase() === new Date().toLocaleString("pt-PT", { month: "short" }).toLowerCase() && r.year === currentYear)?.receita_fechada ?? null;
+
+  const roasValor = receitaMes && roasMes ? (roasMes / (receitaMes || 1)).toFixed(2) + "x" : "—";
+
   const kpis = [
     { label: "Clientes Ativos", value: clientesRes.count ?? 0, icon: Users },
-    { label: "Tarefas Abertas", value: tarefasRes.count ?? 0, icon: CheckSquare },
+    { label: "Tarefas Abertas", value: tarefasRes.count ?? 0, icon: CheckSquare, href: "/tarefas?assignee=all" },
     { label: "Lançamentos Ativos", value: lancamentosRes.count ?? 0, icon: Rocket },
     {
       label: "Progresso OKRs",
       value: okrAvg !== null ? `${okrAvg.toFixed(0)}%` : "—",
       icon: Target,
     },
+    { label: "Receita do Mês", value: receitaMes ? `€ ${receitaMes.toLocaleString("pt-PT")}` : "—", icon: TrendingUp, href: "/comercial" },
+    { label: "Leads do Mês", value: leadsMes > 0 ? leadsMes : "—", icon: Users, href: "/marketing" },
+    { label: "ROAS", value: roasValor, icon: BarChart2, href: "/marketing" },
   ];
 
   const adminFriday = new Date(adminWeekStart);
@@ -237,11 +261,11 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPIs — colunas de texto; o container é o único "card" */}
-      <div className="grid w-full grid-cols-2 gap-px border border-border bg-border lg:grid-cols-4">
+      <div className="grid w-full grid-cols-2 gap-px border border-border bg-border lg:grid-cols-7">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
-          return (
-            <div key={kpi.label} className="bg-card px-4 py-4 md:px-6 md:py-5">
+          const inner = (
+            <>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   {kpi.label}
@@ -251,6 +275,15 @@ export default async function DashboardPage() {
               <p className="text-[40px] font-light leading-none tracking-[-0.03em] tabular-nums">
                 {kpi.value}
               </p>
+            </>
+          );
+          return "href" in kpi ? (
+            <Link key={kpi.label} href={(kpi as { href: string }).href} className="block bg-card px-4 py-4 transition-colors hover:bg-accent/50 md:px-6 md:py-5">
+              {inner}
+            </Link>
+          ) : (
+            <div key={kpi.label} className="bg-card px-4 py-4 md:px-6 md:py-5">
+              {inner}
             </div>
           );
         })}
