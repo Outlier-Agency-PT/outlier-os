@@ -96,10 +96,8 @@ export default async function FinanceiroPage() {
   function lastNonNullMonth(label: string): number {
     const row = fluxoRows.find((r) => r.label === label);
     if (!row) return 0;
-    if (label === "SALDO CAIXA") console.log("SALDO CAIXA row:", JSON.stringify(row));
     const months = [...MONTH_COLS].reverse();
-    const col = months.find((m) => row[m] != null);
-    if (label === "SALDO CAIXA") console.log("SALDO CAIXA col:", col, "value:", row[col]);
+    const col = months.find((m) => row[m] != null && row[m] !== "0" && Number(row[m]) !== 0);
     return col ? Number(row[col]) || 0 : 0;
   }
 

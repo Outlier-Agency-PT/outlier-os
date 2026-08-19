@@ -12,7 +12,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -20,6 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -155,12 +160,43 @@ const SECOES = [
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value }: { label: string; value: number }) {
+function KpiCard({
+  label,
+  value,
+  info,
+  infoLink,
+}: {
+  label: string;
+  value: number;
+  info: string;
+  infoLink: string;
+}) {
   return (
     <Card className="flex-1 min-w-[160px]">
       <CardHeader className="pb-1 pt-4 px-4">
-        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <CardTitle className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {label}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="shrink-0 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Info size={12} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 text-sm" side="bottom" align="start">
+              <p className="text-foreground leading-relaxed mb-3">{info}</p>
+              <a
+                href={infoLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[#A12B2B] hover:underline text-xs font-medium"
+              >
+                Ver no Google Sheets <ExternalLink size={11} />
+              </a>
+            </PopoverContent>
+          </Popover>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4">
@@ -541,11 +577,36 @@ export function FinanceiroDashboard({ kpis, chartData, fluxoRows, clientes, paga
     <div className="p-6 space-y-6">
       {/* KPI Row */}
       <div className="flex flex-wrap gap-3">
-        <KpiCard label="Receita Total" value={kpis.receitaTotal} />
-        <KpiCard label="Despesa Total" value={kpis.despesaTotal} />
-        <KpiCard label="EBITDA" value={kpis.ebitda} />
-        <KpiCard label="Lucro Líquido" value={kpis.lucroLiquido} />
-        <KpiCard label="Saldo Caixa" value={kpis.saldoCaixa} />
+        <KpiCard
+          label="Receita Total"
+          value={kpis.receitaTotal}
+          info="Soma da receita sem IVA de Janeiro a Agosto 2026."
+          infoLink="https://docs.google.com/spreadsheets/d/1suV8ty4xcLQ7LAfLQychq4wQBMuIOy8qg_Sma-SCFIY/edit?gid=845495189#gid=845495189"
+        />
+        <KpiCard
+          label="Despesa Total"
+          value={kpis.despesaTotal}
+          info="Soma de todas as despesas fixas e variáveis de Janeiro a Agosto 2026."
+          infoLink="https://docs.google.com/spreadsheets/d/1suV8ty4xcLQ7LAfLQychq4wQBMuIOy8qg_Sma-SCFIY/edit?gid=845495189#gid=845495189"
+        />
+        <KpiCard
+          label="EBITDA"
+          value={kpis.ebitda}
+          info="Resultado operacional: Receita SEM IVA menos Total de Despesas. Negativo indica que as despesas superam a receita operacional."
+          infoLink="https://docs.google.com/spreadsheets/d/1suV8ty4xcLQ7LAfLQychq4wQBMuIOy8qg_Sma-SCFIY/edit?gid=845495189#gid=845495189"
+        />
+        <KpiCard
+          label="Lucro Líquido"
+          value={kpis.lucroLiquido}
+          info="Resultado após impostos, crédito bancário e deduções financeiras. Inclui IRC, IRS, SS e devolução do crédito Bankinter."
+          infoLink="https://docs.google.com/spreadsheets/d/1suV8ty4xcLQ7LAfLQychq4wQBMuIOy8qg_Sma-SCFIY/edit?gid=845495189#gid=845495189"
+        />
+        <KpiCard
+          label="Saldo Caixa"
+          value={kpis.saldoCaixa}
+          info="Saldo disponível em caixa em Agosto 2026."
+          infoLink="https://docs.google.com/spreadsheets/d/1suV8ty4xcLQ7LAfLQychq4wQBMuIOy8qg_Sma-SCFIY/edit?gid=845495189#gid=845495189"
+        />
       </div>
 
       {/* Chart */}
