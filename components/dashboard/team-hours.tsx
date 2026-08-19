@@ -322,7 +322,7 @@ export function TeamHours({ initialData, initialWeekStart, teamMetrics, overdueT
                 />
                 <Tooltip
                   cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
-                  formatter={(_, __, props) => [props.payload.label, "Horas"]}
+                  formatter={((_, __, props: any) => [props.payload.label, "Horas"]) as any}
                   contentStyle={{
                     background: "hsl(var(--card))",
                     border: "1px solid hsl(var(--border))",
