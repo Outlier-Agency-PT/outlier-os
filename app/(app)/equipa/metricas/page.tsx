@@ -3,9 +3,10 @@ import { PageHeader } from "@/components/layout/page-header";
 import { TeamMetricsClient } from "@/components/team/team-metrics-client";
 import { isCurrentUserAdmin } from "@/lib/queries/team";
 import { getConcludedStatusId } from "@/lib/queries/dashboard-colaborador";
-import { getTeamMetrics } from "@/lib/queries/team-metrics";
+import { getTeamMetrics, fetchOverdueTasks } from "@/lib/queries/team-metrics";
 import { getWeekStart } from "@/lib/utils/week-utils";
 
+export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
 export default async function EquipaMetricasPage() {
@@ -14,7 +15,10 @@ export default async function EquipaMetricasPage() {
 
   const weekStart = getWeekStart();
   const concludedStatusId = await getConcludedStatusId();
-  const initialData = await getTeamMetrics(weekStart, new Date(), concludedStatusId);
+  const [initialData, overdueTasks] = await Promise.all([
+    getTeamMetrics(weekStart, new Date(), concludedStatusId),
+    fetchOverdueTasks(concludedStatusId),
+  ]);
 
   return (
     <>
@@ -22,7 +26,7 @@ export default async function EquipaMetricasPage() {
         title="Métricas de Equipa"
         description="Desempenho por pessoa e totais da equipa."
       />
-      <TeamMetricsClient initialData={initialData} />
+      <TeamMetricsClient initialData={initialData} overdueTasks={overdueTasks} />
     </>
   );
 }

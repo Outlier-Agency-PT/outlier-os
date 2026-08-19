@@ -4,7 +4,17 @@ import { useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchTeamMetricsAction } from "@/lib/actions/team-metrics";
-import type { TeamMetricsResult } from "@/lib/queries/team-metrics";
+import type { TeamMetricsResult, OverdueTask, MemberMetrics } from "@/lib/queries/team-metrics";
+import { OverdueTasksModal } from "@/components/team/overdue-tasks-modal";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 // ── Period computation ──────────────────────────────────────────────────────
 
@@ -78,7 +88,22 @@ function fmtEstimated(h: number): string {
 
 // ── Stat cell ───────────────────────────────────────────────────────────────
 
-function StatCell({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
+interface ProgressBarProps {
+  pct: number;
+  color: "gray" | "green";
+}
+
+function StatCell({
+  label,
+  value,
+  highlight,
+  progress,
+}: {
+  label: string;
+  value: string | number;
+  highlight?: boolean;
+  progress?: ProgressBarProps;
+}) {
   return (
     <div className="bg-card px-4 py-4 md:px-6 md:py-5">
       <div className="mb-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -92,6 +117,88 @@ function StatCell({ label, value, highlight }: { label: string; value: string | 
       >
         {value}
       </p>
+      {progress && (
+        <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all",
+              progress.color === "green" ? "bg-emerald-500" : "bg-muted-foreground/30",
+            )}
+            style={{ width: `${Math.min(100, Math.max(0, progress.pct))}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Member bar chart ─────────────────────────────────────────────────────────
+
+function MemberBarChart({ members }: { members: MemberMetrics[] }) {
+  const filtered = members.filter(
+    (m) => m.tarefas_criadas > 0 || m.tarefas_realizadas > 0 || m.tarefas_em_atraso > 0,
+  );
+  if (filtered.length === 0) return null;
+
+  const chartData = filtered.map((m) => ({
+    name: m.full_name.split(" ")[0],
+    Criadas: m.tarefas_criadas,
+    Realizadas: m.tarefas_realizadas,
+    "Em Atraso": m.tarefas_em_atraso,
+  }));
+
+  const chartHeight = Math.max(200, filtered.length * 50);
+
+  return (
+    <div className="mt-6 border border-border bg-card p-4 md:p-6">
+      <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        Distribuição Por Pessoa
+      </p>
+      <ResponsiveContainer width="100%" height={chartHeight}>
+        <BarChart
+          layout="vertical"
+          data={chartData}
+          margin={{ top: 0, right: 24, left: 0, bottom: 0 }}
+          barCategoryGap="30%"
+          barGap={2}
+        >
+          <XAxis
+            type="number"
+            allowDecimals={false}
+            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={72}
+            tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
+            contentStyle={{
+              background: "hsl(var(--card))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: 0,
+              fontSize: 12,
+              color: "hsl(var(--foreground))",
+            }}
+          />
+          <Legend
+            verticalAlign="top"
+            align="left"
+            iconType="square"
+            iconSize={10}
+            wrapperStyle={{ fontSize: 11, paddingBottom: 16 }}
+          />
+          <Bar dataKey="Criadas" fill="#6B7280" radius={0} />
+          <Bar dataKey="Realizadas" fill="#10B981" radius={0} />
+          <Bar dataKey="Em Atraso" fill="#A12B2B" radius={0} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -100,6 +207,7 @@ function StatCell({ label, value, highlight }: { label: string; value: string | 
 
 interface Props {
   initialData: TeamMetricsResult;
+  overdueTasks: OverdueTask[];
 }
 
 const MODES: { key: PeriodMode; label: string }[] = [
@@ -109,13 +217,14 @@ const MODES: { key: PeriodMode; label: string }[] = [
   { key: "mes", label: "Meses Anteriores" },
 ];
 
-export function TeamMetricsClient({ initialData }: Props) {
+export function TeamMetricsClient({ initialData, overdueTasks }: Props) {
   // Estado de período — só é calculado no cliente (nunca no SSR)
   const [mode, setMode] = useState<PeriodMode>("semana_atual");
   const [weekOffset, setWeekOffset] = useState(-1);
   const [monthOffset, setMonthOffset] = useState(-1);
   const [data, setData] = useState<TeamMetricsResult>(initialData);
   const [isPending, startTransition] = useTransition();
+  const [overdueOpen, setOverdueOpen] = useState(false);
 
   // Deriva o label do navegador de semana/mês só quando necessário
   function getPeriodLabel(): string {
@@ -238,16 +347,42 @@ export function TeamMetricsClient({ initialData }: Props) {
             Totais da Equipa
           </p>
           <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3 lg:grid-cols-5">
-            <StatCell label="Tarefas Criadas" value={g.tarefas_criadas} />
-            <StatCell label="Realizadas" value={g.tarefas_realizadas} />
             <StatCell
-              label="Em Atraso"
-              value={g.tarefas_em_atraso}
-              highlight={g.tarefas_em_atraso > 0}
+              label="Tarefas Criadas"
+              value={g.tarefas_criadas}
+              progress={{ pct: 100, color: "gray" }}
             />
+            <StatCell
+              label="Realizadas"
+              value={g.tarefas_realizadas}
+              progress={{
+                pct: g.tarefas_criadas > 0 ? (g.tarefas_realizadas / g.tarefas_criadas) * 100 : 0,
+                color: "green",
+              }}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setOverdueOpen(true)}
+              onKeyDown={(e) => e.key === "Enter" && setOverdueOpen(true)}
+              className="cursor-pointer outline-none ring-inset focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Ver ${g.tarefas_em_atraso} tarefas em atraso`}
+            >
+              <StatCell
+                label="Em Atraso"
+                value={g.tarefas_em_atraso}
+                highlight={g.tarefas_em_atraso > 0}
+              />
+            </div>
             <StatCell label="H. Realizadas" value={fmtMinutes(g.horas_realizadas_minutos)} />
             <StatCell label="H. Estimadas" value={fmtEstimated(g.horas_estimadas)} />
           </div>
+
+          <OverdueTasksModal
+            open={overdueOpen}
+            onClose={() => setOverdueOpen(false)}
+            tasks={overdueTasks}
+          />
         </div>
 
         {/* Per-member table */}
@@ -318,6 +453,8 @@ export function TeamMetricsClient({ initialData }: Props) {
               H. Estimadas = soma de horas estimadas nas tarefas concluídas no período.
             </p>
           </div>
+
+          <MemberBarChart members={members} />
         </div>
       </div>
     </div>

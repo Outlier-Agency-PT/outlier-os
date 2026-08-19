@@ -47,14 +47,15 @@ async function fetchTeamMetrics(
   const startISO = periodStart.toISOString();
   const endISO = periodEnd.toISOString();
 
-  const baseOverdue = concludedStatusId
-    ? supabase
-        .from("tasks")
-        .select("id, assignee_id, assignees")
-        .not("due_date", "is", null)
-        .lt("due_date", today)
-        .neq("status_id", concludedStatusId)
-    : null;
+  let baseOverdue = supabase
+    .from("tasks")
+    .select("id, assignee_id, assignees")
+    .not("due_date", "is", null)
+    .lt("due_date", today)
+    .is("completed_at", null);
+  if (concludedStatusId) {
+    baseOverdue = baseOverdue.neq("status_id", concludedStatusId);
+  }
 
   const baseCompleted = concludedStatusId
     ? supabase
@@ -86,7 +87,7 @@ async function fetchTeamMetrics(
       .lt("created_at", endISO),
 
     baseCompleted ?? Promise.resolve({ data: [] }),
-    baseOverdue ?? Promise.resolve({ data: [] }),
+    baseOverdue,
 
     supabase
       .from("task_time_logs")
@@ -147,4 +148,63 @@ export async function getTeamMetricsAdmin(
 ): Promise<TeamMetricsResult> {
   const supabase = createAdminClient();
   return fetchTeamMetrics(supabase, periodStart, periodEnd, concludedStatusId);
+}
+
+// ── Overdue tasks ───────────────────────────────────────────────────────────
+
+export interface OverdueTask {
+  id: string;
+  title: string;
+  due_date: string;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  days_overdue: number;
+}
+
+export async function fetchOverdueTasks(
+  concludedStatusId: string | null,
+): Promise<OverdueTask[]> {
+  const supabase = createAdminClient();
+  const today = new Date().toISOString().slice(0, 10);
+
+  let query = supabase
+    .from("tasks")
+    .select("id, title, due_date, assignee_id, completed_at, status_id, team_members!tasks_assignee_id_fkey(full_name)")
+    .not("due_date", "is", null)
+    .lt("due_date", today)
+    .is("completed_at", null)
+    .order("due_date", { ascending: true });
+
+  if (concludedStatusId) {
+    query = query.neq("status_id", concludedStatusId);
+  }
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+
+  const todayMs = new Date(today).getTime();
+
+  type RawRow = {
+    id: string;
+    title: string;
+    due_date: string;
+    assignee_id: string | null;
+    completed_at: string | null;
+    status_id: string | null;
+    team_members: { full_name: string }[] | { full_name: string } | null;
+  };
+
+  return (data as unknown as RawRow[]).map((row) => {
+    const member = Array.isArray(row.team_members)
+      ? row.team_members[0] ?? null
+      : row.team_members;
+    return {
+      id: row.id,
+      title: row.title,
+      due_date: row.due_date,
+      assignee_id: row.assignee_id,
+      assignee_name: member?.full_name ?? null,
+      days_overdue: Math.floor((todayMs - new Date(row.due_date).getTime()) / 86_400_000),
+    };
+  });
 }

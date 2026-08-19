@@ -36,6 +36,7 @@ import { getTeamMembers } from "@/lib/queries/team";
 import Link from "next/link";
 import { RecentActivityFeed } from "@/components/dashboard/recent-activity-feed";
 import { TeamHours } from "@/components/dashboard/team-hours";
+import { getTeamMetrics, fetchOverdueTasks } from "@/lib/queries/team-metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,8 @@ export default async function DashboardPage() {
 
   // getWeekStart() é síncrono — calculado antes do Batch A
   const adminWeekStart = getWeekStart();
+  const adminWeekEnd = new Date(adminWeekStart);
+  adminWeekEnd.setDate(adminWeekStart.getDate() + 7);
   const concludedStatusId = await getConcludedStatusId();
 
   // Batch A: todas as queries independentes em paralelo
@@ -122,6 +125,8 @@ export default async function DashboardPage() {
     adminCheckpoints,
     teamMembers,
     teamHours,
+    teamMetricsData,
+    teamOverdueTasks,
     comercialRes,
     marketingLeadsRes,
     roasRes,
@@ -148,6 +153,8 @@ export default async function DashboardPage() {
     getWeeklyCheckpoints(adminWeekStart),
     getTeamMembers(),
     getTeamWeeklyHours(adminWeekStart),
+    getTeamMetrics(adminWeekStart, adminWeekEnd, concludedStatusId),
+    fetchOverdueTasks(concludedStatusId),
     supabase.from("commercial_closer_metrics").select("valor_vendas, month_name, year").eq("funnel", "incubadora").eq("closer_name", "TOTAL"),
     supabase.from("marketing_funnel_monthly").select("leads, month_name, year").eq("funnel", "incubadora"),
     supabase.from("marketing_roas_monthly").select("receita_fechada, fechos, month_name, year"),
@@ -358,6 +365,8 @@ export default async function DashboardPage() {
         <TeamHours
           initialData={teamHours}
           initialWeekStart={adminWeekStart}
+          teamMetrics={teamMetricsData}
+          overdueTasks={teamOverdueTasks}
         />
       </div>
 
