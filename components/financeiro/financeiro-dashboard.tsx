@@ -372,68 +372,188 @@ function ClientesTab({ clientes }: { clientes: ClienteRow[] }) {
 
 // ─── Fluxo de Caixa Tab ───────────────────────────────────────────────────────
 
+type FluxoSection = {
+  key: string;
+  label: string;
+  // bodyRows: ALL data rows for this section (excludes explicit header rows)
+  bodyRows: FluxoRow[];
+  // isExplicit: true when the section started from a group_label-only row
+  isExplicit: boolean;
+};
+
+function buildSections(rows: FluxoRow[]): { preRows: FluxoRow[]; sections: FluxoSection[] } {
+  const preRows: FluxoRow[] = [];
+  const sections: FluxoSection[] = [];
+  let current: FluxoSection | null = null;
+  let currentGroupLabel: string | null = null;
+
+  for (const row of rows) {
+    const gl = row.group_label;
+
+    if (gl && !row.label) {
+      // Explicit section header row (has group_label, no label) — becomes the header, not a body row
+      current = { key: gl, label: gl, bodyRows: [], isExplicit: true };
+      currentGroupLabel = gl;
+      sections.push(current);
+    } else if (gl && gl !== currentGroupLabel) {
+      // Row belongs to a NEW group not seen before — create a synthetic section and include this row
+      current = { key: gl, label: gl, bodyRows: [row], isExplicit: false };
+      currentGroupLabel = gl;
+      sections.push(current);
+    } else if (current) {
+      // Same group as current section (or no group_label) — add to current section
+      current.bodyRows.push(row);
+    } else {
+      // No active section yet
+      preRows.push(row);
+    }
+  }
+
+  return { preRows, sections };
+}
+
 function FluxoTab({ rows }: { rows: FluxoRow[] }) {
+  const { preRows, sections } = buildSections(rows);
+  const allKeys = sections.map((s) => s.key);
+
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleSection(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function expandAll() {
+    setExpanded(new Set(allKeys));
+  }
+
+  function collapseAll() {
+    setExpanded(new Set());
+  }
+
+  const isResumo = expanded.size === 0;
+  const isDetalhe = allKeys.length > 0 && expanded.size === allKeys.length;
+
+  const thBase = "sticky top-0 z-20 bg-muted/95 px-3 py-2.5 font-medium text-muted-foreground";
+  const tdLabel = "sticky left-0 z-10 bg-card px-3 py-2 truncate max-w-[200px]";
+  const tdLabelSubtotal = "sticky left-0 z-10 bg-muted/30 px-3 py-2 truncate max-w-[200px]";
+
+  function renderBodyRow(row: FluxoRow) {
+    return (
+      <tr
+        key={row.row_number}
+        className={`border-t transition-colors ${
+          row.is_subtotal ? "bg-muted/30 font-semibold" : "hover:bg-muted/20"
+        }`}
+      >
+        <td className={row.is_subtotal ? tdLabelSubtotal : tdLabel}>
+          {row.label ?? "—"}
+        </td>
+        <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
+          {row.categoria ?? "—"}
+        </td>
+        {MONTH_COLS.map((m) => (
+          <td key={m.key} className="px-3 py-2 text-right font-mono text-xs">
+            {eur(row[m.key] as number | null)}
+          </td>
+        ))}
+        <td className="px-3 py-2 text-right font-mono text-xs font-semibold">
+          {eur(row.total_anual)}
+        </td>
+      </tr>
+    );
+  }
+
   return (
-    <div className="rounded-lg border overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 sticky top-0 z-10">
+    <div className="space-y-3">
+      {/* View toggle */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Vista:</span>
+        <div className="flex rounded-md border overflow-hidden text-xs">
+          <button
+            onClick={collapseAll}
+            className={`px-3 py-1.5 transition-colors ${
+              isResumo
+                ? "bg-foreground text-background font-medium"
+                : "hover:bg-muted/50 text-muted-foreground"
+            }`}
+          >
+            Resumo
+          </button>
+          <button
+            onClick={expandAll}
+            className={`px-3 py-1.5 border-l transition-colors ${
+              isDetalhe
+                ? "bg-foreground text-background font-medium"
+                : "hover:bg-muted/50 text-muted-foreground"
+            }`}
+          >
+            Detalhe
+          </button>
+        </div>
+        {sections.length > 0 && (
+          <span className="text-xs text-muted-foreground/60">
+            {sections.length} secções
+          </span>
+        )}
+      </div>
+
+      <div className="rounded-lg border overflow-auto max-h-[70vh]">
+        <table className="w-full text-sm border-collapse">
+          <thead>
             <tr>
-              <th className="text-left px-3 py-2.5 font-medium text-muted-foreground min-w-[200px]">
+              <th className={`${thBase} sticky left-0 z-30 text-left min-w-[200px]`}>
                 Label
               </th>
-              <th className="text-left px-3 py-2.5 font-medium text-muted-foreground min-w-[120px] hidden md:table-cell">
+              <th className={`${thBase} text-left min-w-[120px] hidden md:table-cell`}>
                 Categoria
               </th>
               {MONTH_COLS.map((m) => (
-                <th
-                  key={m.key}
-                  className="text-right px-3 py-2.5 font-medium text-muted-foreground min-w-[80px]"
-                >
+                <th key={m.key} className={`${thBase} text-right min-w-[80px]`}>
                   {m.label}
                 </th>
               ))}
-              <th className="text-right px-3 py-2.5 font-medium text-muted-foreground min-w-[90px]">
-                Total
-              </th>
+              <th className={`${thBase} text-right min-w-[90px]`}>Total</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
-              if (row.group_label && !row.label) {
-                return (
-                  <tr key={row.row_number} className="bg-muted/60">
-                    <td
-                      colSpan={15}
-                      className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                    >
-                      {row.group_label}
+            {/* Rows before any section */}
+            {preRows.map((row) => renderBodyRow(row))}
+
+            {/* Sections */}
+            {sections.map((section) => {
+              const isOpen = expanded.has(section.key);
+              const detailRows = section.bodyRows.filter((r) => !r.is_subtotal);
+              const subtotalRows = section.bodyRows.filter((r) => r.is_subtotal);
+
+              return (
+                <Fragment key={section.key}>
+                  {/* Section header — always visible, clickable */}
+                  <tr
+                    className="bg-muted/60 cursor-pointer hover:bg-muted/80 transition-colors"
+                    onClick={() => toggleSection(section.key)}
+                  >
+                    <td colSpan={15} className="px-3 py-2">
+                      <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <ChevronDown
+                          size={13}
+                          className={`shrink-0 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+                        />
+                        {section.label}
+                      </span>
                     </td>
                   </tr>
-                );
-              }
-              return (
-                <tr
-                  key={row.row_number}
-                  className={`border-t transition-colors ${
-                    row.is_subtotal
-                      ? "bg-muted/30 font-semibold"
-                      : "hover:bg-muted/20"
-                  }`}
-                >
-                  <td className="px-3 py-2 truncate max-w-[200px]">{row.label ?? "—"}</td>
-                  <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
-                    {row.categoria ?? "—"}
-                  </td>
-                  {MONTH_COLS.map((m) => (
-                    <td key={m.key} className="px-3 py-2 text-right font-mono text-xs">
-                      {eur(row[m.key] as number | null)}
-                    </td>
-                  ))}
-                  <td className="px-3 py-2 text-right font-mono text-xs font-semibold">
-                    {eur(row.total_anual)}
-                  </td>
-                </tr>
+
+                  {/* Subtotal rows — always visible regardless of expand state */}
+                  {subtotalRows.map((row) => renderBodyRow(row))}
+
+                  {/* Detail rows — only when expanded */}
+                  {isOpen && detailRows.map((row) => renderBodyRow(row))}
+                </Fragment>
               );
             })}
           </tbody>

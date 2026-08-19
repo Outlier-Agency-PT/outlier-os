@@ -6,7 +6,7 @@ import { getTeamMetricsAdmin } from "@/lib/queries/team-metrics";
 export const dynamic = "force-dynamic";
 
 const FROM = "onboarding@resend.dev";
-const TO = ["ads@outlieragency.pt", "daniel@danielgodinho.pt", "mariajoao@danielgodinho.pt"];
+const TO = ["ads@outlieragency.pt"];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
