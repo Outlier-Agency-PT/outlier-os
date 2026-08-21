@@ -95,6 +95,7 @@ export function TasksBoard({
   const [filterClientId, setFilterClientId] = useState<string | null>(null);
   const initialAssignee = searchParams.get("assignee") === "all" ? "all" : (currentUserId || "all");
   const [filterAssigneeId, setFilterAssigneeId] = useState<string | "all">(initialAssignee);
+  const [filterSource, setFilterSource] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
@@ -148,8 +149,16 @@ export function TasksBoard({
       result = result.filter((t) => t.client?.id === filterClientId);
     }
 
+    if (filterSource) {
+      result = result.filter((t) =>
+        filterSource === "manual"
+          ? t.source === null || t.source === "manual"
+          : t.source === filterSource,
+      );
+    }
+
     return result;
-  }, [tasks, search, filterClientId, filterAssigneeId]);
+  }, [tasks, search, filterClientId, filterAssigneeId, filterSource]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, TaskWithRelations[]>();
@@ -347,6 +356,40 @@ export function TasksBoard({
                   onClick={() => setFilterAssigneeId(currentUserId)}
                   className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   title="Voltar às minhas tarefas"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Filtro por origem */}
+          {showFilters && (
+            <div className="flex items-center gap-1">
+              <Select
+                value={filterSource ?? "all"}
+                onValueChange={(v) => setFilterSource(v === "all" ? null : v)}
+              >
+                <SelectTrigger
+                  className="h-9 w-44 text-sm"
+                  style={filterSource ? { borderColor: "#A12B2B" } : undefined}
+                >
+                  <SelectValue placeholder="Todas as origens" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as origens</SelectItem>
+                  <SelectItem value="fireflies">Fireflies</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="recurring">Recorrente</SelectItem>
+                  <SelectItem value="template">Template</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {filterSource && (
+                <button
+                  onClick={() => setFilterSource(null)}
+                  className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  title="Limpar filtro de origem"
                 >
                   <X className="size-3.5" />
                 </button>
