@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { ChevronDown, ChevronRight, Plus, Trash2, Lock, LayoutTemplate, CalendarDays } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, Lock, LayoutTemplate, CalendarDays, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createTaskSpaceAction, createTaskListAction } from "@/lib/actions/tasks";
+import {
+  createTaskSpaceAction,
+  createTaskListAction,
+  renameTaskSpaceAction,
+  deleteTaskSpaceAction,
+  renameTaskListAction,
+  deleteTaskListAction,
+} from "@/lib/actions/tasks";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { TaskSpace } from "@/lib/queries/tasks";
@@ -29,6 +36,12 @@ export function TaskSidebar({ spaces, selectedListId, selectedSpaceId }: TaskSid
   const [newListSpace, setNewListSpace] = useState<string | null>(null);
   const [newListName, setNewListName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
+  const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
+  const [editingSpaceName, setEditingSpaceName] = useState("");
+  const [editingListId, setEditingListId] = useState<string | null>(null);
+  const [editingListName, setEditingListName] = useState("");
+  const [hoveredSpaceId, setHoveredSpaceId] = useState<string | null>(null);
+  const [hoveredListId, setHoveredListId] = useState<string | null>(null);
 
   const toggleSpace = (spaceId: string) => {
     setExpandedSpaces((prev) => {
@@ -55,6 +68,48 @@ export function TaskSidebar({ spaces, selectedListId, selectedSpaceId }: TaskSid
       setNewSpaceName("");
       setNewSpaceIsPrivate(false);
       setShowNewSpace(false);
+    }
+  }
+
+  async function handleRenameSpace(id: string) {
+    if (!editingSpaceName.trim()) return;
+    const result = await renameTaskSpaceAction(id, editingSpaceName.trim());
+    if ("error" in result && result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Espaço renomeado");
+      setEditingSpaceId(null);
+    }
+  }
+
+  async function handleDeleteSpace(id: string) {
+    const result = await deleteTaskSpaceAction(id);
+    if ("error" in result && result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Espaço eliminado");
+      router.push("/tarefas");
+    }
+  }
+
+  async function handleRenameList(id: string) {
+    if (!editingListName.trim()) return;
+    const result = await renameTaskListAction(id, editingListName.trim());
+    if ("error" in result && result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Lista renomeada");
+      setEditingListId(null);
+    }
+  }
+
+  async function handleDeleteList(id: string) {
+    const result = await deleteTaskListAction(id);
+    if ("error" in result && result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Lista eliminada");
+      router.push("/tarefas");
     }
   }
 
@@ -169,9 +224,11 @@ export function TaskSidebar({ spaces, selectedListId, selectedSpaceId }: TaskSid
           <div key={space.id} className="space-y-1">
             <div
               className={cn(
-                "w-full flex items-center gap-1 rounded-md text-xs font-medium transition-colors",
+                "w-full flex items-center gap-1 rounded-md text-xs font-medium transition-colors group",
                 selectedSpaceId === space.id ? "bg-brand text-white" : "hover:bg-accent",
               )}
+              onMouseEnter={() => setHoveredSpaceId(space.id)}
+              onMouseLeave={() => setHoveredSpaceId(null)}
             >
               <button
                 onClick={() => toggleSpace(space.id)}
@@ -184,43 +241,161 @@ export function TaskSidebar({ spaces, selectedListId, selectedSpaceId }: TaskSid
                   <ChevronRight className="size-4" />
                 )}
               </button>
-              <button
-                onClick={() => {
-                  router.push(`?space=${space.id}`);
-                  if (!expandedSpaces.has(space.id)) toggleSpace(space.id);
-                }}
-                className="flex flex-1 items-center gap-2 py-1.5 pr-2 min-w-0"
-              >
-                <span
-                  className="size-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: space.color }}
-                />
-                <span className="flex-1 text-left truncate">{space.name}</span>
-                {space.is_private && (
-                  <Lock className="size-3 flex-shrink-0 text-muted-foreground" />
-                )}
-              </button>
+
+              {editingSpaceId === space.id ? (
+                <div className="flex flex-1 items-center gap-1 py-1 pr-1 min-w-0">
+                  <Input
+                    value={editingSpaceName}
+                    onChange={(e) => setEditingSpaceName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRenameSpace(space.id);
+                      if (e.key === "Escape") setEditingSpaceId(null);
+                    }}
+                    autoFocus
+                    className="h-6 text-xs flex-1 min-w-0 px-1"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRenameSpace(space.id); }}
+                    className="p-0.5 hover:text-green-600 shrink-0"
+                  >
+                    <Check className="size-3" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditingSpaceId(null); }}
+                    className="p-0.5 hover:text-red-500 shrink-0"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    router.push(`?space=${space.id}`);
+                    if (!expandedSpaces.has(space.id)) toggleSpace(space.id);
+                  }}
+                  className="flex flex-1 items-center gap-2 py-1.5 min-w-0"
+                >
+                  <span
+                    className="size-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: space.color }}
+                  />
+                  <span className="flex-1 text-left truncate">{space.name}</span>
+                  {space.is_private && (
+                    <Lock className="size-3 flex-shrink-0 text-muted-foreground" />
+                  )}
+                </button>
+              )}
+
+              {editingSpaceId !== space.id && hoveredSpaceId === space.id && (
+                <div className="flex items-center shrink-0 pr-1 gap-0.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingSpaceId(space.id);
+                      setEditingSpaceName(space.name);
+                    }}
+                    className="p-0.5 rounded hover:bg-black/10 text-muted-foreground hover:text-foreground"
+                    title="Renomear espaço"
+                  >
+                    <Pencil className="size-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Eliminar espaço "${space.name}"? Esta ação não pode ser desfeita.`)) {
+                        handleDeleteSpace(space.id);
+                      }
+                    }}
+                    className="p-0.5 rounded hover:bg-black/10 text-muted-foreground hover:text-red-500"
+                    title="Eliminar espaço"
+                  >
+                    <Trash2 className="size-3" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {expandedSpaces.has(space.id) && (
               <div className="ml-4 space-y-1">
                 {space.lists.map((list) => (
-                  <button
+                  <div
                     key={list.id}
-                    onClick={() => router.push(`?list=${list.id}`)}
                     className={cn(
-                      "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
-                      selectedListId === list.id
-                        ? "bg-brand text-white"
-                        : "hover:bg-accent"
+                      "w-full flex items-center rounded-md text-xs transition-colors group",
+                      selectedListId === list.id ? "bg-brand text-white" : "hover:bg-accent"
                     )}
+                    onMouseEnter={() => setHoveredListId(list.id)}
+                    onMouseLeave={() => setHoveredListId(null)}
                   >
-                    <span
-                      className="size-1.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: list.color }}
-                    />
-                    <span className="flex-1 text-left truncate">{list.name}</span>
-                  </button>
+                    {editingListId === list.id ? (
+                      <div className="flex flex-1 items-center gap-1 px-2 py-1 min-w-0">
+                        <Input
+                          value={editingListName}
+                          onChange={(e) => setEditingListName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRenameList(list.id);
+                            if (e.key === "Escape") setEditingListId(null);
+                          }}
+                          autoFocus
+                          className="h-6 text-xs flex-1 min-w-0 px-1"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRenameList(list.id); }}
+                          className="p-0.5 hover:text-green-600 shrink-0"
+                        >
+                          <Check className="size-3" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingListId(null); }}
+                          className="p-0.5 hover:text-red-500 shrink-0"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => router.push(`?list=${list.id}`)}
+                          className="flex flex-1 items-center gap-2 px-2 py-1.5 min-w-0"
+                        >
+                          <span
+                            className="size-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: list.color }}
+                          />
+                          <span className="flex-1 text-left truncate">{list.name}</span>
+                        </button>
+                        {hoveredListId === list.id && (
+                          <div className="flex items-center shrink-0 pr-1 gap-0.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingListId(list.id);
+                                setEditingListName(list.name);
+                              }}
+                              className="p-0.5 rounded hover:bg-black/10 text-muted-foreground hover:text-foreground"
+                              title="Renomear lista"
+                            >
+                              <Pencil className="size-3" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`Eliminar lista "${list.name}"? Esta ação não pode ser desfeita.`)) {
+                                  handleDeleteList(list.id);
+                                }
+                              }}
+                              className="p-0.5 rounded hover:bg-black/10 text-muted-foreground hover:text-red-500"
+                              title="Eliminar lista"
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 ))}
 
                 <button

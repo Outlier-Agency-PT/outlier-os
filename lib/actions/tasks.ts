@@ -468,6 +468,38 @@ export async function createTaskListAction(spaceId: string, name: string, color:
   return { data };
 }
 
+export async function renameTaskSpaceAction(id: string, name: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("task_spaces").update({ name }).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { success: true };
+}
+
+export async function deleteTaskSpaceAction(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("task_spaces").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { success: true };
+}
+
+export async function renameTaskListAction(id: string, name: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("task_lists").update({ name }).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { success: true };
+}
+
+export async function deleteTaskListAction(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("task_lists").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/tarefas");
+  return { success: true };
+}
+
 export async function createSubtaskAction(parentTaskId: string, title: string) {
   const parsed = taskSchema.safeParse({ title });
   if (!parsed.success) {
