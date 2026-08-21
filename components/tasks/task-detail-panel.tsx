@@ -34,6 +34,7 @@ import {
 } from "@/lib/actions/tasks";
 import { formatDuration, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
+import { SOURCE_LABELS, SOURCE_BADGE_CLASSES } from "@/lib/types";
 import type { TaskWithHierarchy } from "@/lib/queries/tasks";
 import type { TaskComment, TimeLogWithMember, TaskActivity } from "@/lib/queries/task-detail";
 
@@ -427,6 +428,20 @@ export function TaskDetailPanel({
     );
   })();
 
+  const origemField = form.source && form.source !== "manual" ? (
+    <div>
+      <Label className="text-xs font-semibold">Origem</Label>
+      <div className="mt-1.5">
+        <Badge
+          variant="outline"
+          className={`text-xs ${SOURCE_BADGE_CLASSES[form.source as string] ?? ""}`}
+        >
+          {SOURCE_LABELS[form.source as string] ?? form.source}
+        </Badge>
+      </div>
+    </div>
+  ) : null;
+
   const assigneesField = (
     <div>
       <Label className="text-xs font-semibold">Responsáveis</Label>
@@ -652,6 +667,7 @@ export function TaskDetailPanel({
                 {dueDateField}
                 {estimateField}
                 {listField}
+                {origemField}
                 {timeTrackingSection}
               </div>
             </div>
@@ -669,6 +685,7 @@ export function TaskDetailPanel({
             {dueDateField}
             {estimateField}
             {listField}
+            {origemField}
             {assigneesField}
             {subtasksSection}
             {dependenciesSection}

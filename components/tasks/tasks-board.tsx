@@ -52,7 +52,7 @@ import { TasksCalendar } from "./tasks-calendar";
 import { WorkloadView } from "./workload-view";
 import { TasksGantt } from "./tasks-gantt";
 import { moveTaskStatusAction, getTaskDetailAction } from "@/lib/actions/tasks";
-import { PRIORITY_LABELS, PRIORITY_COLORS, type TaskPriority } from "@/lib/types";
+import { PRIORITY_LABELS, PRIORITY_COLORS, SOURCE_LABELS, SOURCE_BADGE_CLASSES, type TaskPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { TaskWithRelations, TaskWithHierarchy, TaskSpace } from "@/lib/queries/tasks";
@@ -643,11 +643,19 @@ function TaskCard({ task, onClick }: { task: TaskWithRelations; onClick: () => v
       </div>
       <div className="flex-1 min-w-0 flex flex-col justify-between">
         <div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {task.isBlocked && (
               <Lock className="size-3 shrink-0 text-red-500" aria-label="Bloqueada por dependência" />
             )}
             <p className="text-sm font-medium leading-tight truncate">{task.title}</p>
+            {task.source && task.source !== "manual" && (
+              <Badge
+                variant="outline"
+                className={`text-[9px] px-1 py-0 shrink-0 ${SOURCE_BADGE_CLASSES[task.source] ?? ""}`}
+              >
+                {SOURCE_LABELS[task.source] ?? task.source}
+              </Badge>
+            )}
           </div>
           <div className="mt-2 flex items-center justify-between gap-2 text-xs">
             {task.priority !== "sem_prioridade" && (
@@ -732,7 +740,19 @@ function TasksTable({
               onClick={() => onTaskClick(t.id)}
               className="hover:bg-muted/50 cursor-pointer transition-colors"
             >
-              <td className="px-4 py-3 font-medium">{t.title}</td>
+              <td className="px-4 py-3 font-medium">
+                <div className="flex items-center gap-1.5">
+                  {t.title}
+                  {t.source && t.source !== "manual" && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] px-1 py-0 shrink-0 ${SOURCE_BADGE_CLASSES[t.source] ?? ""}`}
+                    >
+                      {SOURCE_LABELS[t.source] ?? t.source}
+                    </Badge>
+                  )}
+                </div>
+              </td>
               <td className="px-4 py-3">
                 {t.status && <StatusBadge label={t.status.label} color={t.status.color} />}
               </td>
@@ -930,7 +950,19 @@ function SpaceAggregatedView({
                         onClick={() => onTaskClick(t.id)}
                         className="hover:bg-muted/50 cursor-pointer transition-colors"
                       >
-                        <td className="px-4 py-2.5 font-medium">{t.title}</td>
+                        <td className="px-4 py-2.5 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            {t.title}
+                            {t.source && t.source !== "manual" && (
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] px-1 py-0 shrink-0 ${SOURCE_BADGE_CLASSES[t.source] ?? ""}`}
+                              >
+                                {SOURCE_LABELS[t.source] ?? t.source}
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-2.5">
                           {t.status && <StatusBadge label={t.status.label} color={t.status.color} />}
                         </td>
