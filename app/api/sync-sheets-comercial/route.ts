@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const COMERCIAL_SHEET_ID = "1wq-eICmp7kYjyS39mXE6M4hNHLfam5zV_TWxj043tDI";
 const MARKETING_SHEET_ID = "1g7orkqW-3PcN39H83AuhIsBxL8zwKttm";
@@ -646,7 +646,7 @@ function parsePlaceholder(_lines: string[]): never[] { return []; }
 
 export async function POST() {
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const [
       closerIncubadoraRows,

@@ -1,0 +1,25 @@
+alter table commercial_closer_metrics enable row level security;
+alter table commercial_sdr_metrics enable row level security;
+alter table commercial_bdr_metrics enable row level security;
+alter table commercial_call_tracking enable row level security;
+alter table commercial_sales_by_funnel enable row level security;
+alter table commercial_calls_by_funnel enable row level security;
+alter table commercial_monthly_targets enable row level security;
+alter table commercial_loss_reasons enable row level security;
+alter table commercial_refunds enable row level security;
+alter table marketing_funnel_monthly enable row level security;
+alter table marketing_funnel_weekly enable row level security;
+alter table marketing_roas_monthly enable row level security;
+
+create policy "comercial_select_admin" on commercial_closer_metrics for select using (is_admin(auth.uid()));
+create policy "comercial_sdr_select_admin" on commercial_sdr_metrics for select using (is_admin(auth.uid()));
+create policy "comercial_bdr_select_admin" on commercial_bdr_metrics for select using (is_admin(auth.uid()));
+create policy "comercial_call_select_admin" on commercial_call_tracking for select using (is_admin(auth.uid()));
+create policy "comercial_sales_select_admin" on commercial_sales_by_funnel for select using (is_admin(auth.uid()));
+create policy "comercial_calls_select_admin" on commercial_calls_by_funnel for select using (is_admin(auth.uid()));
+create policy "comercial_targets_select_admin" on commercial_monthly_targets for select using (is_admin(auth.uid()));
+create policy "comercial_loss_select_admin" on commercial_loss_reasons for select using (is_admin(auth.uid()));
+create policy "comercial_refunds_select_admin" on commercial_refunds for select using (is_admin(auth.uid()));
+create policy "marketing_funnel_m_select_admin" on marketing_funnel_monthly for select using (is_admin(auth.uid()));
+create policy "marketing_funnel_w_select_admin" on marketing_funnel_weekly for select using (is_admin(auth.uid()));
+create policy "marketing_roas_select_admin" on marketing_roas_monthly for select using (is_admin(auth.uid()));

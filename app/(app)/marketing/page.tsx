@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MarketingDashboard } from "@/components/marketing/marketing-dashboard";
 import { PageHeader } from "@/components/layout/page-header";
@@ -6,6 +7,21 @@ export const dynamic = "force-dynamic";
 
 export default async function MarketingPage() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: member } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("id", user?.id ?? "")
+    .eq("active", true)
+    .maybeSingle();
+
+  if (!member || member.role !== "admin") {
+    redirect("/dashboard");
+  }
 
   const [mensalRes, semanalRes, roasRes] = await Promise.all([
     supabase.from("marketing_funnel_monthly").select("*").order("year").order("month_name"),
