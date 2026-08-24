@@ -181,7 +181,7 @@ function buildEmailHtml(
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
     // Step 1 — auth
     const authHeader = request.headers.get("authorization");
