@@ -51,7 +51,7 @@ export function GlobalCalendarView({
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height))]">
-      <TaskSidebar spaces={spaces} />
+      <TaskSidebar initialSpaces={spaces} />
 
       <div className="flex-1 overflow-hidden">
         <TasksCalendar

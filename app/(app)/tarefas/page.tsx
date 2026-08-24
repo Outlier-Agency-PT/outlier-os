@@ -41,7 +41,7 @@ export default async function TarefasPage(props: {
 
   // getTasks depende de isAdmin, corre após member resolver
   const tasks = await (isAdmin
-    ? getTasks({ assigneeId: assigneeParam === "all" ? undefined : currentUserId })
+    ? getTasks({ assigneeId: assigneeParam ?? undefined })
     : getTasks({ assigneeId: currentUserId }));
 
   const rootCount = (tasks as any[]).filter((t) => !t.parent_task_id).length;

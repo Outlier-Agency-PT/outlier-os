@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ChevronDown, ChevronRight, Plus, Trash2, Lock, LayoutTemplate, CalendarDays, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,20 +15,80 @@ import {
 } from "@/lib/actions/tasks";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { TaskSpace } from "@/lib/queries/tasks";
+import { createClient } from "@/lib/supabase/client";
+import type { TaskSpace, TaskList } from "@/lib/queries/tasks";
 
 interface TaskSidebarProps {
-  spaces: TaskSpace[];
+  initialSpaces: TaskSpace[];
   selectedListId?: string;
   selectedSpaceId?: string;
 }
 
-export function TaskSidebar({ spaces, selectedListId, selectedSpaceId }: TaskSidebarProps) {
+export function TaskSidebar({ initialSpaces, selectedListId, selectedSpaceId }: TaskSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const [spaces, setSpaces] = useState<TaskSpace[]>(initialSpaces);
   const [expandedSpaces, setExpandedSpaces] = useState<Set<string>>(
-    new Set([spaces[0]?.id]) // Abrir primeiro espaço por defeito
+    new Set([initialSpaces[0]?.id]) // Abrir primeiro espaço por defeito
   );
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel("task_spaces_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "task_spaces" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newSpace = payload.new as Omit<TaskSpace, "lists">;
+            setSpaces((prev) => [...prev, { ...newSpace, lists: [] }]);
+          } else if (payload.eventType === "UPDATE") {
+            const updated = payload.new as Omit<TaskSpace, "lists">;
+            setSpaces((prev) =>
+              prev.map((s) => (s.id === updated.id ? { ...updated, lists: s.lists } : s))
+            );
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = (payload.old as { id: string }).id;
+            setSpaces((prev) => prev.filter((s) => s.id !== deletedId));
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "task_lists" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newList = payload.new as TaskList;
+            setSpaces((prev) =>
+              prev.map((s) =>
+                s.id === newList.space_id ? { ...s, lists: [...s.lists, newList] } : s
+              )
+            );
+          } else if (payload.eventType === "UPDATE") {
+            const updated = payload.new as TaskList;
+            setSpaces((prev) =>
+              prev.map((s) =>
+                s.id === updated.space_id
+                  ? { ...s, lists: s.lists.map((l) => (l.id === updated.id ? updated : l)) }
+                  : s
+              )
+            );
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = (payload.old as { id: string }).id;
+            setSpaces((prev) =>
+              prev.map((s) => ({ ...s, lists: s.lists.filter((l) => l.id !== deletedId) }))
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
   const [showNewSpace, setShowNewSpace] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState("");
   const [newSpaceIsPrivate, setNewSpaceIsPrivate] = useState(false);

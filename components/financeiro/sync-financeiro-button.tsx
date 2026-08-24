@@ -15,18 +15,19 @@ export function SyncFinanceiroButton({ lastSyncAt }: Props) {
   async function handleSync() {
     setLoading(true);
     try {
-      const [r1, r2, r3] = await Promise.all([
+      const [r1, r2, r3, r4] = await Promise.all([
         fetch("/api/sync-financial-clientes", { method: "POST" }),
         fetch("/api/sync-financial-fluxo", { method: "POST" }),
         fetch("/api/sync-financial-pagamentos", { method: "POST" }),
+        fetch("/api/sync-financial-extra", { method: "POST" }),
       ]);
-      const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
-      const ok = d1.ok && d2.ok && d3.ok;
+      const [d1, d2, d3, d4] = await Promise.all([r1.json(), r2.json(), r3.json(), r4.json()]);
+      const ok = d1.ok && d2.ok && d3.ok && d4.ok;
       if (ok) {
         toast.success("Dados sincronizados com sucesso");
         window.location.reload();
       } else {
-        const err = [d1, d2, d3].find((d) => !d.ok)?.error ?? "Erro desconhecido";
+        const err = [d1, d2, d3, d4].find((d) => !d.ok)?.error ?? "Erro desconhecido";
         toast.error("Erro na sincronização: " + err);
       }
     } catch {

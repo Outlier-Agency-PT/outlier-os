@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Trash2, Play, Square, Maximize2, Minimize2, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Trash2, Play, Square, Maximize2, Minimize2, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -361,19 +361,60 @@ export function TaskDetailPanel({
   const estimateField = (
     <div>
       <Label className="text-xs font-semibold">Estimativa (horas)</Label>
-      <Input
-        type="number"
-        min="0.5"
-        max="40"
-        step="0.5"
-        placeholder="ex: 2"
-        value={form.estimate_points ?? ""}
-        onChange={(e) => {
-          const v = parseFloat(e.target.value);
-          handleUpdate("estimate_points", !e.target.value || v <= 0 ? null : v);
-        }}
-        className="mt-1.5 h-8 text-xs"
-      />
+      <div className="flex items-center gap-2 mt-1.5">
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="number"
+            min="0"
+            max="999"
+            step="1"
+            placeholder="0"
+            className="w-20 h-8 text-xs"
+            value={form.estimate_points != null ? Math.floor(form.estimate_points) : ""}
+            onChange={(e) => {
+              const hours = parseInt(e.target.value, 10);
+              const mins = form.estimate_points != null
+                ? Math.round((form.estimate_points % 1) * 60)
+                : 0;
+              const total = (!e.target.value || isNaN(hours) ? 0 : hours) + mins / 60;
+              handleUpdate("estimate_points", total === 0 ? null : total);
+            }}
+          />
+          <span className="text-xs text-muted-foreground">h</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Select
+            value={String(
+              form.estimate_points != null
+                ? Math.round((form.estimate_points % 1) * 60)
+                : 0
+            )}
+            onValueChange={(v) => {
+              const hours = form.estimate_points != null
+                ? Math.floor(form.estimate_points)
+                : 0;
+              const total = hours + parseInt(v, 10) / 60;
+              handleUpdate("estimate_points", total === 0 ? null : total);
+            }}
+          >
+            <SelectTrigger className="w-20 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">0 min</SelectItem>
+              <SelectItem value="15">15 min</SelectItem>
+              <SelectItem value="30">30 min</SelectItem>
+              <SelectItem value="45">45 min</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {!form.estimate_points && (
+        <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+          <AlertTriangle className="w-3 h-3" />
+          Sem estimativa definida — recomendado preencher.
+        </p>
+      )}
     </div>
   );
 

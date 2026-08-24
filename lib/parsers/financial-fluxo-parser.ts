@@ -24,14 +24,31 @@ export interface FluxoRow {
 
 // ── Known row classifications ────────────────────────────────────────────────
 
-const SKIP_ROWS = new Set([1, 2, 3, 4, 71, 72, 73, 74, 75]);
+const SKIP_ROWS = new Set([1, 2, 3, 4]);
 
-const SUBTOTAL_ROWS = new Set([
-  68, 69, 70,
-  151, 178, 193, 231, 236, 241, 243,
-  272, 273, 274, 275,
-  288, 291, 292, 294,
-  301, 305,
+const SUBTOTAL_LABELS = new Set([
+  "total receita c/iva",
+  "iva",
+  "total receita sem iva",
+  "recursos humanos",
+  "prestação de serviços",
+  "escritório",
+  "softwares",
+  "marketing",
+  "outras despesas fixas",
+  "total despesas fixas agência",
+  "outras despesas variáveis",
+  "formação + networking",
+  "total despesas variáveis agência",
+  "total de despesas",
+  "ebitda",
+  "ebitda %",
+  "impostos",
+  "lucro liquido (c/ crédito)",
+  "lucro liquido %",
+  "lucro liquido (s/ crédito)",
+  "saldo caixa",
+  "pagamento iva",
 ]);
 
 // Month column indices (0-based): E=4 … P=15
@@ -87,7 +104,7 @@ export function parseFluxo(rawRows: string[][]): FluxoRow[] {
     // Skip rows where both label and group_label are empty
     if (!groupLabel && !label) continue;
 
-    const is_subtotal = SUBTOTAL_ROWS.has(rowNumber);
+    const is_subtotal = label != null && SUBTOTAL_LABELS.has(label.toLowerCase().trim());
 
     const months: Partial<FluxoRow> = {};
     for (let m = 0; m < MONTH_COLS.length; m++) {

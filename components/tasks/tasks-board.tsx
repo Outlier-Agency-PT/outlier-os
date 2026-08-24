@@ -93,7 +93,9 @@ export function TasksBoard({
   const [view, setView] = useState<View>("kanban");
   const [search, setSearch] = useState("");
   const [filterClientId, setFilterClientId] = useState<string | null>(null);
-  const initialAssignee = searchParams.get("assignee") === "all" ? "all" : (currentUserId || "all");
+  const initialAssignee = searchParams.get("assignee")
+    ? searchParams.get("assignee")!
+    : (isAdmin ? "all" : currentUserId);
   const [filterAssigneeId, setFilterAssigneeId] = useState<string | "all">(initialAssignee);
   const [filterSource, setFilterSource] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -170,6 +172,21 @@ export function TasksBoard({
     return map;
   }, [filtered, statuses]);
 
+  async function applyStatusMove(taskId: string, newStatusId: string) {
+    const targetStatus = statuses.find((s) => s.id === newStatusId);
+    if (!targetStatus) return;
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, status_id: newStatusId, status: targetStatus } : t,
+      ),
+    );
+    const result = await moveTaskStatusAction(taskId, newStatusId);
+    if ("error" in result && result.error) {
+      toast.error("Falha ao mover tarefa");
+      setTasks(initialTasks);
+    }
+  }
+
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -182,7 +199,11 @@ export function TasksBoard({
     const overTask = tasks.find((t) => t.id === overId);
 
     if (overTask) {
-      if (overTask.status_id !== task.status_id) return;
+      if (overTask.status_id !== task.status_id) {
+        // Dropped onto a card in a different column — treat as a column move
+        await applyStatusMove(taskId, overTask.status_id!);
+        return;
+      }
       const columnTasks = tasks.filter((t) => t.status_id === task.status_id);
       const activeIndex = columnTasks.findIndex((t) => t.id === taskId);
       const overIndex = columnTasks.findIndex((t) => t.id === overId);
@@ -192,19 +213,7 @@ export function TasksBoard({
       newTasks.splice(overIndex, 0, movedTask);
       setTasks(newTasks);
     } else {
-      const newStatusId = overId;
-      const targetStatus = statuses.find((s) => s.id === newStatusId);
-      if (!targetStatus) return;
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId ? { ...t, status_id: newStatusId, status: targetStatus } : t,
-        ),
-      );
-      const result = await moveTaskStatusAction(taskId, newStatusId);
-      if ("error" in result && result.error) {
-        toast.error("Falha ao mover tarefa");
-        setTasks(initialTasks);
-      }
+      await applyStatusMove(taskId, overId);
     }
   }
 
@@ -255,7 +264,7 @@ export function TasksBoard({
   return (
     <div className="flex h-[calc(100vh-var(--header-height))]">
       {/* Sidebar */}
-      <TaskSidebar spaces={spaces} selectedListId={selectedListId} selectedSpaceId={selectedSpaceId} />
+      <TaskSidebar initialSpaces={spaces} selectedListId={selectedListId} selectedSpaceId={selectedSpaceId} />
 
       {/* Conteúdo principal */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -602,7 +611,7 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        "w-72 shrink-0 rounded-lg border bg-background p-3 transition-colors",
+        "w-72 shrink-0 rounded-lg border bg-background p-3 transition-colors min-h-48",
         isOver && "bg-muted",
       )}
     >
@@ -620,7 +629,7 @@ function Column({
           <p className="px-2 text-xs text-muted-foreground">Sem tarefas</p>
         ) : (
           (() => {
-            const LIMIT = 5;
+            const LIMIT = 3;
             const visible = expanded ? tasks : tasks.slice(0, LIMIT);
             return (
               <>
@@ -854,6 +863,21 @@ function SpaceAggregatedView({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
+  async function applyStatusMove(taskId: string, newStatusId: string) {
+    const targetStatus = statuses.find((s) => s.id === newStatusId);
+    if (!targetStatus) return;
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, status_id: newStatusId, status: targetStatus } : t,
+      ),
+    );
+    const result = await moveTaskStatusAction(taskId, newStatusId);
+    if ("error" in result && result.error) {
+      toast.error("Falha ao mover tarefa");
+      setTasks(initialTasks);
+    }
+  }
+
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -863,7 +887,11 @@ function SpaceAggregatedView({
     if (!task) return;
     const overTask = tasks.find((t) => t.id === overId);
     if (overTask) {
-      if (overTask.status_id !== task.status_id) return;
+      if (overTask.status_id !== task.status_id) {
+        // Dropped onto a card in a different column — treat as a column move
+        await applyStatusMove(taskId, overTask.status_id!);
+        return;
+      }
       const columnTasks = tasks.filter((t) => t.status_id === task.status_id);
       const activeIndex = columnTasks.findIndex((t) => t.id === taskId);
       const overIndex = columnTasks.findIndex((t) => t.id === overId);
@@ -873,19 +901,7 @@ function SpaceAggregatedView({
       newTasks.splice(overIndex, 0, movedTask);
       setTasks(newTasks);
     } else {
-      const newStatusId = overId;
-      const targetStatus = statuses.find((s) => s.id === newStatusId);
-      if (!targetStatus) return;
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId ? { ...t, status_id: newStatusId, status: targetStatus } : t,
-        ),
-      );
-      const result = await moveTaskStatusAction(taskId, newStatusId);
-      if ("error" in result && result.error) {
-        toast.error("Falha ao mover tarefa");
-        setTasks(initialTasks);
-      }
+      await applyStatusMove(taskId, overId);
     }
   }
 
