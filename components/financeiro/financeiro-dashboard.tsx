@@ -10,8 +10,10 @@ import {
   ResponsiveContainer,
   Legend,
   CartesianGrid,
+  LineChart,
+  Line,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronDown, ChevronUp, ExternalLink, Info } from "lucide-react";
 import {
   Select,
@@ -98,12 +100,68 @@ interface ChartPoint {
   despesa: number;
 }
 
+type MonthFields = {
+  janeiro: number | null;
+  fevereiro: number | null;
+  marco: number | null;
+  abril: number | null;
+  maio: number | null;
+  junho: number | null;
+  julho: number | null;
+  agosto: number | null;
+  setembro: number | null;
+  outubro: number | null;
+  novembro: number | null;
+  dezembro: number | null;
+  total_anual: number | null;
+};
+
+interface GraficoDespesasRow extends MonthFields {
+  id: string;
+  categoria: string;
+}
+
+interface GraficoPnlRow extends MonthFields {
+  id: string;
+  metrica: string;
+  q1: number | null;
+  q2: number | null;
+  q3: number | null;
+  q4: number | null;
+}
+
+interface ObjetivoRealizadoRow extends MonthFields {
+  id: string;
+  metrica: string;
+  q1: number | null;
+  q2: number | null;
+  q3: number | null;
+  q4: number | null;
+  s1: number | null;
+  s2: number | null;
+}
+
+interface PrevisaoAnoAnteriorRow extends MonthFields {
+  id: string;
+  metrica: string;
+  q1: number | null;
+  q2: number | null;
+  q3: number | null;
+  q4: number | null;
+  s1: number | null;
+  s2: number | null;
+}
+
 interface Props {
   kpis: KpiData;
   chartData: ChartPoint[];
   fluxoRows: FluxoRow[];
   clientes: ClienteRow[];
   pagamentos: PagamentoRow[];
+  graficoDespesas: GraficoDespesasRow[];
+  graficoPnl: GraficoPnlRow[];
+  objetivoRealizado: ObjetivoRealizadoRow[];
+  previsaoAnoAnterior: PrevisaoAnoAnteriorRow[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -688,9 +746,367 @@ function PagamentosTab({ pagamentos }: { pagamentos: PagamentoRow[] }) {
   );
 }
 
+// ─── Chart helpers ────────────────────────────────────────────────────────────
+
+const CHART_MONTHS: { key: keyof MonthFields; label: string }[] = [
+  { key: "janeiro", label: "Jan" },
+  { key: "fevereiro", label: "Fev" },
+  { key: "marco", label: "Mar" },
+  { key: "abril", label: "Abr" },
+  { key: "maio", label: "Mai" },
+  { key: "junho", label: "Jun" },
+  { key: "julho", label: "Jul" },
+  { key: "agosto", label: "Ago" },
+  { key: "setembro", label: "Set" },
+  { key: "outubro", label: "Out" },
+  { key: "novembro", label: "Nov" },
+  { key: "dezembro", label: "Dez" },
+];
+
+const CHART_TOOLTIP_STYLE = {
+  fontSize: 12,
+  borderRadius: 8,
+  border: "1px solid hsl(var(--border))",
+  background: "hsl(var(--card))",
+  color: "hsl(var(--foreground))",
+};
+
+const DESPESAS_COLORS = [
+  "#A12B2B", "#D97706", "#2D7A5A", "#3B6CB7", "#7C3AED",
+  "#DB2777", "#0891B2", "#65A30D", "#9F1239", "#57534E",
+];
+
+const PNL_COLORS: Record<string, string> = {
+  default0: "#A12B2B",
+  default1: "#6b7280",
+  default2: "#D97706",
+};
+
+function pnlColor(index: number): string {
+  return PNL_COLORS[`default${index}`] ?? "#6b7280";
+}
+
+function metricaRows<T extends MonthFields & { metrica: string }>(
+  rows: T[]
+): Array<{ mes: string } & Record<string, number>> {
+  return CHART_MONTHS.map(({ key, label }) => {
+    const point: Record<string, number | string> = { mes: label };
+    for (const row of rows) {
+      point[row.metrica] = Number(row[key]) || 0;
+    }
+    return point as { mes: string } & Record<string, number>;
+  });
+}
+
+function categoriaRows(
+  rows: GraficoDespesasRow[]
+): Array<{ mes: string } & Record<string, number>> {
+  return CHART_MONTHS.map(({ key, label }) => {
+    const point: Record<string, number | string> = { mes: label };
+    for (const row of rows) {
+      point[row.categoria] = Number(row[key]) || 0;
+    }
+    return point as { mes: string } & Record<string, number>;
+  });
+}
+
+// ─── CollapsibleCard ──────────────────────────────────────────────────────────
+
+function CollapsibleCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Card>
+      <CardHeader
+        className="cursor-pointer select-none"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <CardTitle className="text-base">{title}</CardTitle>
+            <CardDescription className="text-xs">{description}</CardDescription>
+          </div>
+          <ChevronDown
+            size={16}
+            className={`shrink-0 text-muted-foreground transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+          />
+        </div>
+      </CardHeader>
+      {open && <CardContent className="pt-0">{children}</CardContent>}
+    </Card>
+  );
+}
+
+// ─── Empty chart state ────────────────────────────────────────────────────────
+
+function EmptyChart({ message = "Sem dados — sincronize primeiro." }: { message?: string }) {
+  return (
+    <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">
+      {message}
+    </div>
+  );
+}
+
+// ─── Section 1: Despesas por Categoria ───────────────────────────────────────
+
+function DespesasSection({ rows }: { rows: GraficoDespesasRow[] }) {
+  const filteredRows = rows.filter((r) => r.categoria.toLowerCase() !== "total");
+  if (filteredRows.length === 0) return <EmptyChart />;
+  const chartData = categoriaRows(filteredRows);
+
+  return (
+    <div className="space-y-4">
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={(v: number) => eur(v)} contentStyle={CHART_TOOLTIP_STYLE} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {filteredRows.map((row, i) => (
+            <Bar
+              key={row.categoria}
+              dataKey={row.categoria}
+              stackId="a"
+              fill={DESPESAS_COLORS[i % DESPESAS_COLORS.length]}
+              radius={i === filteredRows.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+            />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+
+      {/* Annual totals legend */}
+      <div className="flex flex-wrap gap-x-6 gap-y-1.5 pt-1 border-t">
+        {filteredRows.map((row, i) => (
+          <div key={row.categoria} className="flex items-center gap-2 text-xs">
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
+              style={{ background: DESPESAS_COLORS[i % DESPESAS_COLORS.length] }}
+            />
+            <span className="text-muted-foreground">{row.categoria}</span>
+            <span className="font-mono font-medium">{eur(row.total_anual)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Section 2: PnL ───────────────────────────────────────────────────────────
+
+function PnlSection({ rows }: { rows: GraficoPnlRow[] }) {
+  if (rows.length === 0) return <EmptyChart />;
+  const chartData = metricaRows(rows);
+  const quarters: { label: string; key: "q1" | "q2" | "q3" | "q4" }[] = [
+    { label: "Q1", key: "q1" },
+    { label: "Q2", key: "q2" },
+    { label: "Q3", key: "q3" },
+    { label: "Q4", key: "q4" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={(v: number) => eur(v)} contentStyle={CHART_TOOLTIP_STYLE} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {rows.map((row, i) => (
+            <Line
+              key={row.metrica}
+              type="monotone"
+              dataKey={row.metrica}
+              stroke={pnlColor(i)}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+
+      {/* Q1–Q4 totals */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 border-t">
+        {quarters.map(({ label, key }) => (
+          <div key={key} className="rounded-lg border p-3 space-y-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+            <div className="space-y-0.5">
+              {rows.map((row, i) => (
+                <p key={row.metrica} className="text-xs font-mono" style={{ color: pnlColor(i) }}>
+                  {eur(row[key])}
+                </p>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Section 3: Objetivo vs Realizado ────────────────────────────────────────
+
+function ObjetivoSection({ rows }: { rows: ObjetivoRealizadoRow[] }) {
+  if (rows.length === 0) return <EmptyChart />;
+
+  const objetivoRow = rows.find((r) =>
+    r.metrica.toLowerCase().includes("objetivo")
+  );
+  const allZeros =
+    objetivoRow &&
+    CHART_MONTHS.every((m) => !objetivoRow[m.key] || Number(objetivoRow[m.key]) === 0);
+
+  if (allZeros) {
+    return (
+      <EmptyChart message="Objetivos ainda não definidos para 2026." />
+    );
+  }
+
+  const chartData = metricaRows(rows);
+  const OBJETIVO_COLORS = ["#6b7280", "#A12B2B", "#3B6CB7"];
+
+  const semesters = rows[0]
+    ? [
+        { label: "S1", key: "s1" as const },
+        { label: "S2", key: "s2" as const },
+      ]
+    : [];
+
+  return (
+    <div className="space-y-4">
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={(v: number) => eur(v)} contentStyle={CHART_TOOLTIP_STYLE} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {rows.map((row, i) => (
+            <Bar
+              key={row.metrica}
+              dataKey={row.metrica}
+              fill={OBJETIVO_COLORS[i % OBJETIVO_COLORS.length]}
+              radius={[3, 3, 0, 0]}
+            />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+
+      {/* S1 / S2 semester totals */}
+      {semesters.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 pt-1 border-t">
+          {semesters.map(({ label, key }) => (
+            <div key={key} className="rounded-lg border p-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+              <div className="space-y-0.5">
+                {rows.map((row, i) => (
+                  <p
+                    key={row.metrica}
+                    className="text-xs font-mono"
+                    style={{ color: OBJETIVO_COLORS[i % OBJETIVO_COLORS.length] }}
+                  >
+                    <span className="text-muted-foreground mr-1">{row.metrica}:</span>
+                    {eur(row[key])}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Section 4: Previsão vs Ano Anterior ─────────────────────────────────────
+
+function PrevisaoSection({ rows }: { rows: PrevisaoAnoAnteriorRow[] }) {
+  const filteredRows = rows.filter((r) => {
+    const m = r.metrica;
+    return !m.includes("%") && !m.includes("Impostos") && !m.includes("Despesas");
+  });
+  if (filteredRows.length === 0) return <EmptyChart />;
+  const chartData = metricaRows(filteredRows);
+
+  const PREVISAO_COLORS = ["#A12B2B", "#6b7280", "#3B6CB7"];
+  const PREVISAO_DASHES = ["", "", "5 5"];
+
+  // YoY % — first row vs second row total_anual
+  const row2026 = filteredRows[0];
+  const rowPrev = filteredRows[1];
+  const yoyPct =
+    row2026 && rowPrev && rowPrev.total_anual && rowPrev.total_anual !== 0
+      ? (((row2026.total_anual ?? 0) - rowPrev.total_anual) / Math.abs(rowPrev.total_anual)) * 100
+      : null;
+
+  return (
+    <div className="space-y-4">
+      {/* YoY KPI */}
+      {yoyPct !== null && (
+        <div className="inline-flex items-center gap-2 rounded-lg border px-4 py-2.5">
+          <span className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+            YoY
+          </span>
+          <span
+            className="text-lg font-bold font-mono"
+            style={{ color: yoyPct >= 0 ? "#2D7A5A" : "#A12B2B" }}
+          >
+            {yoyPct >= 0 ? "+" : ""}
+            {yoyPct.toFixed(1)}%
+          </span>
+          <span className="text-xs text-muted-foreground">
+            vs {rowPrev?.metrica ?? "ano anterior"}
+          </span>
+        </div>
+      )}
+
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={(v: number) => eur(v)} contentStyle={CHART_TOOLTIP_STYLE} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {filteredRows.map((row, i) => (
+            <Line
+              key={row.metrica}
+              type="monotone"
+              dataKey={row.metrica}
+              stroke={PREVISAO_COLORS[i % PREVISAO_COLORS.length]}
+              strokeWidth={2}
+              strokeDasharray={PREVISAO_DASHES[i] || undefined}
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function FinanceiroDashboard({ kpis, chartData, fluxoRows, clientes, pagamentos }: Props) {
+export function FinanceiroDashboard({
+  kpis,
+  chartData,
+  fluxoRows,
+  clientes,
+  pagamentos,
+  graficoDespesas,
+  graficoPnl,
+  objetivoRealizado,
+  previsaoAnoAnterior,
+}: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Clientes");
 
   return (
@@ -788,6 +1204,35 @@ export function FinanceiroDashboard({ kpis, chartData, fluxoRows, clientes, paga
         {activeTab === "Fluxo de Caixa" && <FluxoTab rows={fluxoRows} />}
         {activeTab === "Pagamentos" && <PagamentosTab pagamentos={pagamentos} />}
       </div>
+
+      {/* ── Extra chart sections ─────────────────────────────────────────── */}
+      <CollapsibleCard
+        title="Despesas por Categoria"
+        description="Breakdown mensal de despesas por categoria"
+      >
+        <DespesasSection rows={graficoDespesas} />
+      </CollapsibleCard>
+
+      <CollapsibleCard
+        title="Profit & Loss"
+        description="Receitas, Despesas e Impostos por mês"
+      >
+        <PnlSection rows={graficoPnl} />
+      </CollapsibleCard>
+
+      <CollapsibleCard
+        title="Objetivo vs Realizado"
+        description="Comparativo entre objetivo definido e receita realizada"
+      >
+        <ObjetivoSection rows={objetivoRealizado} />
+      </CollapsibleCard>
+
+      <CollapsibleCard
+        title="Previsão vs Ano Anterior"
+        description="Comparativo 2026 com o ano anterior e previsão para meses futuros"
+      >
+        <PrevisaoSection rows={previsaoAnoAnterior} />
+      </CollapsibleCard>
     </div>
   );
 }

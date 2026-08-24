@@ -64,27 +64,36 @@ export default async function FinanceiroPage() {
   }
 
   // Fetch all data in parallel
-  const [fluxoRes, clientesRes, pagamentosRes] = await Promise.all([
-    supabase
-      .from("financial_fluxo_caixa")
-      .select("*")
-      .order("row_number", { ascending: true }),
-    supabase
-      .from("financial_clientes")
-      .select("*, pagamentos:financial_clientes_pagamentos(*)")
-      .order("sheet_name")
-      .order("cliente"),
-    supabase
-      .from("financial_pagamentos")
-      .select("*")
-      .order("mes")
-      .order("secao")
-      .order("nome"),
-  ]);
+  const [fluxoRes, clientesRes, pagamentosRes, despesasRes, pnlRes, objetivoRes, previsaoRes] =
+    await Promise.all([
+      supabase
+        .from("financial_fluxo_caixa")
+        .select("*")
+        .order("row_number", { ascending: true }),
+      supabase
+        .from("financial_clientes")
+        .select("*, pagamentos:financial_clientes_pagamentos(*)")
+        .order("sheet_name")
+        .order("cliente"),
+      supabase
+        .from("financial_pagamentos")
+        .select("*")
+        .order("mes")
+        .order("secao")
+        .order("nome"),
+      supabase.from("financial_grafico_despesas").select("*"),
+      supabase.from("financial_grafico_pnl").select("*"),
+      supabase.from("financial_objetivo_realizado").select("*"),
+      supabase.from("financial_previsao_ano_anterior").select("*"),
+    ]);
 
   const fluxoRows = fluxoRes.data ?? [];
   const clientes = clientesRes.data ?? [];
   const pagamentos = pagamentosRes.data ?? [];
+  const graficoDespesas = despesasRes.data ?? [];
+  const graficoPnl = pnlRes.data ?? [];
+  const objetivoRealizado = objetivoRes.data ?? [];
+  const previsaoAnoAnterior = previsaoRes.data ?? [];
 
   // Compute KPIs from fluxo rows
   function sumLabel(label: string): number {
@@ -139,6 +148,10 @@ export default async function FinanceiroPage() {
           pagamentos: c.pagamentos ?? [],
         }))}
         pagamentos={pagamentos}
+        graficoDespesas={graficoDespesas}
+        graficoPnl={graficoPnl}
+        objetivoRealizado={objetivoRealizado}
+        previsaoAnoAnterior={previsaoAnoAnterior}
       />
     </>
   );
