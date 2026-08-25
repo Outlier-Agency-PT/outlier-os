@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { formatRelative, cn } from "@/lib/utils";
@@ -64,6 +64,19 @@ export function NotificationsBell({
     markAllNotificationsReadAction();
   }
 
+  function handleDelete(id: string) {
+    const target = notifications.find((n) => n.id === id);
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    if (target && !target.read) setUnreadCount((c) => Math.max(0, c - 1));
+    fetch(`/api/notifications/${id}`, { method: "DELETE" });
+  }
+
+  function handleDeleteAll() {
+    setNotifications([]);
+    setUnreadCount(0);
+    fetch("/api/notifications", { method: "DELETE" });
+  }
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -106,10 +119,22 @@ export function NotificationsBell({
       >
         <div className="flex items-center justify-between border-b px-3 py-2">
           <p className="text-sm font-semibold">Notificações</p>
-          {notifications.some((n) => !n.read) && (
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleMarkAllRead}>
-              Marcar todas como lidas
-            </Button>
+          {loaded && notifications.length > 0 && (
+            <div className="flex items-center gap-1">
+              {notifications.some((n) => !n.read) && (
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleMarkAllRead}>
+                  Marcar todas como lidas
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-muted-foreground"
+                onClick={handleDeleteAll}
+              >
+                Eliminar todas
+              </Button>
+            </div>
           )}
         </div>
 
@@ -130,10 +155,10 @@ export function NotificationsBell({
         {!loading && notifications.length > 0 && (
           <ul className="max-h-80 overflow-y-auto">
             {notifications.map((n) => (
-              <li key={n.id}>
+              <li key={n.id} className="group relative">
                 <button
                   onClick={() => handleSelect(n)}
-                  className="flex w-full items-start gap-2 border-b px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-accent"
+                  className="flex w-full items-start gap-2 border-b px-3 py-2.5 pr-8 text-left transition-colors last:border-b-0 hover:bg-accent"
                 >
                   <span
                     className={cn(
@@ -150,6 +175,13 @@ export function NotificationsBell({
                       {formatRelative(n.created_at)}
                     </p>
                   </div>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(n.id); }}
+                  aria-label="Eliminar notificação"
+                  className="absolute right-2 top-2.5 opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <Trash2 size={14} className="text-muted-foreground hover:text-destructive" />
                 </button>
               </li>
             ))}
