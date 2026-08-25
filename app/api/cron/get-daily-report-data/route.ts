@@ -61,7 +61,7 @@ type MemberMetrics = {
 };
 
 type OverdueTask = { title: string; assignee: string; due_date: string };
-type CompletedTask = { title: string; assignee: string; estimated_hours: number | null };
+type CompletedTask = { title: string; assignee: string; estimate_points: number | null };
 type MissedTask = { title: string; assignee: string };
 type AgendaTask = { title: string; assignee: string };
 
@@ -108,7 +108,7 @@ function buildEmailHtml(
           <tr style="background:${i % 2 === 0 ? "#ffffff" : "#f0fdf4"};">
             <td style="padding:10px 16px;font-size:13px;color:#111111;border-right:1px solid #bbf7d0;">${t.title}</td>
             <td style="padding:10px 12px;font-size:13px;color:#374151;border-right:1px solid #bbf7d0;">${t.assignee}</td>
-            <td style="padding:10px 12px;text-align:center;font-size:13px;color:${t.estimated_hours ? "#111111" : "#d1d5db"};">${t.estimated_hours ? fmtEstimated(t.estimated_hours) : "—"}</td>
+            <td style="padding:10px 12px;text-align:center;font-size:13px;color:${t.estimate_points ? "#111111" : "#d1d5db"};">${t.estimate_points ? fmtEstimated(t.estimate_points) : "—"}</td>
           </tr>`).join("")}
         </tbody>
       </table>
@@ -331,7 +331,7 @@ export async function GET(request: Request) {
       (membersRaw ?? []).map((m: { id: string; full_name: string }) => [m.id, m.full_name]),
     );
 
-    const taskSelect = "title, due_date, estimated_hours, assignee_id, assignees, assignee:team_members!tasks_assignee_id_fkey(full_name)";
+    const taskSelect = "title, due_date, estimate_points, assignee_id, assignees, assignee:team_members!tasks_assignee_id_fkey(full_name)";
 
     // Run all queries in parallel
     const [
@@ -352,15 +352,16 @@ export async function GET(request: Request) {
         .neq("status_id", concludedStatusId ?? "")
         .order("due_date", { ascending: true }),
 
-      // Completed yesterday: status = concluido, updated_at within yesterday
+      // Completed yesterday: completed_at within yesterday's UTC window
       concludedStatusId
         ? supabase
             .from("tasks")
-            .select(taskSelect + ", updated_at")
+            .select(taskSelect + ", completed_at")
             .eq("status_id", concludedStatusId)
-            .gte("updated_at", periodStart.toISOString())
-            .lte("updated_at", periodEnd.toISOString())
-            .order("updated_at", { ascending: false })
+            .not("completed_at", "is", null)
+            .gte("completed_at", periodStart.toISOString())
+            .lte("completed_at", periodEnd.toISOString())
+            .order("completed_at", { ascending: false })
         : Promise.resolve({ data: [] }),
 
       // Missed: due_date = yesterday, not concluded
@@ -381,6 +382,14 @@ export async function GET(request: Request) {
         .order("title", { ascending: true }),
     ]);
 
+    console.log("[daily-report] period:", periodStart.toISOString(), "→", periodEnd.toISOString());
+    console.log("[daily-report] yesterdayStr:", yesterdayStr, "todayStr:", todayStr);
+    console.log("[daily-report] concludedStatusId:", concludedStatusId);
+    console.log("[daily-report] overdueRaw count:", overdueRaw?.length ?? 0);
+    console.log("[daily-report] completedRaw count:", completedRaw?.length ?? 0);
+    console.log("[daily-report] missedRaw count:", missedRaw?.length ?? 0);
+    console.log("[daily-report] agendaRaw count:", agendaRaw?.length ?? 0);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const overdueTasks: OverdueTask[] = (overdueRaw ?? []).map((t: any) => ({
       title: t.title as string,
@@ -392,7 +401,7 @@ export async function GET(request: Request) {
     const completedYesterday: CompletedTask[] = (completedRaw ?? []).map((t: any) => ({
       title: t.title as string,
       assignee: resolveAssignee(t, membersMap),
-      estimated_hours: t.estimated_hours as number | null,
+      estimate_points: t.estimate_points as number | null,
     }));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -425,6 +434,16 @@ export async function GET(request: Request) {
       html,
       subject,
       date: yesterdayStr,
+      debug: {
+        period: { start: periodStart.toISOString(), end: periodEnd.toISOString() },
+        concludedStatusId,
+        counts: {
+          overdue: overdueTasks.length,
+          completedYesterday: completedYesterday.length,
+          missedYesterday: missedYesterday.length,
+          todayAgenda: todayAgenda.length,
+        },
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
