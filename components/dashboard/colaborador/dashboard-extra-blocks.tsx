@@ -28,6 +28,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SugestoesCard } from "@/components/dashboard/sugestoes-card";
 import { getTaskDetailAction, fetchTaskFormDataAction, fetchMyAllTasksAction, logTimeManualAction } from "@/lib/actions/tasks";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
 import type {
@@ -428,6 +429,7 @@ export function DashboardExtraBlocks({
   incubadora,
   renewals,
   hasIncubadora,
+  isAdmin = false,
 }: {
   notifications: DashNotification[];
   unread_count: number;
@@ -435,6 +437,7 @@ export function DashboardExtraBlocks({
   incubadora: DashIncubadoraSummary | null;
   renewals: DashRenewal[];
   hasIncubadora: boolean;
+  isAdmin?: boolean;
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -442,6 +445,7 @@ export function DashboardExtraBlocks({
       {hasIncubadora && incubadora && <IncubadoraCard summary={incubadora} />}
       {overdue_tasks.length > 0 && <TarefasAtrasadasCard tasks={overdue_tasks} />}
       {hasIncubadora && <RenovacoesCard renewals={renewals} />}
+      <SugestoesCard isAdmin={isAdmin} />
     </div>
   );
 }

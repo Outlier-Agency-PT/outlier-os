@@ -390,6 +390,7 @@ export function TasksBoard({
                   <SelectItem value="fireflies">Fireflies</SelectItem>
                   <SelectItem value="manual">Manual</SelectItem>
                   <SelectItem value="recurring">Recorrente</SelectItem>
+                  <SelectItem value="suggestion">Sugestão</SelectItem>
                   <SelectItem value="template">Template</SelectItem>
                 </SelectContent>
               </Select>

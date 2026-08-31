@@ -60,18 +60,20 @@ export interface Client {
   updated_at: string;
 }
 
-export type TaskSource = "manual" | "fireflies" | "recurring" | "template";
+export type TaskSource = "manual" | "fireflies" | "recurring" | "template" | "suggestion";
 
 export const SOURCE_LABELS: Record<string, string> = {
   fireflies: "Fireflies",
   recurring: "Recorrente",
   template: "Template",
+  suggestion: "Sugestão",
 };
 
 export const SOURCE_BADGE_CLASSES: Record<string, string> = {
   fireflies: "border-violet-400 text-violet-600 bg-violet-50 dark:bg-violet-950 dark:text-violet-400 dark:border-violet-700",
   recurring: "border-blue-400 text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-700",
   template: "border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-700",
+  suggestion: "border-emerald-400 text-emerald-600 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-700",
 };
 
 export interface Task {

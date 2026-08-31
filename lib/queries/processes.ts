@@ -19,6 +19,7 @@ export interface Process {
   description: string | null;
   doc_type: DocType;
   category_id: string | null;
+  subcategory: string | null;
   content_md: string | null;
   miro_link: string | null;
   external_links: Array<{ label: string; url: string }> | null;
@@ -34,34 +35,22 @@ export interface Process {
   template_target: 'processo' | 'briefing' | 'tarefas' | null;
 }
 
-export interface GetProcessesResult {
-  data: Process[];
-  total: number;
-}
-
 export async function getProcesses(filters?: {
-  page?: number;
-  pageSize?: number;
   search?: string;
   categoryId?: string | null;
-}): Promise<GetProcessesResult> {
+}): Promise<Process[]> {
   const supabase = await createClient();
-  const page = Math.max(1, filters?.page ?? 1);
-  const pageSize = filters?.pageSize ?? 24;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
 
   let q = supabase
     .from("processes")
-    .select(`*, category:process_categories(id, label, color)`, { count: "exact" })
-    .order("updated_at", { ascending: false })
-    .range(from, to);
+    .select(`*, category:process_categories(id, label, color)`)
+    .order("title", { ascending: true });
 
   if (filters?.categoryId) q = q.eq("category_id", filters.categoryId);
   if (filters?.search?.trim()) q = q.ilike("title", `%${filters.search.trim()}%`);
 
-  const { data, count } = await q;
-  return { data: (data ?? []) as Process[], total: count ?? 0 };
+  const { data } = await q;
+  return (data ?? []) as Process[];
 }
 
 export async function getProcessById(id: string): Promise<Process | null> {

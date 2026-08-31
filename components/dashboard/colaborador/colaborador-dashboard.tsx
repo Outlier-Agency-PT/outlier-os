@@ -34,6 +34,7 @@ interface Props {
   renewals: DashRenewal[];
   hasIncubadora: boolean;
   checkpointCard: ReactNode;
+  isAdmin?: boolean;
 }
 
 export function ColaboradorDashboard({
@@ -50,6 +51,7 @@ export function ColaboradorDashboard({
   renewals,
   hasIncubadora,
   checkpointCard,
+  isAdmin = false,
 }: Props) {
   const router = useRouter();
 
@@ -93,6 +95,7 @@ export function ColaboradorDashboard({
         incubadora={incubadora}
         renewals={renewals}
         hasIncubadora={hasIncubadora}
+        isAdmin={isAdmin}
       />
 
       <div className="w-full border border-border bg-card px-4 py-1 md:px-6">

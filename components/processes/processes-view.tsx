@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Search, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,28 +38,50 @@ interface Props {
   processes: Process[];
   categories: ProcessCategory[];
   members: TeamMember[];
-  total: number;
-  page: number;
-  pageSize: number;
   search: string;
   categoryId: string | null;
 }
 
-function buildUrl(params: { page?: number; search?: string; category?: string | null }) {
+function buildUrl(params: { search?: string; category?: string | null }) {
   const p = new URLSearchParams();
   if (params.search) p.set("search", params.search);
   if (params.category) p.set("category", params.category);
-  if (params.page && params.page > 1) p.set("page", String(params.page));
   const qs = p.toString();
   return `/processos${qs ? `?${qs}` : ""}`;
 }
 
-export function ProcessesView({ processes, categories, members, total, page, pageSize, search, categoryId }: Props) {
+function ProcessRow({ process, showCategory }: { process: Process; showCategory?: boolean }) {
+  return (
+    <Link href={`/processos/${process.id}`} className="block">
+      <div className="flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-accent/50">
+        <span className="flex-1 font-medium leading-snug">{process.title}</span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {showCategory && process.category && (
+            <Badge
+              variant="outline"
+              className="text-[10px]"
+              style={{ borderColor: process.category.color, color: process.category.color }}
+            >
+              {process.category.label}
+            </Badge>
+          )}
+          <Badge variant="secondary" className="text-[10px]">
+            {DOC_TYPES.find((t) => t.value === process.doc_type)?.label ?? process.doc_type}
+          </Badge>
+          {!process.published && (
+            <Badge variant="secondary" className="text-[10px]">Rascunho</Badge>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+export function ProcessesView({ processes, categories, members, search, categoryId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(search);
   const isFirstRender = useRef(true);
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -68,17 +89,40 @@ export function ProcessesView({ processes, categories, members, total, page, pag
       return;
     }
     const timeout = setTimeout(() => {
-      router.push(buildUrl({ search: searchInput, category: categoryId, page: 1 }));
+      router.push(buildUrl({ search: searchInput, category: categoryId }));
     }, 400);
     return () => clearTimeout(timeout);
   }, [searchInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCategory = useCallback((id: string | null) => {
-    router.push(buildUrl({ search: searchInput, category: id, page: 1 }));
+    router.push(buildUrl({ search: searchInput, category: id }));
   }, [searchInput, router]);
+
+  const isSearching = Boolean(search);
+
+  // Root doc: process with no category (top-level library guide)
+  const rootDoc = !isSearching ? processes.find((p) => p.category_id === null) : null;
+
+  // For grouped view: only processes that belong to a category
+  const mainProcesses = processes.filter((p) => p.category_id !== null);
+  const visibleMain = categoryId
+    ? mainProcesses.filter((p) => p.category_id === categoryId)
+    : mainProcesses;
+
+  // Group by category, preserving sort_order from categories array
+  const byCategoryId = new Map<string, Process[]>();
+  for (const p of visibleMain) {
+    if (!p.category_id) continue;
+    if (!byCategoryId.has(p.category_id)) byCategoryId.set(p.category_id, []);
+    byCategoryId.get(p.category_id)!.push(p);
+  }
+  const categoryGroups = categories
+    .filter((c) => byCategoryId.has(c.id))
+    .map((c) => ({ category: c, processes: byCategoryId.get(c.id)! }));
 
   return (
     <div className="grid grid-cols-[200px_1fr]">
+      {/* LEFT SIDEBAR */}
       <aside className="border-r bg-muted/30 p-4">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Categorias
@@ -91,7 +135,7 @@ export function ProcessesView({ processes, categories, members, total, page, pag
               !categoryId ? "bg-accent" : "hover:bg-accent/50",
             )}
           >
-            Todos ({total})
+            Todos ({processes.length})
           </button>
           {categories.map((c) => (
             <button
@@ -109,7 +153,9 @@ export function ProcessesView({ processes, categories, members, total, page, pag
         </div>
       </aside>
 
+      {/* RIGHT CONTENT */}
       <div className="flex flex-col">
+        {/* TOP BAR */}
         <div className="flex items-center gap-2 border-b px-6 py-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -127,87 +173,97 @@ export function ProcessesView({ processes, categories, members, total, page, pag
         </div>
 
         <div className="flex-1 p-6">
-          {processes.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center text-sm text-muted-foreground">
-                {search || categoryId ? "Sem processos para os filtros activos." : "Sem processos. Cria o primeiro."}
-              </CardContent>
-            </Card>
+          {isSearching ? (
+            /* SEARCH MODE — flat list with category badge */
+            processes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Sem resultados para &ldquo;{search}&rdquo;.
+              </p>
+            ) : (
+              <div className="rounded-md border divide-y">
+                {processes.map((p) => (
+                  <ProcessRow key={p.id} process={p} showCategory />
+                ))}
+              </div>
+            )
           ) : (
-            <div className="space-y-2">
-              {processes.map((p) => (
-                <Link key={p.id} href={`/processos/${p.id}`}>
-                  <Card className="transition-shadow hover:shadow-md">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <p className="font-medium">{p.title}</p>
-                          {p.description && (
-                            <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">
-                              {p.description}
-                            </p>
-                          )}
-                          {p.tags && p.tags.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {p.tags.map((t) => (
-                                <Badge key={t} variant="outline" className="text-[10px]">
-                                  {t}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <Badge variant="secondary" className="text-[10px]">
-                            {DOC_TYPES.find((t) => t.value === p.doc_type)?.label ?? p.doc_type}
-                          </Badge>
-                          {p.category && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px]"
-                              style={{ borderColor: p.category.color, color: p.category.color }}
-                            >
-                              {p.category.label}
-                            </Badge>
-                          )}
-                          {!p.published && (
-                            <Badge variant="secondary" className="text-[10px]">Rascunho</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+            /* GROUPED MODE — category → subcategory → processes */
+            <div className="space-y-8">
+              {/* Root doc banner */}
+              {rootDoc && (
+                <Link href={`/processos/${rootDoc.id}`} className="block">
+                  <div className="flex items-center gap-4 rounded-lg border bg-accent/30 px-5 py-4 transition-colors hover:bg-accent/50">
+                    <BookOpen className="size-5 shrink-0 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold">{rootDoc.title}</p>
+                      {rootDoc.description && (
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                          {rootDoc.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </Link>
-              ))}
+              )}
+
+              {/* Category groups */}
+              {categoryGroups.length === 0 && !rootDoc ? (
+                <p className="text-sm text-muted-foreground">
+                  {categoryId
+                    ? "Sem processos nesta categoria."
+                    : "Sem processos. Cria o primeiro."}
+                </p>
+              ) : (
+                categoryGroups.map(({ category, processes: catProcesses }) => {
+                  // Split: direct items (no subcategory) vs subcategory groups
+                  const directItems: Process[] = [];
+                  const subMap = new Map<string, Process[]>();
+                  for (const p of catProcesses) {
+                    if (!p.subcategory) {
+                      directItems.push(p);
+                    } else {
+                      if (!subMap.has(p.subcategory)) subMap.set(p.subcategory, []);
+                      subMap.get(p.subcategory)!.push(p);
+                    }
+                  }
+                  const subgroups = Array.from(subMap.entries());
+
+                  return (
+                    <div key={category.id}>
+                      {/* Category header */}
+                      <div className="mb-2 flex items-center gap-2">
+                        <span
+                          className="size-2.5 rounded-full"
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <h2 className="text-sm font-semibold">{category.label}</h2>
+                      </div>
+
+                      <div className="rounded-md border divide-y">
+                        {/* Direct items — no subcategory header */}
+                        {directItems.map((p) => (
+                          <ProcessRow key={p.id} process={p} />
+                        ))}
+
+                        {/* Subcategory groups */}
+                        {subgroups.map(([sub, items]) => (
+                          <div key={sub}>
+                            <p className="bg-muted/30 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              {sub}
+                            </p>
+                            {items.map((p) => (
+                              <ProcessRow key={p.id} process={p} />
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
         </div>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 border-t px-6 py-4">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => router.push(buildUrl({ search, category: categoryId, page: page - 1 }))}
-            >
-              <ChevronLeft className="size-4" />
-              Anterior
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Página {page} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => router.push(buildUrl({ search, category: categoryId, page: page + 1 }))}
-            >
-              Próxima
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
-        )}
       </div>
 
       <CreateProcessDialog

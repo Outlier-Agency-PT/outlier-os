@@ -37,6 +37,7 @@ import Link from "next/link";
 import { RecentActivityFeed } from "@/components/dashboard/recent-activity-feed";
 import { TeamHours } from "@/components/dashboard/team-hours";
 import { getTeamMetrics, fetchOverdueTasks } from "@/lib/queries/team-metrics";
+import { SugestoesCard } from "@/components/dashboard/sugestoes-card";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,7 @@ export default async function DashboardPage() {
           renewals={renewals}
           hasIncubadora={hasIncubadora}
           checkpointCard={<CheckpointSummaryCard />}
+          isAdmin={false}
         />
       </>
     );
@@ -385,6 +387,9 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* Sugestões */}
+      <SugestoesCard isAdmin={true} />
+
     </div>
   );
 
@@ -403,6 +408,7 @@ export default async function DashboardPage() {
       renewals={renewalsColab}
       hasIncubadora={true}
       checkpointCard={<CheckpointSummaryCard />}
+      isAdmin={true}
     />
   );
 
