@@ -12,6 +12,19 @@ export interface MemberMetrics {
   horas_estimadas: number;
 }
 
+export interface WorkedTask {
+  id: string;
+  title: string;
+  assignee_id: string | null;
+  assignees: string[] | null;
+  estimate_points: number | null;
+  status_id: string | null;
+  status_label: string | null;
+  status_key: string | null;
+  total_duration_minutes: number;
+  worked_by: string[];
+}
+
 export interface TeamMetricsResult {
   members: MemberMetrics[];
   global: {
@@ -21,6 +34,7 @@ export interface TeamMetricsResult {
     horas_realizadas_minutos: number;
     horas_estimadas: number;
   };
+  workedTasks: WorkedTask[];
 }
 
 type TaskRow = {
@@ -29,7 +43,7 @@ type TaskRow = {
   assignees: string[] | null;
   estimate_points?: number | null;
 };
-type LogRow = { member_id: string; duration_minutes: number | null };
+type LogRow = { member_id: string; task_id: string; duration_minutes: number | null };
 type MemberRow = { id: string; full_name: string; avatar_url: string | null };
 
 function memberIsAssigned(task: Pick<TaskRow, "assignee_id" | "assignees">, memberId: string): boolean {
@@ -57,20 +71,9 @@ async function fetchTeamMetrics(
     baseOverdue = baseOverdue.neq("status_id", concludedStatusId);
   }
 
-  const baseCompleted = concludedStatusId
-    ? supabase
-        .from("tasks")
-        .select("id, assignee_id, assignees, estimate_points")
-        .eq("status_id", concludedStatusId)
-        .not("completed_at", "is", null)
-        .gte("completed_at", startISO)
-        .lt("completed_at", endISO)
-    : null;
-
   const [
     { data: membersData },
     { data: createdData },
-    completedResult,
     overdueResult,
     { data: logsData },
   ] = await Promise.all([
@@ -86,12 +89,11 @@ async function fetchTeamMetrics(
       .gte("created_at", startISO)
       .lt("created_at", endISO),
 
-    baseCompleted ?? Promise.resolve({ data: [] }),
     baseOverdue,
 
     supabase
       .from("task_time_logs")
-      .select("member_id, duration_minutes")
+      .select("member_id, task_id, duration_minutes")
       .gte("start_at", startISO)
       .lt("start_at", endISO)
       .not("end_at", "is", null),
@@ -99,34 +101,77 @@ async function fetchTeamMetrics(
 
   const members = (membersData ?? []) as MemberRow[];
   const created = (createdData ?? []) as TaskRow[];
-  const completed = ((completedResult as { data: unknown[] | null }).data ?? []) as TaskRow[];
   const overdue = ((overdueResult as { data: unknown[] | null }).data ?? []) as TaskRow[];
   const logs = (logsData ?? []) as LogRow[];
 
-  const memberMetrics: MemberMetrics[] = members.map((m) => ({
-    member_id: m.id,
-    full_name: m.full_name,
-    avatar_url: m.avatar_url,
-    tarefas_criadas: created.filter((t) => memberIsAssigned(t, m.id)).length,
-    tarefas_realizadas: completed.filter((t) => memberIsAssigned(t, m.id)).length,
-    tarefas_em_atraso: overdue.filter((t) => memberIsAssigned(t, m.id)).length,
-    horas_realizadas_minutos: logs
-      .filter((l) => l.member_id === m.id)
-      .reduce((s, l) => s + (l.duration_minutes ?? 0), 0),
-    horas_estimadas: completed
-      .filter((t) => memberIsAssigned(t, m.id))
-      .reduce((s, t) => s + (t.estimate_points ?? 0), 0),
-  }));
+  // Build worked tasks: distinct tasks with time logs in the window + status info
+  const workedTaskIds = [...new Set(logs.map((l) => l.task_id))];
+
+  type RawWorkedTask = {
+    id: string;
+    title: string;
+    assignee_id: string | null;
+    assignees: string[] | null;
+    estimate_points: number | null;
+    status_id: string | null;
+    task_statuses: { label: string; key: string } | { label: string; key: string }[] | null;
+  };
+
+  let workedTasks: WorkedTask[] = [];
+  if (workedTaskIds.length > 0) {
+    const { data: workedRaw } = await supabase
+      .from("tasks")
+      .select("id, title, assignee_id, assignees, estimate_points, status_id, task_statuses(label, key)")
+      .in("id", workedTaskIds);
+
+    workedTasks = ((workedRaw ?? []) as unknown as RawWorkedTask[])
+      .map((t) => {
+        const status = Array.isArray(t.task_statuses) ? t.task_statuses[0] : t.task_statuses;
+        const taskLogs = logs.filter((l) => l.task_id === t.id);
+        return {
+          id: t.id,
+          title: t.title,
+          assignee_id: t.assignee_id,
+          assignees: t.assignees,
+          estimate_points: t.estimate_points,
+          status_id: t.status_id,
+          status_label: status?.label ?? null,
+          status_key: status?.key ?? null,
+          total_duration_minutes: taskLogs.reduce((s, l) => s + (l.duration_minutes ?? 0), 0),
+          worked_by: [...new Set(taskLogs.map((l) => l.member_id))],
+        };
+      })
+      .sort((a, b) => b.total_duration_minutes - a.total_duration_minutes);
+  }
+
+  const memberMetrics: MemberMetrics[] = members.map((m) => {
+    const memberTaskIds = [...new Set(logs.filter((l) => l.member_id === m.id).map((l) => l.task_id))];
+    return {
+      member_id: m.id,
+      full_name: m.full_name,
+      avatar_url: m.avatar_url,
+      tarefas_criadas: created.filter((t) => memberIsAssigned(t, m.id)).length,
+      tarefas_realizadas: memberTaskIds.length,
+      tarefas_em_atraso: overdue.filter((t) => memberIsAssigned(t, m.id)).length,
+      horas_realizadas_minutos: logs
+        .filter((l) => l.member_id === m.id)
+        .reduce((s, l) => s + (l.duration_minutes ?? 0), 0),
+      horas_estimadas: workedTasks
+        .filter((wt) => wt.worked_by.includes(m.id))
+        .reduce((s, wt) => s + (wt.estimate_points ?? 0), 0),
+    };
+  });
 
   return {
     members: memberMetrics,
     global: {
       tarefas_criadas: created.length,
-      tarefas_realizadas: completed.length,
+      tarefas_realizadas: workedTaskIds.length,
       tarefas_em_atraso: overdue.length,
       horas_realizadas_minutos: logs.reduce((s, l) => s + (l.duration_minutes ?? 0), 0),
-      horas_estimadas: completed.reduce((s, t) => s + (t.estimate_points ?? 0), 0),
+      horas_estimadas: workedTasks.reduce((s, wt) => s + (wt.estimate_points ?? 0), 0),
     },
+    workedTasks,
   };
 }
 

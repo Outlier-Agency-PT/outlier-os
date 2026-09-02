@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/daily-report",
-      "schedule": "30 7 * * *"
+      "schedule": "30 7 * * 1-5"
     }
   ]
 }

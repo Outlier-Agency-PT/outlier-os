@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getTeamMetricsAdmin } from "@/lib/queries/team-metrics";
+import { getTeamMetricsAdmin, WorkedTask } from "@/lib/queries/team-metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +65,8 @@ function buildEmailHtml(
     horas_estimadas: number;
   }[],
   overdueTasks: { title: string; assignee: string; due_date: string }[],
+  workedTasks: WorkedTask[],
+  memberNameMap: Record<string, string>,
 ): string {
   const statCell = (label: string, value: string | number, highlight = false) => `
     <td style="padding:16px 12px;text-align:center;border-right:1px solid #e5e7eb;">
@@ -141,6 +143,37 @@ function buildEmailHtml(
             </table>
           </td>
         </tr>
+        ${workedTasks.length > 0 ? `
+        <tr>
+          <td style="background:#ffffff;padding:24px 32px;border-top:1px solid #e5e7eb;">
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.16em;color:#9ca3af;margin-bottom:16px;">Trabalhado Ontem</div>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
+                  <th style="padding:8px 16px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;border-right:1px solid #e5e7eb;">Tarefa</th>
+                  <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;border-right:1px solid #e5e7eb;">Quem Trabalhou</th>
+                  <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;border-right:1px solid #e5e7eb;">Estado</th>
+                  <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;">Tempo</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${workedTasks.map((t, i) => {
+                  const statusText = t.status_key === "concluido"
+                    ? `✅ ${t.status_label ?? "Concluído"}`
+                    : (t.status_label ?? "—");
+                  const workerNames = t.worked_by.map((id) => memberNameMap[id]).filter(Boolean).join(", ") || "—";
+                  return `
+                <tr style="background:${i % 2 === 0 ? "#ffffff" : "#f9fafb"};">
+                  <td style="padding:10px 16px;font-size:13px;color:#111111;border-right:1px solid #e5e7eb;">${t.title}</td>
+                  <td style="padding:10px 12px;font-size:13px;color:#374151;border-right:1px solid #e5e7eb;">${workerNames}</td>
+                  <td style="padding:10px 12px;font-size:13px;color:#374151;border-right:1px solid #e5e7eb;">${statusText}</td>
+                  <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${fmtMinutes(t.total_duration_minutes)}</td>
+                </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </td>
+        </tr>` : ""}
         ${overdueTasks.length > 0 ? `
         <tr>
           <td style="background:#ffffff;padding:24px 32px;border-top:1px solid #e5e7eb;">
@@ -226,7 +259,7 @@ export async function GET(request: Request) {
     // Step 5 — metrics + overdue task details
     const today = now.toISOString().slice(0, 10);
 
-    const [{ global: g, members }, overdueTasksResult] = await Promise.all([
+    const [{ global: g, members, workedTasks }, overdueTasksResult] = await Promise.all([
       getTeamMetricsAdmin(periodStart, periodEnd, concludedStatusId),
       concludedStatusId
         ? Promise.all([
@@ -263,9 +296,12 @@ export async function GET(request: Request) {
     }
 
     // Step 6 — build + send
+    const memberNameMap: Record<string, string> = Object.fromEntries(
+      members.map((m) => [m.member_id, m.full_name]),
+    );
     const dateLabel = fmtDate(y);
     const subject   = `Relatório Diário Outlier OS: ${dateLabel}`;
-    const html      = buildEmailHtml(dateLabel, g, members, overdueTasks);
+    const html      = buildEmailHtml(dateLabel, g, members, overdueTasks, workedTasks, memberNameMap);
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { data: emailData, error: emailError } = await resend.emails.send({
