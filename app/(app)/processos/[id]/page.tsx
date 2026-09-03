@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import React from "react";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -21,9 +22,10 @@ import type { DecisionData } from "@/lib/actions/processes";
 import { DeleteProcessButton } from "@/components/processes/delete-process-button";
 import { EditProcessButton } from "@/components/processes/edit-process-button";
 import { UseTemplateButton } from "@/components/processes/use-template-button";
+import { SmartLink } from "@/components/processes/SmartLink";
 import { fetchTaskListsAction } from "@/lib/actions/tasks";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -215,6 +217,15 @@ export default async function ProcessDetailPage({ params }: PageProps) {
                       h3: ({ children }) => (
                         <h3 id={slugify(String(children))}>{children}</h3>
                       ),
+                      a: ({ href, children }) => (
+                        <SmartLink href={href ?? ""}>{children}</SmartLink>
+                      ),
+                      p: ({ children }) => {
+                        const hasBlockChild = React.Children.toArray(children).some(
+                          (child) => typeof child !== "string" && typeof child !== "number" && typeof child !== "boolean"
+                        );
+                        return hasBlockChild ? <div className="my-2">{children}</div> : <p className="my-2">{children}</p>;
+                      },
                     }}
                   >
                     {process.content_md}

@@ -1,3 +1,5 @@
+export const revalidate = 300;
+
 import { PageHeader } from "@/components/layout/page-header";
 import { ProcessesView } from "@/components/processes/processes-view";
 import { getProcesses, getProcessCategories } from "@/lib/queries/processes";

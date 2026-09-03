@@ -43,7 +43,13 @@ export async function getProcesses(filters?: {
 
   let q = supabase
     .from("processes")
-    .select(`*, category:process_categories(id, label, color)`)
+    .select(
+      `id, title, description, doc_type, category_id, subcategory,
+       miro_link, external_links, tags, published,
+       created_by, created_at, updated_at,
+       decision_data, version, last_reviewed_at, template_target,
+       category:process_categories(id, label, color)`
+    )
     .order("title", { ascending: true });
 
   if (filters?.categoryId) q = q.eq("category_id", filters.categoryId);

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
@@ -11,6 +12,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { SmartLink } from "@/components/processes/SmartLink";
 
 interface Props {
   content: string;
@@ -57,7 +59,22 @@ export function PlaybookView({ content, version, lastReviewedAt }: Props) {
   if (!hasH2Sections) {
     return (
       <div className="prose prose-sm max-w-none dark:prose-invert">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            a: ({ href, children }) => (
+              <SmartLink href={href ?? ""}>{children}</SmartLink>
+            ),
+            p: ({ children }) => {
+              const hasBlockChild = React.Children.toArray(children).some(
+                (child) => typeof child !== "string" && typeof child !== "number" && typeof child !== "boolean"
+              );
+              return hasBlockChild ? <div className="my-2">{children}</div> : <p className="my-2">{children}</p>;
+            },
+          }}
+        >
+          {content}
+        </ReactMarkdown>
       </div>
     );
   }
@@ -91,7 +108,14 @@ export function PlaybookView({ content, version, lastReviewedAt }: Props) {
             </AccordionTrigger>
             <AccordionContent>
               <div className="prose prose-sm max-w-none dark:prose-invert pt-2">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ href, children }) => (
+                      <SmartLink href={href ?? ""}>{children}</SmartLink>
+                    ),
+                  }}
+                >
                   {section.content}
                 </ReactMarkdown>
               </div>
