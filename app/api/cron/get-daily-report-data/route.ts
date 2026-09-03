@@ -41,7 +41,7 @@ function fmtDate(d: Date): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// ── Email template ────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type GlobalMetrics = {
   tarefas_criadas: number;
@@ -61,9 +61,11 @@ type MemberMetrics = {
 };
 
 type OverdueTask = { title: string; assignee: string; due_date: string };
-type CompletedTask = { title: string; assignee: string; estimate_points: number | null };
-type MissedTask = { title: string; assignee: string };
-type AgendaTask = { title: string; assignee: string };
+type WorkedTask  = { title: string; assignee: string; status_label: string; status_key: string | null; total_duration_minutes: number };
+type MissedTask  = { title: string; assignee: string };
+type AgendaTask  = { title: string; assignee: string };
+
+// ── Email template ────────────────────────────────────────────────────────────
 
 function buildEmailHtml(
   dateLabel: string,
@@ -71,7 +73,7 @@ function buildEmailHtml(
   g: GlobalMetrics,
   members: MemberMetrics[],
   overdueTasks: OverdueTask[],
-  completedYesterday: CompletedTask[],
+  workedYesterday: WorkedTask[],
   missedYesterday: MissedTask[],
   todayAgenda: AgendaTask[],
 ): string {
@@ -91,25 +93,32 @@ function buildEmailHtml(
       <td style="padding:10px 8px;text-align:center;font-size:13px;color:${m.horas_estimadas ? "#111111" : "#d1d5db"};">${fmtEstimated(m.horas_estimadas)}</td>
     </tr>`;
 
-  const completedSection = completedYesterday.length > 0 ? `
+  const workedSection = workedYesterday.length > 0 ? `
   <tr>
     <td style="background:#ffffff;padding:24px 32px;border-top:1px solid #e5e7eb;">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.16em;color:#16a34a;margin-bottom:16px;">Concluídas Ontem</div>
-      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #bbf7d0;border-collapse:collapse;">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.16em;color:#9ca3af;margin-bottom:16px;">Trabalhado Ontem</div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-collapse:collapse;">
         <thead>
-          <tr style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;">
-            <th style="padding:8px 16px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;border-right:1px solid #bbf7d0;">Tarefa</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;border-right:1px solid #bbf7d0;">Responsável</th>
-            <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;">H. Est.</th>
+          <tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 16px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;border-right:1px solid #e5e7eb;">Tarefa</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;border-right:1px solid #e5e7eb;">Responsável</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;border-right:1px solid #e5e7eb;">Estado</th>
+            <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;">Tempo</th>
           </tr>
         </thead>
         <tbody>
-          ${completedYesterday.map((t, i) => `
-          <tr style="background:${i % 2 === 0 ? "#ffffff" : "#f0fdf4"};">
-            <td style="padding:10px 16px;font-size:13px;color:#111111;border-right:1px solid #bbf7d0;">${t.title}</td>
-            <td style="padding:10px 12px;font-size:13px;color:#374151;border-right:1px solid #bbf7d0;">${t.assignee}</td>
-            <td style="padding:10px 12px;text-align:center;font-size:13px;color:${t.estimate_points ? "#111111" : "#d1d5db"};">${t.estimate_points ? fmtEstimated(t.estimate_points) : "—"}</td>
-          </tr>`).join("")}
+          ${workedYesterday.map((t, i) => {
+            const statusText = t.status_key === "concluido"
+              ? `✅ Concluído`
+              : (t.status_label || "—");
+            return `
+          <tr style="background:${i % 2 === 0 ? "#ffffff" : "#f9fafb"};">
+            <td style="padding:10px 16px;font-size:13px;color:#111111;border-right:1px solid #e5e7eb;">${t.title}</td>
+            <td style="padding:10px 12px;font-size:13px;color:#374151;border-right:1px solid #e5e7eb;">${t.assignee}</td>
+            <td style="padding:10px 12px;font-size:13px;color:#374151;border-right:1px solid #e5e7eb;">${statusText}</td>
+            <td style="padding:10px 12px;font-size:13px;color:#374151;text-align:right;">${fmtMinutes(t.total_duration_minutes)}</td>
+          </tr>`;
+          }).join("")}
         </tbody>
       </table>
     </td>
@@ -252,7 +261,7 @@ function buildEmailHtml(
             </table>
           </td>
         </tr>
-        ${completedSection}
+        ${workedSection}
         ${missedSection}
         ${agendaSection}
         ${overdueSection}
@@ -261,7 +270,7 @@ function buildEmailHtml(
             <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;">
               <em>Em Atraso</em> reflecte o estado actual da plataforma.<br>
               <em>H. Estimadas</em> = soma das horas estimadas nas tarefas concluídas ontem.<br>
-              <em>Concluídas Ontem</em> = tarefas marcadas como concluídas ontem.<br>
+              <em>Trabalhado Ontem</em> = tarefas com tempo registado ontem, independentemente do estado.<br>
               <em>Due Ontem</em> = tarefas com prazo ontem que ficaram por concluir.
             </p>
           </td>
@@ -331,13 +340,13 @@ export async function GET(request: Request) {
       (membersRaw ?? []).map((m: { id: string; full_name: string }) => [m.id, m.full_name]),
     );
 
-    const taskSelect = "title, due_date, estimate_points, assignee_id, assignees, assignee:team_members!tasks_assignee_id_fkey(full_name)";
+    const taskSelect = "id, title, due_date, estimate_points, assignee_id, assignees, assignee:team_members!tasks_assignee_id_fkey(full_name), status_id, status:task_statuses(label, key)";
 
     // Run all queries in parallel
     const [
       { global: g, members },
       { data: overdueRaw },
-      { data: completedRaw },
+      workedResult,
       { data: missedRaw },
       { data: agendaRaw },
     ] = await Promise.all([
@@ -352,17 +361,31 @@ export async function GET(request: Request) {
         .neq("status_id", concludedStatusId ?? "")
         .order("due_date", { ascending: true }),
 
-      // Completed yesterday: completed_at within yesterday's UTC window
-      concludedStatusId
-        ? supabase
-            .from("tasks")
-            .select(taskSelect + ", completed_at")
-            .eq("status_id", concludedStatusId)
-            .not("completed_at", "is", null)
-            .gte("completed_at", periodStart.toISOString())
-            .lte("completed_at", periodEnd.toISOString())
-            .order("completed_at", { ascending: false })
-        : Promise.resolve({ data: [] }),
+      // Worked yesterday: tasks with time logged yesterday (any status)
+      (async () => {
+        const { data: logsRaw } = await supabase
+          .from("task_time_logs")
+          .select("task_id, duration_minutes")
+          .gte("start_at", periodStart.toISOString())
+          .lte("start_at", periodEnd.toISOString())
+          .not("end_at", "is", null);
+        const logs = logsRaw ?? [];
+        if (logs.length === 0) {
+          return { data: [] as unknown[], durationByTask: {} as Record<string, number> };
+        }
+        const durationByTask: Record<string, number> = {};
+        for (const log of logs) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const l = log as any;
+          durationByTask[l.task_id] = (durationByTask[l.task_id] ?? 0) + (l.duration_minutes ?? 0);
+        }
+        const taskIds = Object.keys(durationByTask);
+        const { data: tasksRaw } = await supabase
+          .from("tasks")
+          .select(taskSelect)
+          .in("id", taskIds);
+        return { data: (tasksRaw ?? []) as unknown[], durationByTask };
+      })(),
 
       // Missed: due_date = yesterday, not concluded
       concludedStatusId
@@ -382,11 +405,14 @@ export async function GET(request: Request) {
         .order("title", { ascending: true }),
     ]);
 
+    const workedRaw = workedResult.data ?? [];
+    const durationByTask = workedResult.durationByTask ?? {};
+
     console.log("[daily-report] period:", periodStart.toISOString(), "→", periodEnd.toISOString());
     console.log("[daily-report] yesterdayStr:", yesterdayStr, "todayStr:", todayStr);
     console.log("[daily-report] concludedStatusId:", concludedStatusId);
     console.log("[daily-report] overdueRaw count:", overdueRaw?.length ?? 0);
-    console.log("[daily-report] completedRaw count:", completedRaw?.length ?? 0);
+    console.log("[daily-report] workedRaw count:", workedRaw.length);
     console.log("[daily-report] missedRaw count:", missedRaw?.length ?? 0);
     console.log("[daily-report] agendaRaw count:", agendaRaw?.length ?? 0);
 
@@ -398,11 +424,16 @@ export async function GET(request: Request) {
     }));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const completedYesterday: CompletedTask[] = (completedRaw ?? []).map((t: any) => ({
-      title: t.title as string,
-      assignee: resolveAssignee(t, membersMap),
-      estimate_points: t.estimate_points as number | null,
-    }));
+    const workedYesterday: WorkedTask[] = (workedRaw as any[]).map((t: any) => {
+      const statusObj = Array.isArray(t.status) ? t.status[0] : t.status;
+      return {
+        title: t.title as string,
+        assignee: resolveAssignee(t, membersMap),
+        status_label: (statusObj?.label as string) ?? "—",
+        status_key: (statusObj?.key as string | null) ?? null,
+        total_duration_minutes: durationByTask[t.id as string] ?? 0,
+      };
+    });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const missedYesterday: MissedTask[] = (missedRaw ?? []).map((t: any) => ({
@@ -425,7 +456,7 @@ export async function GET(request: Request) {
       g,
       members,
       overdueTasks,
-      completedYesterday,
+      workedYesterday,
       missedYesterday,
       todayAgenda,
     );
@@ -439,7 +470,7 @@ export async function GET(request: Request) {
         concludedStatusId,
         counts: {
           overdue: overdueTasks.length,
-          completedYesterday: completedYesterday.length,
+          workedYesterday: workedYesterday.length,
           missedYesterday: missedYesterday.length,
           todayAgenda: todayAgenda.length,
         },
