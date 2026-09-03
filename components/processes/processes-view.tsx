@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Plus, Search, BookOpen } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { Plus, Search, BookOpen, ChevronRight, ChevronDown, FileText, Folder, Users, TrendingUp, Palette, PenLine, Settings, Briefcase, DollarSign, FolderOpen, Target, Circle, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,12 +40,57 @@ interface Props {
   members: TeamMember[];
   search: string;
   categoryId: string | null;
+  subcategoryFilter: string | null;
 }
 
-function buildUrl(params: { search?: string; category?: string | null }) {
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  'processos-para-clientes': Users,
+  'trafego': TrendingUp,
+  'design': Palette,
+  'copy': PenLine,
+  'plataformas-internas': Settings,
+  'administrativo': Briefcase,
+  'financeiro': DollarSign,
+  'gestao-de-projetos': FolderOpen,
+  'prospeccao': Target,
+  'glossario': BookOpen,
+};
+
+function parseSubcategory(subcategory: string): { group: string | null; subgroup: string } {
+  const sep = " › ";
+  const idx = subcategory.indexOf(sep);
+  if (idx === -1) return { group: null, subgroup: subcategory };
+  return { group: subcategory.slice(0, idx), subgroup: subcategory.slice(idx + sep.length) };
+}
+
+type SidebarItem =
+  | { type: "flat"; sub: string }
+  | { type: "group"; group: string; children: string[] };
+
+function buildSidebarTree(subs: string[]): SidebarItem[] {
+  const items: SidebarItem[] = [];
+  const seenGroups = new Set<string>();
+  for (const sub of subs) {
+    const { group } = parseSubcategory(sub);
+    if (group === null) {
+      items.push({ type: "flat", sub });
+    } else if (!seenGroups.has(group)) {
+      seenGroups.add(group);
+      items.push({
+        type: "group",
+        group,
+        children: subs.filter((s) => parseSubcategory(s).group === group),
+      });
+    }
+  }
+  return items;
+}
+
+function buildUrl(params: { search?: string; category?: string | null; subcategory?: string | null }) {
   const p = new URLSearchParams();
   if (params.search) p.set("search", params.search);
   if (params.category) p.set("category", params.category);
+  if (params.subcategory) p.set("subcategory", params.subcategory);
   const qs = p.toString();
   return `/processos${qs ? `?${qs}` : ""}`;
 }
@@ -53,8 +98,9 @@ function buildUrl(params: { search?: string; category?: string | null }) {
 function ProcessRow({ process, showCategory }: { process: Process; showCategory?: boolean }) {
   return (
     <Link href={`/processos/${process.id}`} className="block">
-      <div className="flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-accent/50">
-        <span className="flex-1 font-medium leading-snug">{process.title}</span>
+      <div className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-accent/50">
+        <FileText className="size-3.5 shrink-0 text-muted-foreground/60" />
+        <span className="flex-1 font-normal leading-snug">{process.title}</span>
         <div className="flex shrink-0 items-center gap-1.5">
           {showCategory && process.category && (
             <Badge
@@ -65,9 +111,6 @@ function ProcessRow({ process, showCategory }: { process: Process; showCategory?
               {process.category.label}
             </Badge>
           )}
-          <Badge variant="secondary" className="text-[10px]">
-            {DOC_TYPES.find((t) => t.value === process.doc_type)?.label ?? process.doc_type}
-          </Badge>
           {!process.published && (
             <Badge variant="secondary" className="text-[10px]">Rascunho</Badge>
           )}
@@ -77,11 +120,16 @@ function ProcessRow({ process, showCategory }: { process: Process; showCategory?
   );
 }
 
-export function ProcessesView({ processes, categories, members, search, categoryId }: Props) {
+export function ProcessesView({ processes, categories, members, search, categoryId, subcategoryFilter }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const currentProcessId = pathname.startsWith("/processos/") ? pathname.split("/")[2] ?? null : null;
   const [open, setOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(search);
   const isFirstRender = useRef(true);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() =>
+    categoryId ? new Set([categoryId]) : new Set()
+  );
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -89,14 +137,47 @@ export function ProcessesView({ processes, categories, members, search, category
       return;
     }
     const timeout = setTimeout(() => {
-      router.push(buildUrl({ search: searchInput, category: categoryId }));
+      router.push(buildUrl({ search: searchInput, category: categoryId, subcategory: subcategoryFilter }));
     }, 400);
     return () => clearTimeout(timeout);
   }, [searchInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (categoryId) {
+      setExpandedCategories((prev) => {
+        if (prev.has(categoryId)) return prev;
+        return new Set([...prev, categoryId]);
+      });
+    }
+  }, [categoryId]);
+
   const handleCategory = useCallback((id: string | null) => {
-    router.push(buildUrl({ search: searchInput, category: id }));
+    router.push(buildUrl({ search: searchInput, category: id, subcategory: null }));
   }, [searchInput, router]);
+
+  const handleSubcategory = useCallback((catId: string, sub: string) => {
+    const isAlreadyActive = categoryId === catId && subcategoryFilter === sub;
+    router.push(buildUrl({ search: searchInput, category: catId, subcategory: isAlreadyActive ? null : sub }));
+  }, [searchInput, router, categoryId, subcategoryFilter]);
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Subcategories per category, preserving insertion order
+  const subcategoriesByCategory = new Map<string, string[]>();
+  for (const p of processes) {
+    if (p.category_id && p.subcategory) {
+      if (!subcategoriesByCategory.has(p.category_id)) subcategoriesByCategory.set(p.category_id, []);
+      const list = subcategoriesByCategory.get(p.category_id)!;
+      if (!list.includes(p.subcategory)) list.push(p.subcategory);
+    }
+  }
 
   const isSearching = Boolean(search);
 
@@ -137,19 +218,153 @@ export function ProcessesView({ processes, categories, members, search, category
           >
             Todos ({processes.length})
           </button>
-          {categories.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => handleCategory(c.id)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors",
-                categoryId === c.id ? "bg-accent" : "hover:bg-accent/50",
-              )}
-            >
-              <span className="size-2 rounded-full" style={{ backgroundColor: c.color }} />
-              <span className="flex-1">{c.label}</span>
-            </button>
-          ))}
+          {categories.map((c) => {
+            const isActive = categoryId === c.id;
+            const isExpanded = expandedCategories.has(c.id);
+            const subs = subcategoriesByCategory.get(c.id) ?? [];
+            return (
+              <div key={c.id}>
+                <div
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors",
+                    isActive && !subcategoryFilter ? "bg-accent" : "hover:bg-accent/50",
+                  )}
+                >
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleExpanded(c.id); }}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label={isExpanded ? "Fechar" : "Expandir"}
+                  >
+                    {isExpanded
+                      ? <ChevronDown className="size-3" />
+                      : <ChevronRight className="size-3" />
+                    }
+                  </button>
+                  <button
+                    onClick={() => handleCategory(c.id)}
+                    className="flex flex-1 items-center gap-2 font-medium"
+                  >
+                    {(() => { const Icon = CATEGORY_ICONS[c.key] ?? Circle; return <Icon className="size-4 shrink-0" style={{ color: c.color }} />; })()}
+                    <span className="flex-1 text-left">{c.label}</span>
+                  </button>
+                </div>
+                {isExpanded && subs.length > 0 && (
+                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border">
+                    {buildSidebarTree(subs).map((item) => {
+                      if (item.type === "flat") {
+                        const isSubActive = isActive && subcategoryFilter === item.sub;
+                        const subProcs = isSubActive
+                          ? processes.filter((p) => p.category_id === c.id && p.subcategory === item.sub)
+                          : [];
+                        return (
+                          <div key={item.sub}>
+                            <button
+                              onClick={() => handleSubcategory(c.id, item.sub)}
+                              className={cn(
+                                "flex w-full items-center gap-2 rounded-md py-1 pl-8 pr-3 text-left text-sm text-muted-foreground transition-colors",
+                                isSubActive
+                                  ? "bg-accent/50 font-medium text-foreground"
+                                  : "hover:bg-accent/50 hover:text-foreground",
+                              )}
+                            >
+                              <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+                              {item.sub}
+                            </button>
+                            {subProcs.map((p) => (
+                              <Link
+                                key={p.id}
+                                href={`/processos/${p.id}`}
+                                className={cn(
+                                  "flex items-center gap-1.5 py-0.5 pl-10 pr-3 text-xs text-muted-foreground transition-colors hover:text-foreground",
+                                  currentProcessId === p.id && "font-medium text-foreground",
+                                )}
+                              >
+                                <FileText className="size-3 shrink-0 text-muted-foreground/50" />
+                                <span className="truncate">{p.title}</span>
+                              </Link>
+                            ))}
+                          </div>
+                        );
+                      }
+                      const groupPrefix = item.group + " › ";
+                      const isGroupActive = isActive && (
+                        subcategoryFilter === groupPrefix ||
+                        item.children.some((fullSub) => subcategoryFilter === fullSub)
+                      );
+                      const groupProcs = isActive && subcategoryFilter === groupPrefix
+                        ? processes.filter((p) => p.category_id === c.id && p.subcategory?.startsWith(groupPrefix))
+                        : [];
+                      return (
+                        <div key={item.group}>
+                          <button
+                            onClick={() => handleSubcategory(c.id, groupPrefix)}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md py-1 pl-8 pr-3 text-left text-sm font-medium transition-colors",
+                              isGroupActive
+                                ? "bg-accent text-foreground"
+                                : "text-foreground hover:bg-accent/50",
+                            )}
+                          >
+                            <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+                            {item.group}
+                          </button>
+                          {groupProcs.map((p) => (
+                            <Link
+                              key={p.id}
+                              href={`/processos/${p.id}`}
+                              className={cn(
+                                "flex items-center gap-1.5 py-0.5 pl-16 pr-3 text-xs text-muted-foreground transition-colors hover:text-foreground",
+                                currentProcessId === p.id && "font-medium text-foreground",
+                              )}
+                            >
+                              <FileText className="size-3 shrink-0 text-muted-foreground/50" />
+                              <span className="truncate">{p.title}</span>
+                            </Link>
+                          ))}
+                          <div className="ml-8 border-l border-border">
+                            {item.children.map((fullSub) => {
+                              const { subgroup } = parseSubcategory(fullSub);
+                              const isSubActive = isActive && subcategoryFilter === fullSub;
+                              return (
+                                <div key={fullSub}>
+                                  <button
+                                    onClick={() => handleSubcategory(c.id, fullSub)}
+                                    className={cn(
+                                      "flex w-full items-center gap-2 py-1 pl-6 pr-3 text-left text-xs text-muted-foreground transition-colors hover:text-foreground",
+                                      isSubActive && "font-medium text-foreground",
+                                    )}
+                                  >
+                                    <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                                    {subgroup}
+                                  </button>
+                                  {isSubActive && processes
+                                    .filter((p) => p.category_id === c.id && p.subcategory === fullSub)
+                                    .map((p) => (
+                                      <Link
+                                        key={p.id}
+                                        href={`/processos/${p.id}`}
+                                        className={cn(
+                                          "flex items-center gap-1.5 py-0.5 pl-8 pr-3 text-xs text-muted-foreground transition-colors hover:text-foreground",
+                                          currentProcessId === p.id && "font-medium text-foreground",
+                                        )}
+                                      >
+                                        <FileText className="size-3 shrink-0 text-muted-foreground/50" />
+                                        <span className="truncate">{p.title}</span>
+                                      </Link>
+                                    ))
+                                  }
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </aside>
 
@@ -227,26 +442,27 @@ export function ProcessesView({ processes, categories, members, search, category
                     }
                   }
                   const subgroups = Array.from(subMap.entries());
+                  const visibleSubgroups = subcategoryFilter
+                    ? subgroups.filter(([sub]) => sub === subcategoryFilter || sub.startsWith(subcategoryFilter))
+                    : subgroups;
+                  const showDirectItems = !subcategoryFilter;
 
                   return (
                     <div key={category.id}>
                       {/* Category header */}
                       <div className="mb-2 flex items-center gap-2">
-                        <span
-                          className="size-2.5 rounded-full"
-                          style={{ backgroundColor: category.color }}
-                        />
+                        {(() => { const Icon = CATEGORY_ICONS[category.key] ?? Circle; return <Icon className="size-4 shrink-0" style={{ color: category.color }} />; })()}
                         <h2 className="text-sm font-semibold">{category.label}</h2>
                       </div>
 
                       <div className="rounded-md border divide-y">
                         {/* Direct items — no subcategory header */}
-                        {directItems.map((p) => (
+                        {showDirectItems && directItems.map((p) => (
                           <ProcessRow key={p.id} process={p} />
                         ))}
 
                         {/* Subcategory groups */}
-                        {subgroups.map(([sub, items]) => (
+                        {visibleSubgroups.map(([sub, items]) => (
                           <div key={sub}>
                             <p className="bg-muted/30 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                               {sub}

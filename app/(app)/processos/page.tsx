@@ -10,23 +10,28 @@ export const dynamic = "force-dynamic";
 export default async function ProcessosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; category?: string }>;
+  searchParams: Promise<{ search?: string; category?: string; subcategory?: string }>;
 }) {
-  const { search: searchParam, category } = await searchParams;
+  const { search: searchParam, category, subcategory } = await searchParams;
   const search = searchParam ?? "";
   const categoryId = category ?? null;
+  const subcategoryFilter = subcategory ?? null;
 
   const [processes, categories, members] = await Promise.all([
-    getProcesses({ search, categoryId }),
+    getProcesses({ search }),
     getProcessCategories(),
     getTeamMembers(),
   ]);
+
+  const displayCount = categoryId
+    ? processes.filter((p) => p.category_id === categoryId).length
+    : processes.length;
 
   return (
     <>
       <PageHeader
         title="Processos & SOPs"
-        description={`${processes.length} ${processes.length === 1 ? "processo" : "processos"}`}
+        description={`${displayCount} ${displayCount === 1 ? "processo" : "processos"}`}
       />
       <ProcessesView
         processes={processes}
@@ -34,6 +39,7 @@ export default async function ProcessosPage({
         members={members}
         search={search}
         categoryId={categoryId}
+        subcategoryFilter={subcategoryFilter}
       />
     </>
   );

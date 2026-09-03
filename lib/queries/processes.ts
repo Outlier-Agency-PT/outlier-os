@@ -50,7 +50,7 @@ export async function getProcesses(filters?: {
        decision_data, version, last_reviewed_at, template_target,
        category:process_categories(id, label, color)`
     )
-    .order("title", { ascending: true });
+    .order("created_at", { ascending: true });
 
   if (filters?.categoryId) q = q.eq("category_id", filters.categoryId);
   if (filters?.search?.trim()) q = q.ilike("title", `%${filters.search.trim()}%`);
