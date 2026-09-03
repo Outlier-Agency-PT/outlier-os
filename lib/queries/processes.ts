@@ -44,7 +44,7 @@ export async function getProcesses(filters?: {
   let q = supabase
     .from("processes")
     .select(
-      `id, title, description, doc_type, category_id, subcategory,
+      `id, title, description, doc_type, category_id, subcategory, content_md,
        miro_link, external_links, tags, published,
        created_by, created_at, updated_at,
        decision_data, version, last_reviewed_at, template_target,
@@ -56,7 +56,7 @@ export async function getProcesses(filters?: {
   if (filters?.search?.trim()) q = q.ilike("title", `%${filters.search.trim()}%`);
 
   const { data } = await q;
-  return (data ?? []) as Process[];
+  return (data ?? []) as unknown as Process[];
 }
 
 export async function getProcessById(id: string): Promise<Process | null> {
