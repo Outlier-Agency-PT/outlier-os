@@ -97,15 +97,15 @@ function buildUrl(params: { search?: string; category?: string | null; subcatego
   return `/processos${qs ? `?${qs}` : ""}`;
 }
 
-function similarityDotClass(similarity: number | undefined): string | null {
-  if (similarity === undefined) return null;
-  if (similarity > 0.5) return "bg-green-500";
-  if (similarity > 0.35) return "bg-yellow-500";
+function normalizedDotClass(normalizedScore: number | undefined): string | null {
+  if (normalizedScore === undefined) return null;
+  if (normalizedScore >= 0.66) return "bg-green-500";
+  if (normalizedScore >= 0.33) return "bg-yellow-500";
   return "bg-orange-400";
 }
 
-function ProcessRow({ process, showCategory, similarity }: { process: Process; showCategory?: boolean; similarity?: number }) {
-  const dotClass = similarityDotClass(similarity);
+function ProcessRow({ process, showCategory, normalizedScore }: { process: Process; showCategory?: boolean; normalizedScore?: number }) {
+  const dotClass = normalizedDotClass(normalizedScore);
   return (
     <Link href={`/processos/${process.id}`} className="block">
       <div className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-accent/50">
@@ -402,9 +402,9 @@ export function ProcessesView({ processes, categories, members, search, category
                 <div className="relative group">
                   <Info className="size-3.5 text-muted-foreground cursor-help" />
                   <div className="absolute left-0 top-5 z-50 hidden group-hover:block w-48 rounded-md border border-border bg-popover p-2 text-xs text-muted-foreground shadow-md">
-                    <div className="flex items-center gap-1.5 mb-1"><span className="size-2 rounded-full bg-green-500 shrink-0" /> Alta relevância</div>
-                    <div className="flex items-center gap-1.5 mb-1"><span className="size-2 rounded-full bg-yellow-500 shrink-0" /> Média relevância</div>
-                    <div className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-orange-400 shrink-0" /> Baixa relevância</div>
+                    <div className="flex items-center gap-1.5 mb-1"><span className="size-2 rounded-full bg-green-500 shrink-0" /> Alta relevância (para esta pesquisa)</div>
+                    <div className="flex items-center gap-1.5 mb-1"><span className="size-2 rounded-full bg-yellow-500 shrink-0" /> Média relevância (para esta pesquisa)</div>
+                    <div className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-orange-400 shrink-0" /> Baixa relevância (para esta pesquisa)</div>
                   </div>
                 </div>
               </span>
@@ -425,9 +425,17 @@ export function ProcessesView({ processes, categories, members, search, category
               </p>
             ) : (
               <div className="rounded-md border divide-y">
-                {processes.map((p) => (
-                  <ProcessRow key={p.id} process={p} showCategory similarity={similarityMap[p.id]} />
-                ))}
+                {(() => {
+                  const scores = Object.values(similarityMap);
+                  const maxS = scores.length ? Math.max(...scores) : 1;
+                  const minS = scores.length ? Math.min(...scores) : 0;
+                  const range = maxS - minS || 1;
+                  return processes.map((p) => {
+                    const sim = similarityMap[p.id];
+                    const normalizedScore = sim !== undefined ? (sim - minS) / range : undefined;
+                    return <ProcessRow key={p.id} process={p} showCategory normalizedScore={normalizedScore} />;
+                  });
+                })()}
               </div>
             )
           ) : (
