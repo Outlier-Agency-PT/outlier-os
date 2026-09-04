@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DOC_TYPES } from "@/lib/constants/process-types";
 import type { DocType } from "@/lib/constants/process-types";
 import type { DecisionData } from "@/lib/actions/processes";
+import OpenAI from "openai";
 
 export { DOC_TYPES, type DocType };
 
@@ -80,6 +81,79 @@ export async function getChecklistProgress(
     .eq("process_id", processId)
     .eq("user_id", userId);
   return data?.map((r) => r.item_index) ?? [];
+}
+
+export type ProcessWithSimilarity = Process & { similarity?: number };
+
+export async function searchProcessesSemantic(query: string): Promise<ProcessWithSimilarity[] | null> {
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const embeddingResponse = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: query,
+    });
+    const embedding = embeddingResponse.data[0].embedding;
+
+    const supabase = await createClient();
+
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "search_processes_semantic",
+      { query_embedding: embedding, similarity_threshold: 0.15, match_count: 20 }
+    );
+
+    if (rpcError) return null;
+    if (!rpcData || rpcData.length === 0) return [];
+
+    const categoryIds: string[] = [
+      ...new Set(
+        (rpcData as { category_id: string | null }[])
+          .map((r) => r.category_id)
+          .filter((id): id is string => id !== null)
+      ),
+    ];
+
+    const { data: categories } = await supabase
+      .from("process_categories")
+      .select("id, label, color")
+      .in("id", categoryIds);
+
+    const categoryMap = new Map(
+      (categories ?? []).map((c) => [c.id, c])
+    );
+
+    return (rpcData as {
+      id: string;
+      title: string;
+      subcategory: string | null;
+      doc_type: string;
+      published: boolean;
+      category_id: string | null;
+      similarity: number;
+    }[]).map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: null,
+      doc_type: row.doc_type as DocType,
+      category_id: row.category_id,
+      subcategory: row.subcategory,
+      content_md: null,
+      miro_link: null,
+      external_links: null,
+      tags: null,
+      published: row.published,
+      created_by: null,
+      created_at: "",
+      updated_at: "",
+      decision_data: null,
+      version: null,
+      last_reviewed_at: null,
+      template_target: null,
+      category: row.category_id ? (categoryMap.get(row.category_id) ?? null) : null,
+      similarity: row.similarity,
+    }));
+  } catch {
+    return null;
+  }
 }
 
 export async function getProcessCategories(): Promise<ProcessCategory[]> {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Plus, Search, BookOpen, ChevronRight, ChevronDown, FileText, Folder, Users, TrendingUp, Palette, PenLine, Settings, Briefcase, DollarSign, FolderOpen, Target, Circle, type LucideIcon } from "lucide-react";
+import { Plus, Search, BookOpen, ChevronRight, ChevronDown, FileText, Folder, Users, TrendingUp, Palette, PenLine, Settings, Briefcase, DollarSign, FolderOpen, Target, Circle, Sparkles, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,8 @@ interface Props {
   search: string;
   categoryId: string | null;
   subcategoryFilter: string | null;
+  isSemanticSearch?: boolean;
+  similarityMap?: Record<string, number>;
 }
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -95,11 +97,23 @@ function buildUrl(params: { search?: string; category?: string | null; subcatego
   return `/processos${qs ? `?${qs}` : ""}`;
 }
 
-function ProcessRow({ process, showCategory }: { process: Process; showCategory?: boolean }) {
+function similarityDotClass(similarity: number | undefined): string | null {
+  if (similarity === undefined) return null;
+  if (similarity > 0.7) return "bg-green-500";
+  if (similarity > 0.5) return "bg-yellow-500";
+  return "bg-orange-400";
+}
+
+function ProcessRow({ process, showCategory, similarity }: { process: Process; showCategory?: boolean; similarity?: number }) {
+  const dotClass = similarityDotClass(similarity);
   return (
     <Link href={`/processos/${process.id}`} className="block">
       <div className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-accent/50">
-        <FileText className="size-3.5 shrink-0 text-muted-foreground/60" />
+        {dotClass ? (
+          <span className={cn("size-2 shrink-0 rounded-full", dotClass)} />
+        ) : (
+          <FileText className="size-3.5 shrink-0 text-muted-foreground/60" />
+        )}
         <span className="flex-1 font-normal leading-snug">{process.title}</span>
         <div className="flex shrink-0 items-center gap-1.5">
           {showCategory && process.category && (
@@ -120,7 +134,7 @@ function ProcessRow({ process, showCategory }: { process: Process; showCategory?
   );
 }
 
-export function ProcessesView({ processes, categories, members, search, categoryId, subcategoryFilter }: Props) {
+export function ProcessesView({ processes, categories, members, search, categoryId, subcategoryFilter, isSemanticSearch = false, similarityMap = {} }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const currentProcessId = pathname.startsWith("/processos/") ? pathname.split("/")[2] ?? null : null;
@@ -372,14 +386,21 @@ export function ProcessesView({ processes, categories, members, search, category
       <div className="flex flex-col">
         {/* TOP BAR */}
         <div className="flex items-center gap-2 border-b px-6 py-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Pesquisar processos..."
-              className="pl-9"
-            />
+          <div className="flex flex-1 max-w-md items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Pesquisar processos..."
+                className="pl-9"
+              />
+            </div>
+            {isSemanticSearch && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1 whitespace-nowrap">
+                <Sparkles className="size-3" /> Pesquisa inteligente
+              </span>
+            )}
           </div>
           <Button onClick={() => setOpen(true)} className="ml-auto">
             <Plus />
@@ -397,7 +418,7 @@ export function ProcessesView({ processes, categories, members, search, category
             ) : (
               <div className="rounded-md border divide-y">
                 {processes.map((p) => (
-                  <ProcessRow key={p.id} process={p} showCategory />
+                  <ProcessRow key={p.id} process={p} showCategory similarity={similarityMap[p.id]} />
                 ))}
               </div>
             )

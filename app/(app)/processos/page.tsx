@@ -2,7 +2,7 @@ export const revalidate = 300;
 
 import { PageHeader } from "@/components/layout/page-header";
 import { ProcessesView } from "@/components/processes/processes-view";
-import { getProcesses, getProcessCategories } from "@/lib/queries/processes";
+import { getProcesses, getProcessCategories, searchProcessesSemantic, type ProcessWithSimilarity } from "@/lib/queries/processes";
 import { getTeamMembers } from "@/lib/queries/team";
 
 export const dynamic = "force-dynamic";
@@ -17,11 +17,34 @@ export default async function ProcessosPage({
   const categoryId = category ?? null;
   const subcategoryFilter = subcategory ?? null;
 
-  const [processes, categories, members] = await Promise.all([
-    getProcesses({ search }),
+  const useSemanticSearch = search.length >= 3;
+
+  const [semanticResults, categories, members] = await Promise.all([
+    useSemanticSearch ? searchProcessesSemantic(search) : null,
     getProcessCategories(),
     getTeamMembers(),
   ]);
+
+  const isSemanticSearch = useSemanticSearch && semanticResults !== null;
+
+  let processes;
+  let similarityMap: Record<string, number> = {};
+
+  if (useSemanticSearch) {
+    if (semanticResults !== null) {
+      processes = semanticResults;
+    } else {
+      processes = await getProcesses({ search });
+    }
+  } else {
+    processes = await getProcesses({ search });
+  }
+
+  if (isSemanticSearch && semanticResults) {
+    for (const p of semanticResults as ProcessWithSimilarity[]) {
+      if (typeof p.similarity === "number") similarityMap[p.id] = p.similarity;
+    }
+  }
 
   const displayCount = categoryId
     ? processes.filter((p) => p.category_id === categoryId).length
@@ -40,6 +63,8 @@ export default async function ProcessosPage({
         search={search}
         categoryId={categoryId}
         subcategoryFilter={subcategoryFilter}
+        isSemanticSearch={isSemanticSearch}
+        similarityMap={similarityMap}
       />
     </>
   );
