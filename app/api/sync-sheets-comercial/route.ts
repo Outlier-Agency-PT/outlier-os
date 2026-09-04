@@ -27,7 +27,7 @@ async function fetchAndParse<T>(sheetId: string, gid: string, parser: (lines: st
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Falha ao ler sheet gid=${gid}`);
   const csv = await res.text();
-  return parser(csv.split("\n"));
+  return parser(csv.split(/\r?\n/));
 }
 
 function parseNum(val: string | undefined): number | null {
