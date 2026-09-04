@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Plus, Search, BookOpen, ChevronRight, ChevronDown, FileText, Folder, Users, TrendingUp, Palette, PenLine, Settings, Briefcase, DollarSign, FolderOpen, Target, Circle, Sparkles, type LucideIcon } from "lucide-react";
+import { Plus, Search, BookOpen, ChevronRight, ChevronDown, FileText, Folder, Users, TrendingUp, Palette, PenLine, Settings, Briefcase, DollarSign, FolderOpen, Target, Circle, Sparkles, Info, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -99,8 +99,8 @@ function buildUrl(params: { search?: string; category?: string | null; subcatego
 
 function similarityDotClass(similarity: number | undefined): string | null {
   if (similarity === undefined) return null;
-  if (similarity > 0.7) return "bg-green-500";
-  if (similarity > 0.5) return "bg-yellow-500";
+  if (similarity > 0.5) return "bg-green-500";
+  if (similarity > 0.35) return "bg-yellow-500";
   return "bg-orange-400";
 }
 
@@ -399,6 +399,14 @@ export function ProcessesView({ processes, categories, members, search, category
             {isSemanticSearch && (
               <span className="text-xs text-muted-foreground flex items-center gap-1 whitespace-nowrap">
                 <Sparkles className="size-3" /> Pesquisa inteligente
+                <div className="relative group">
+                  <Info className="size-3.5 text-muted-foreground cursor-help" />
+                  <div className="absolute left-0 top-5 z-50 hidden group-hover:block w-48 rounded-md border border-border bg-popover p-2 text-xs text-muted-foreground shadow-md">
+                    <div className="flex items-center gap-1.5 mb-1"><span className="size-2 rounded-full bg-green-500 shrink-0" /> Alta relevância</div>
+                    <div className="flex items-center gap-1.5 mb-1"><span className="size-2 rounded-full bg-yellow-500 shrink-0" /> Média relevância</div>
+                    <div className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-orange-400 shrink-0" /> Baixa relevância</div>
+                  </div>
+                </div>
               </span>
             )}
           </div>
