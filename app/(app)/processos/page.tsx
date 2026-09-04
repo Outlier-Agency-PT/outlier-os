@@ -17,7 +17,7 @@ export default async function ProcessosPage({
   const categoryId = category ?? null;
   const subcategoryFilter = subcategory ?? null;
 
-  const useSemanticSearch = search.length >= 3;
+  const useSemanticSearch = search.length >= 4;
 
   const [semanticResults, categories, members] = await Promise.all([
     useSemanticSearch ? searchProcessesSemantic(search) : null,

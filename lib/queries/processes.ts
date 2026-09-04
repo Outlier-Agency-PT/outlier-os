@@ -85,28 +85,81 @@ export async function getChecklistProgress(
 
 export type ProcessWithSimilarity = Process & { similarity?: number };
 
+// New processes get their embedding generated via generateAndSaveEmbedding,
+// called from createProcessAction and updateProcessAction after saving.
+// The RPC filters embedding IS NOT NULL, so unindexed processes are excluded from semantic results.
+export async function generateAndSaveEmbedding(processId: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const { data: proc } = await supabase
+      .from("processes")
+      .select("title, subcategory, content_md")
+      .eq("id", processId)
+      .single();
+    if (!proc) return;
+
+    const rawText = `${proc.title}\n${proc.subcategory ?? ""}\n${proc.content_md ?? ""}`;
+    const inputText = rawText.slice(0, 8000);
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: inputText,
+    });
+    const embedding = response.data[0].embedding;
+
+    await supabase.from("processes").update({ embedding }).eq("id", processId);
+  } catch (err) {
+    console.error("generateAndSaveEmbedding failed:", err);
+  }
+}
+
 export async function searchProcessesSemantic(query: string): Promise<ProcessWithSimilarity[] | null> {
   try {
+    // Fix 1: Normalize query before embedding
+    const normalizedQuery = query
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "");
+
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const embeddingResponse = await openai.embeddings.create({
+
+    // Fix 4: Timeout after 3s — fall back to ILIKE
+    const openaiCall = openai.embeddings.create({
       model: "text-embedding-3-small",
-      input: query,
+      input: normalizedQuery,
     });
-    const embedding = embeddingResponse.data[0].embedding;
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), 3000)
+    );
+    const result = await Promise.race([openaiCall, timeoutPromise]);
+    if (result === null) return null;
+
+    const embedding = result.data[0].embedding;
 
     const supabase = await createClient();
 
     const { data: rpcData, error: rpcError } = await supabase.rpc(
       "search_processes_semantic",
-      { query_embedding: embedding, similarity_threshold: 0.15, match_count: 20 }
+      // Fix 2: threshold 0.1
+      { query_embedding: embedding, similarity_threshold: 0.1, match_count: 20 }
     );
 
     if (rpcError) return null;
     if (!rpcData || rpcData.length === 0) return [];
 
+    // Fix 3: Deduplicate by id
+    const seen = new Set<string>();
+    const unique = (rpcData as { id: string; category_id: string | null }[]).filter((r) => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
+    });
+
     const categoryIds: string[] = [
       ...new Set(
-        (rpcData as { category_id: string | null }[])
+        unique
           .map((r) => r.category_id)
           .filter((id): id is string => id !== null)
       ),
@@ -121,7 +174,7 @@ export async function searchProcessesSemantic(query: string): Promise<ProcessWit
       (categories ?? []).map((c) => [c.id, c])
     );
 
-    return (rpcData as {
+    return (unique as {
       id: string;
       title: string;
       subcategory: string | null;

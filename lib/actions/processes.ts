@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { generateAndSaveEmbedding } from "@/lib/queries/processes";
 
 const DOC_TYPE_VALUES = ["processo", "playbook", "guia", "template", "checklist", "decisao", "trilha"] as const;
 
@@ -63,6 +64,8 @@ export async function createProcessAction(input: ProcessInput) {
     .single();
   if (error) return { error: { _form: [error.message] } };
   revalidatePath("/processos");
+  // Fire-and-forget: generate embedding after save; never blocks the response
+  if (data?.id) generateAndSaveEmbedding(data.id).catch(() => {});
   return { data };
 }
 
@@ -102,6 +105,8 @@ export async function updateProcessAction(
   if (error) return { errors: [error.message] };
   revalidatePath("/processos");
   revalidatePath(`/processos/${id}`);
+  // Fire-and-forget: regenerate embedding after update; never blocks the response
+  generateAndSaveEmbedding(id).catch(() => {});
   return { data };
 }
 
