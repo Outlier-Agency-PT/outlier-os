@@ -60,10 +60,11 @@ type MemberMetrics = {
   horas_estimadas: number;
 };
 
-type OverdueTask = { title: string; assignee: string; due_date: string };
-type WorkedTask  = { title: string; assignee: string; status_label: string; status_key: string | null; total_duration_minutes: number };
-type MissedTask  = { title: string; assignee: string };
-type AgendaTask  = { title: string; assignee: string };
+type OverdueTask    = { title: string; assignee: string; due_date: string };
+type WorkedTask     = { title: string; assignee: string; status_label: string; status_key: string | null; total_duration_minutes: number };
+type MissedTask     = { title: string; assignee: string };
+type AgendaTask     = { title: string; assignee: string };
+type UnassignedTask = { id: string; title: string; status_label: string; due_date: string | null };
 
 // ── Email template ────────────────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ function buildEmailHtml(
   workedYesterday: WorkedTask[],
   missedYesterday: MissedTask[],
   todayAgenda: AgendaTask[],
+  unassignedTasks: UnassignedTask[],
 ): string {
   const statCell = (label: string, value: string | number, highlight = false) => `
     <td style="padding:16px 12px;text-align:center;border-right:1px solid #e5e7eb;">
@@ -178,6 +180,30 @@ function buildEmailHtml(
     </td>
   </tr>` : "";
 
+  const unassignedSection = unassignedTasks.length > 0 ? `
+  <tr>
+    <td style="background:#ffffff;padding:24px 32px;border-top:1px solid #e5e7eb;">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.16em;color:#ea580c;margin-bottom:16px;">Sem Responsável</div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #fed7aa;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#fff7ed;border-bottom:1px solid #fed7aa;">
+            <th style="padding:8px 16px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;border-right:1px solid #fed7aa;">Tarefa</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;border-right:1px solid #fed7aa;">Estado</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;">Data Limite</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${unassignedTasks.map((t, i) => `
+          <tr style="background:${i % 2 === 0 ? "#ffffff" : "#fff7ed"};">
+            <td style="padding:10px 16px;font-size:13px;border-right:1px solid #fed7aa;"><a href="https://outlier-os.vercel.app/tarefas?taskId=${t.id}&amp;unassigned=true" style="color:#111111;text-decoration:none;">${t.title}</a></td>
+            <td style="padding:10px 12px;font-size:13px;color:#374151;border-right:1px solid #fed7aa;">${t.status_label || "—"}</td>
+            <td style="padding:10px 12px;font-size:13px;color:#374151;">${t.due_date ? fmtDueDate(t.due_date) : "—"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </td>
+  </tr>` : "";
+
   const overdueSection = overdueTasks.length > 0 ? `
   <tr>
     <td style="background:#ffffff;padding:24px 32px;border-top:1px solid #e5e7eb;">
@@ -264,6 +290,7 @@ function buildEmailHtml(
         ${workedSection}
         ${missedSection}
         ${agendaSection}
+        ${unassignedSection}
         ${overdueSection}
         <tr>
           <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;border-radius:0 0 4px 4px;">
@@ -349,6 +376,7 @@ export async function GET(request: Request) {
       workedResult,
       { data: missedRaw },
       { data: agendaRaw },
+      { data: unassignedRaw },
     ] = await Promise.all([
       getTeamMetricsAdmin(periodStart, periodEnd, concludedStatusId),
 
@@ -403,6 +431,16 @@ export async function GET(request: Request) {
         .select(taskSelect)
         .eq("due_date", todayStr)
         .order("title", { ascending: true }),
+
+      // Unassigned Fireflies tasks: no assignee, not concluded
+      supabase
+        .from("tasks")
+        .select("id, title, due_date, assignee_id, assignees, status_id, status:task_statuses(label, key)")
+        .eq("source", "fireflies")
+        .is("assignee_id", null)
+        .eq("assignees", "{}")
+        .neq("status_id", concludedStatusId ?? "")
+        .order("created_at", { ascending: false }),
     ]);
 
     const workedRaw = workedResult.data ?? [];
@@ -447,6 +485,17 @@ export async function GET(request: Request) {
       assignee: resolveAssignee(t, membersMap),
     }));
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const unassignedTasks: UnassignedTask[] = (unassignedRaw ?? []).map((t: any) => {
+      const statusObj = Array.isArray(t.status) ? t.status[0] : t.status;
+      return {
+        id: t.id as string,
+        title: t.title as string,
+        status_label: (statusObj?.label as string) ?? "—",
+        due_date: (t.due_date as string | null) ?? null,
+      };
+    });
+
     const dateLabel  = fmtDate(yesterday);
     const todayLabel = fmtDate(now);
     const subject    = `Relatório Diário Outlier OS: ${dateLabel}`;
@@ -459,12 +508,14 @@ export async function GET(request: Request) {
       workedYesterday,
       missedYesterday,
       todayAgenda,
+      unassignedTasks,
     );
 
     return NextResponse.json({
       html,
       subject,
       date: yesterdayStr,
+      unassignedTasks,
       debug: {
         period: { start: periodStart.toISOString(), end: periodEnd.toISOString() },
         concludedStatusId,
@@ -473,6 +524,7 @@ export async function GET(request: Request) {
           workedYesterday: workedYesterday.length,
           missedYesterday: missedYesterday.length,
           todayAgenda: todayAgenda.length,
+          unassignedTasks: unassignedTasks.length,
         },
       },
     });

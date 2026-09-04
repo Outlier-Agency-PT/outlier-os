@@ -41,6 +41,7 @@ export async function getTasks(filters?: {
   clientId?: string;
   assigneeId?: string;
   statusId?: string;
+  unassigned?: boolean;
 }): Promise<TaskWithRelations[]> {
   const supabase = await createClient();
   let query = supabase
@@ -59,6 +60,7 @@ export async function getTasks(filters?: {
   if (filters?.clientId) query = query.eq("client_id", filters.clientId);
   if (filters?.assigneeId) query = query.eq("assignee_id", filters.assigneeId);
   if (filters?.statusId) query = query.eq("status_id", filters.statusId);
+  if (filters?.unassigned) query = query.is("assignee_id", null).eq("assignees", "{}");
 
   const { data } = await query;
   return (data ?? []) as TaskWithRelations[];

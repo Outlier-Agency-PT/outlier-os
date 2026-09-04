@@ -72,6 +72,7 @@ interface TasksBoardProps {
   templates?: TaskTemplate[];
   currentUserId?: string;
   isAdmin?: boolean;
+  initialUnassigned?: boolean;
 }
 
 export function TasksBoard({
@@ -86,6 +87,7 @@ export function TasksBoard({
   templates = [],
   currentUserId = "",
   isAdmin = false,
+  initialUnassigned = false,
 }: TasksBoardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,6 +100,7 @@ export function TasksBoard({
     : (isAdmin ? "all" : currentUserId);
   const [filterAssigneeId, setFilterAssigneeId] = useState<string | "all">(initialAssignee);
   const [filterSource, setFilterSource] = useState<string | null>(null);
+  const [filterUnassigned, setFilterUnassigned] = useState(initialUnassigned);
   const [open, setOpen] = useState(false);
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
@@ -159,8 +162,12 @@ export function TasksBoard({
       );
     }
 
+    if (filterUnassigned) {
+      result = result.filter((t) => !t.assignee && (!t.assignees || t.assignees.length === 0));
+    }
+
     return result;
-  }, [tasks, search, filterClientId, filterAssigneeId, filterSource]);
+  }, [tasks, search, filterClientId, filterAssigneeId, filterSource, filterUnassigned]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, TaskWithRelations[]>();
@@ -405,6 +412,31 @@ export function TasksBoard({
                 </button>
               )}
             </div>
+          )}
+
+          {/* Filtro sem responsável — só para admins */}
+          {showFilters && isAdmin && (
+            <button
+              onClick={() => {
+                const next = !filterUnassigned;
+                setFilterUnassigned(next);
+                const params = new URLSearchParams(searchParams.toString());
+                if (next) {
+                  params.set("unassigned", "true");
+                } else {
+                  params.delete("unassigned");
+                }
+                router.push(`?${params.toString()}`, { scroll: false });
+              }}
+              className={cn(
+                "h-9 rounded-md border px-3 text-sm transition-colors",
+                filterUnassigned
+                  ? "border-red-400 bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400 dark:border-red-700"
+                  : "border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              Sem responsável
+            </button>
           )}
 
           <div className="ml-auto flex items-center gap-2">
@@ -717,11 +749,15 @@ function TaskCard({ task, onClick }: { task: TaskWithRelations; onClick: () => v
               </span>
             )}
             <div className="flex items-center gap-1 ml-auto">
-              {task.assignee && (
+              {task.assignee ? (
                 <span className="text-muted-foreground truncate max-w-24">
                   {task.assignee.full_name}
                 </span>
-              )}
+              ) : task.source === 'fireflies' ? (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-red-400 text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400 dark:border-red-700">
+                  Sem responsável
+                </Badge>
+              ) : null}
             </div>
           </div>
           {task.client && (
@@ -816,7 +852,11 @@ function TasksTable({
               </td>
               <td className="px-4 py-3 text-muted-foreground">{t.client?.name ?? "—"}</td>
               <td className="px-4 py-3 text-muted-foreground">
-                {t.assignee?.full_name ?? "—"}
+                {t.assignee?.full_name ?? (t.source === 'fireflies' ? (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-red-400 text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400 dark:border-red-700">
+                    Sem responsável
+                  </Badge>
+                ) : "—")}
               </td>
               <td className="px-4 py-3">
                 {t.estimate_points ? (
@@ -1032,7 +1072,13 @@ function SpaceAggregatedView({
                             : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">{t.client?.name ?? "—"}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{t.assignee?.full_name ?? "—"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">
+                          {t.assignee?.full_name ?? (t.source === 'fireflies' ? (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-red-400 text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400 dark:border-red-700">
+                              Sem responsável
+                            </Badge>
+                          ) : "—")}
+                        </td>
                         <td className="px-4 py-2.5">
                           {t.estimate_points ? (
                             <span className="text-muted-foreground">{t.estimate_points}h</span>

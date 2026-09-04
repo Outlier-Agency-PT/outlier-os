@@ -483,6 +483,33 @@ export function TaskDetailPanel({
     </div>
   ) : null;
 
+  const criadoEmField = form.created_at ? (
+    <div>
+      <Label className="text-xs font-semibold">Criado em</Label>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        {new Date(form.created_at).toLocaleString("pt-PT", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </p>
+    </div>
+  ) : null;
+
+  const criadoPorMember = form.created_by
+    ? (members.find((m) => m.id === form.created_by) ?? null)
+    : null;
+  const criadoPorField = form.created_by ? (
+    <div>
+      <Label className="text-xs font-semibold">Criado por</Label>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        {criadoPorMember?.full_name ?? (form.created_by as string).slice(0, 8)}
+      </p>
+    </div>
+  ) : null;
+
   const assigneesField = (
     <div>
       <Label className="text-xs font-semibold">Responsáveis</Label>
@@ -709,6 +736,8 @@ export function TaskDetailPanel({
                 {estimateField}
                 {listField}
                 {origemField}
+                {criadoEmField}
+                {criadoPorField}
                 {timeTrackingSection}
               </div>
             </div>
@@ -727,6 +756,8 @@ export function TaskDetailPanel({
             {estimateField}
             {listField}
             {origemField}
+            {criadoEmField}
+            {criadoPorField}
             {assigneesField}
             {subtasksSection}
             {dependenciesSection}

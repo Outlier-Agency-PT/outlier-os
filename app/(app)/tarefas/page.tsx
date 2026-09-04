@@ -10,12 +10,13 @@ import { getTaskTemplates } from "@/lib/queries/templates";
 export const dynamic = "force-dynamic";
 
 export default async function TarefasPage(props: {
-  searchParams: Promise<{ list?: string; space?: string; assignee?: string }>;
+  searchParams: Promise<{ list?: string; space?: string; assignee?: string; unassigned?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const selectedListId = searchParams.list;
   const selectedSpaceId = searchParams.space;
   const assigneeParam = searchParams.assignee;
+  const unassignedParam = searchParams.unassigned === "true";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -41,7 +42,7 @@ export default async function TarefasPage(props: {
 
   // getTasks depende de isAdmin, corre após member resolver
   const tasks = await (isAdmin
-    ? getTasks({ assigneeId: assigneeParam ?? undefined })
+    ? getTasks(unassignedParam ? { unassigned: true } : { assigneeId: assigneeParam ?? undefined })
     : getTasks({ assigneeId: currentUserId }));
 
   const rootCount = (tasks as any[]).filter((t) => !t.parent_task_id).length;
@@ -70,6 +71,7 @@ export default async function TarefasPage(props: {
         templates={templates}
         currentUserId={currentUserId}
         isAdmin={isAdmin}
+        initialUnassigned={isAdmin && unassignedParam}
       />
     </>
   );

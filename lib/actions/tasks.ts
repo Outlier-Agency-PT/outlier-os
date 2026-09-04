@@ -105,6 +105,24 @@ export async function createTaskAction(input: TaskInput) {
   await notifyNewAssignees(data.id, data.title, data.list_id, initialAssignees);
   console.log("[createTaskAction] depois de criar notificações");
 
+  if (!data.assignee_id && (!data.assignees || data.assignees.length === 0) && data.source === 'fireflies') {
+    const admin = createAdminClient();
+    const { data: admins } = await admin
+      .from("team_members")
+      .select("id")
+      .eq("role", "admin")
+      .eq("active", true);
+    await admin.from("notifications").insert(
+      (admins ?? []).map((a: { id: string }) => ({
+        user_id: a.id,
+        type: "task_unassigned",
+        title: "Tarefa sem responsável",
+        body: data.title,
+        link: `/tarefas?taskId=${data.id}&unassigned=true`,
+      })),
+    );
+  }
+
   revalidatePath("/tarefas");
   return { data };
 }
