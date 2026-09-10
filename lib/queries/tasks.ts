@@ -132,59 +132,69 @@ export async function getTasksByList(listId: string): Promise<TaskWithHierarchy[
     )
     .eq("list_id", listId)
     .is("parent_task_id", null)
-    .order("position", { ascending: true });
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
 
-  if (!rootTasks) return [];
+  if (!rootTasks || rootTasks.length === 0) return [];
 
-  // Para cada tarefa, buscar subtarefas
-  const tasksWithSubtasks: TaskWithHierarchy[] = [];
-  for (const rootTask of rootTasks) {
-    const { data: subtasks } = await supabase
-      .from("tasks")
-      .select(
-        `
-        *,
-        estimate_points,
-        status:task_statuses(id, key, label, color),
-        client:clients(id, name),
-        assignee:team_members!tasks_assignee_id_fkey(id, full_name, email),
-        list:task_lists(id, name)
-        `,
-      )
-      .eq("parent_task_id", rootTask.id)
-      .order("position", { ascending: true });
+  const rootTaskIds = rootTasks.map((t: any) => t.id as string);
 
+  // Buscar todas as subtarefas de todas as tarefas raiz numa só query
+  const { data: allSubtasks } = await supabase
+    .from("tasks")
+    .select(
+      `
+      *,
+      estimate_points,
+      status:task_statuses(id, key, label, color),
+      client:clients(id, name),
+      assignee:team_members!tasks_assignee_id_fkey(id, full_name, email),
+      list:task_lists(id, name)
+      `,
+    )
+    .in("parent_task_id", rootTaskIds)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  // Agrupar subtarefas por parent_task_id em memória
+  const subtasksByParent = new Map<string, TaskWithHierarchy[]>();
+  for (const subtask of (allSubtasks ?? []) as any[]) {
+    const parentId = subtask.parent_task_id as string;
+    if (!subtasksByParent.has(parentId)) {
+      subtasksByParent.set(parentId, []);
+    }
+    subtasksByParent.get(parentId)!.push(subtask as TaskWithHierarchy);
+  }
+
+  const tasksWithSubtasks: TaskWithHierarchy[] = rootTasks.map((rootTask: any) => {
     const rawLogs = (rootTask as any).task_time_logs ?? [];
     const total_logged_minutes: number = (rawLogs as { duration_minutes: number | null }[]).reduce(
       (sum, l) => sum + (l.duration_minutes ?? 0),
       0,
     );
-    tasksWithSubtasks.push({
+    return {
       ...rootTask,
       total_logged_minutes,
-      subtasks: (subtasks ?? []) as TaskWithHierarchy[],
-    });
-  }
+      subtasks: subtasksByParent.get(rootTask.id) ?? [],
+    };
+  });
 
   // Marcar tarefas bloqueadas por dependências 'blocked_by' cuja tarefa
   // bloqueadora ainda não foi concluída (para o cadeado no card do kanban)
-  const allTaskIds = tasksWithSubtasks.map((t) => t.id);
-  if (allTaskIds.length > 0) {
-    const { data: blockingDeps } = await supabase
-      .from("task_dependencies")
-      .select("task_id, depends_on:tasks!task_dependencies_depends_on_id_fkey(completed_at)")
-      .in("task_id", allTaskIds)
-      .eq("type", "blocked_by");
+  const { data: blockingDeps } = await supabase
+    .from("task_dependencies")
+    .select("task_id, depends_on:tasks!task_dependencies_depends_on_id_fkey(completed_at)")
+    .in("task_id", rootTaskIds)
+    .eq("type", "blocked_by");
 
-    const blockedIds = new Set(
-      (blockingDeps ?? [])
-        .filter((d: any) => !d.depends_on?.completed_at)
-        .map((d: any) => d.task_id as string),
-    );
+  const blockedIds = new Set(
+    (blockingDeps ?? [])
+      .filter((d: any) => !d.depends_on?.completed_at)
+      .map((d: any) => d.task_id as string),
+  );
 
-    for (const task of tasksWithSubtasks) {
-      task.isBlocked = blockedIds.has(task.id);
-    }
+  for (const task of tasksWithSubtasks) {
+    task.isBlocked = blockedIds.has(task.id);
   }
 
   return tasksWithSubtasks as TaskWithHierarchy[];
