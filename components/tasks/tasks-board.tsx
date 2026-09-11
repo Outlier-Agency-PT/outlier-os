@@ -100,6 +100,7 @@ export function TasksBoard({
     : (isAdmin ? "all" : currentUserId);
   const [filterAssigneeId, setFilterAssigneeId] = useState<string | "all">(initialAssignee);
   const [filterSource, setFilterSource] = useState<string | null>(null);
+  const [filterStatusId, setFilterStatusId] = useState<string | null>(null);
   const [filterUnassigned, setFilterUnassigned] = useState(initialUnassigned);
   const [open, setOpen] = useState(false);
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
@@ -137,7 +138,11 @@ export function TasksBoard({
     let result = tasks;
 
     if (filterAssigneeId !== "all") {
-      result = result.filter((t) => t.assignee?.id === filterAssigneeId);
+      result = result.filter(
+        (t) =>
+          t.assignee?.id === filterAssigneeId ||
+          t.assignees?.includes(filterAssigneeId),
+      );
     }
 
     if (search) {
@@ -162,12 +167,16 @@ export function TasksBoard({
       );
     }
 
+    if (filterStatusId) {
+      result = result.filter((t) => t.status_id === filterStatusId);
+    }
+
     if (filterUnassigned) {
       result = result.filter((t) => !t.assignee && (!t.assignees || t.assignees.length === 0));
     }
 
     return result;
-  }, [tasks, search, filterClientId, filterAssigneeId, filterSource, filterUnassigned]);
+  }, [tasks, search, filterClientId, filterAssigneeId, filterSource, filterStatusId, filterUnassigned]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, TaskWithRelations[]>();
@@ -407,6 +416,41 @@ export function TasksBoard({
                   onClick={() => setFilterSource(null)}
                   className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   title="Limpar filtro de origem"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Filtro por estado — só em Tabela */}
+          {showFilters && view === "tabela" && (
+            <div className="flex items-center gap-1">
+              <Select
+                value={filterStatusId ?? "all"}
+                onValueChange={(v) => setFilterStatusId(v === "all" ? null : v)}
+              >
+                <SelectTrigger
+                  className="h-9 w-44 text-sm"
+                  style={filterStatusId ? { borderColor: "#A12B2B" } : undefined}
+                >
+                  <SelectValue placeholder="Todos os estados" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os estados</SelectItem>
+                  {statuses.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {filterStatusId && (
+                <button
+                  onClick={() => setFilterStatusId(null)}
+                  className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  title="Limpar filtro de estado"
                 >
                   <X className="size-3.5" />
                 </button>
@@ -900,6 +944,19 @@ function SpaceAggregatedView({
   statuses: { id: string; key: string; label: string; color: string }[];
 }) {
   const [tasks, setTasks] = useState<TaskWithHierarchy[]>(initialTasks);
+
+  // Sincroniza tasks quando o conjunto de IDs muda (ex: pesquisa altera quais tarefas são visíveis).
+  // Usar a string de IDs em vez da referência do array evita sobrescrever atualizações optimistas
+  // de drag-and-drop, cujo status_id muda mas os IDs das tarefas permanecem iguais.
+  const initialTaskKey = useMemo(
+    () => initialTasks.map((t) => t.id).join(","),
+    [initialTasks],
+  );
+  useEffect(() => {
+    setTasks(initialTasks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTaskKey]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );

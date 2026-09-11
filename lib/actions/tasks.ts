@@ -596,7 +596,7 @@ export async function getTaskDependenciesAction(taskId: string) {
 export async function getTaskDetailAction(taskId: string) {
   const supabase = await createClient();
 
-  const [{ data: task }, { data: comments }] = await Promise.all([
+  const [{ data: task }, { data: comments }, { data: subtasks }] = await Promise.all([
     supabase
       .from("tasks")
       .select(
@@ -616,7 +616,26 @@ export async function getTaskDetailAction(taskId: string) {
       .select(`*, author:team_members(id, full_name)`)
       .eq("task_id", taskId)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("tasks")
+      .select(
+        `
+        *,
+        estimate_points,
+        status:task_statuses(id, key, label, color),
+        client:clients(id, name),
+        assignee:team_members!tasks_assignee_id_fkey(id, full_name, email),
+        list:task_lists(id, name)
+        `,
+      )
+      .eq("parent_task_id", taskId)
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true }),
   ]);
+
+  if (task) {
+    (task as any).subtasks = subtasks ?? [];
+  }
 
   return { task, comments: comments ?? [] };
 }
