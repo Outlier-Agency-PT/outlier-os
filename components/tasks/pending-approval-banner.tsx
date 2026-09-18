@@ -20,8 +20,9 @@ export function PendingApprovalBanner({
   autoOpen,
 }: PendingApprovalBannerProps) {
   const [open, setOpen] = useState(autoOpen);
+  const [localTasks, setLocalTasks] = useState(tasks);
 
-  if (tasks.length === 0) return null;
+  if (localTasks.length === 0) return null;
 
   return (
     <>
@@ -29,9 +30,9 @@ export function PendingApprovalBanner({
         <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
           <Bell className="h-4 w-4 shrink-0" />
           <span>
-            {tasks.length === 1
+            {localTasks.length === 1
               ? "1 tarefa da reunião aguarda a tua aprovação"
-              : `${tasks.length} tarefas da reunião aguardam a tua aprovação`}
+              : `${localTasks.length} tarefas da reunião aguardam a tua aprovação`}
           </span>
         </div>
         <Button
@@ -44,11 +45,12 @@ export function PendingApprovalBanner({
         </Button>
       </div>
       <PendingApprovalModal
-        tasks={tasks}
+        tasks={localTasks}
         members={members}
         clients={clients}
         open={open}
         onOpenChange={setOpen}
+        onTasksChange={setLocalTasks}
       />
     </>
   );

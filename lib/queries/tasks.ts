@@ -89,7 +89,10 @@ export async function getPendingApprovalTasks(
     .order("created_at", { ascending: false });
 
   if (isAdmin) {
-    query = query.is("assignee_id", null).eq("assignees", "{}");
+    // own tasks OR unassigned tasks
+    query = query.or(
+      `assignee_id.eq.${userId},assignees.cs.{${userId}},and(assignee_id.is.null,assignees.eq.{})`,
+    );
   } else {
     query = query.or(`assignee_id.eq.${userId},assignees.cs.{${userId}}`);
   }

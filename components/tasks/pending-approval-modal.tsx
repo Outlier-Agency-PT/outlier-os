@@ -26,6 +26,7 @@ interface PendingApprovalModalProps {
   clients: { id: string; name: string }[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onTasksChange: (remaining: TaskWithRelations[]) => void;
 }
 
 interface TaskState {
@@ -63,7 +64,9 @@ export function PendingApprovalModal({
   clients,
   open,
   onOpenChange,
+  onTasksChange,
 }: PendingApprovalModalProps) {
+  const [originalTasks] = useState(initialTasks);
   const [taskStates, setTaskStates] = useState<TaskState[]>(
     initialTasks.map(toTaskState),
   );
@@ -111,7 +114,9 @@ export function PendingApprovalModal({
     }
 
     const next = taskStates.filter((t) => t.id !== taskId);
+    const remainingIds = new Set(next.map((t) => t.id));
     setTaskStates(next);
+    onTasksChange(originalTasks.filter((t) => remainingIds.has(t.id)));
     if (next.length === 0) onOpenChange(false);
     toast.success("Tarefa aprovada");
   }
@@ -127,7 +132,9 @@ export function PendingApprovalModal({
     }
 
     const next = taskStates.filter((t) => t.id !== taskId);
+    const remainingIds = new Set(next.map((t) => t.id));
     setTaskStates(next);
+    onTasksChange(originalTasks.filter((t) => remainingIds.has(t.id)));
     if (next.length === 0) onOpenChange(false);
     toast.success("Tarefa rejeitada");
   }
