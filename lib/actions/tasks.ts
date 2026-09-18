@@ -34,6 +34,7 @@ const taskSchema = z.object({
   recurrence_day_of_week: z.number().int().min(0).max(6).nullable().optional(),
   recurrence_template_id: z.string().uuid().nullable().optional(),
   recurrence_end_date: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
 });
 
 export type TaskInput = z.infer<typeof taskSchema>;
@@ -90,19 +91,37 @@ export async function createTaskAction(input: TaskInput) {
   } = await supabase.auth.getUser();
   if (!user) return { error: { _form: ["Não autenticado"] } };
 
+  const insertPayload: Record<string, unknown> = { ...cleanInput(parsed.data), created_by: user.id };
+  if (parsed.data.source === "fireflies") {
+    insertPayload.status_id = "c9edcae7-79a6-44a2-8aab-24b96b36d835";
+  }
+
   const { data, error } = await supabase
     .from("tasks")
-    .insert({ ...cleanInput(parsed.data), created_by: user.id })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (error) return { error: { _form: [error.message] } };
 
+  if (data.source === "fireflies" && data.assignee_id) {
+    const admin = createAdminClient();
+    await admin.from("notifications").insert({
+      user_id: data.assignee_id,
+      type: "task_pending_approval",
+      title: "Tarefa para aprovar",
+      body: data.title,
+      link: `/tarefas?pendingApproval=true`,
+    });
+  }
+
   const initialAssignees = [...new Set([...(parsed.data.assignees ?? []), parsed.data.assignee_id].filter(
     (v): v is string => Boolean(v),
   ))];
   console.log("[createTaskAction] antes de criar notificações, initialAssignees:", initialAssignees);
-  await notifyNewAssignees(data.id, data.title, data.list_id, initialAssignees);
+  if (data.source !== "fireflies") {
+    await notifyNewAssignees(data.id, data.title, data.list_id, initialAssignees);
+  }
   console.log("[createTaskAction] depois de criar notificações");
 
   if (!data.assignee_id && (!data.assignees || data.assignees.length === 0) && data.source === 'fireflies') {
@@ -890,4 +909,55 @@ export async function generateRecurringTasksAction(): Promise<{ success: boolean
 
   revalidatePath("/tarefas");
   return { success: true, generated };
+}
+
+export async function approveTaskAction(taskId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado" };
+
+  const [{ data: task }, { data: member }] = await Promise.all([
+    supabase.from("tasks").select("assignee_id, assignees").eq("id", taskId).maybeSingle(),
+    supabase.from("team_members").select("role").eq("id", user.id).maybeSingle(),
+  ]);
+  if (!task) return { error: "Tarefa não encontrada" };
+
+  const isAdmin = member?.role === "admin";
+  if (!isAdmin && task.assignee_id !== user.id && !(task.assignees ?? []).includes(user.id)) {
+    return { error: "Sem permissão" };
+  }
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ status_id: "80823561-532d-48ff-b783-09f96a18e858" })
+    .eq("id", taskId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/tarefas");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function rejectTaskAction(taskId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado" };
+
+  const [{ data: task }, { data: member }] = await Promise.all([
+    supabase.from("tasks").select("assignee_id, assignees").eq("id", taskId).maybeSingle(),
+    supabase.from("team_members").select("role").eq("id", user.id).maybeSingle(),
+  ]);
+  if (!task) return { error: "Tarefa não encontrada" };
+
+  const isAdmin = member?.role === "admin";
+  if (!isAdmin && task.assignee_id !== user.id && !(task.assignees ?? []).includes(user.id)) {
+    return { error: "Sem permissão" };
+  }
+
+  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/tarefas");
+  revalidatePath("/dashboard");
+  return { success: true };
 }

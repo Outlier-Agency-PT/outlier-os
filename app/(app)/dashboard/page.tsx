@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
-import { Users, CheckSquare, Rocket, Target, TrendingUp, BarChart2 } from "lucide-react";
+import { Users, CheckSquare, Rocket, Target, TrendingUp, BarChart2, ClipboardCheck } from "lucide-react";
+import { getPendingApprovalTasks } from "@/lib/queries/tasks";
 import { getRecentActivity } from "@/lib/queries/activity";
 import { getInitiatives } from "@/lib/queries/initiatives";
 import { getDecisions } from "@/lib/queries/decisions";
@@ -62,7 +63,7 @@ export default async function DashboardPage() {
       (member?.permissions_modules ?? []).includes("incubadora");
 
     const concludedStatusId = await getConcludedStatusId();
-    const [tasks, todayMinutes, runningLog, recentLogs, notifResult, overdueTasks, renewals, incubadora] =
+    const [tasks, todayMinutes, runningLog, recentLogs, notifResult, overdueTasks, renewals, incubadora, pendingApproval] =
       await Promise.all([
         user ? getMyOpenTasks(user.id, concludedStatusId) : Promise.resolve([]),
         user ? getTodayTimeMinutes(user.id) : Promise.resolve(0),
@@ -72,11 +73,30 @@ export default async function DashboardPage() {
         user ? getMyOverdueTasks(user.id) : Promise.resolve([]),
         hasIncubadora ? getUpcomingRenewals() : Promise.resolve([]),
         hasIncubadora ? getIncubadoraSummary() : Promise.resolve(null),
+        user ? getPendingApprovalTasks(user.id, false) : Promise.resolve([]),
       ]);
+
+    const pendingApprovalCount = pendingApproval.length;
 
     return (
       <>
         <PageHeader title="Dashboard" description="O teu dia, resumido." />
+        {pendingApprovalCount > 0 && (
+          <div className="px-4 pt-4 md:px-8">
+            <Link
+              href="/tarefas?pendingApproval=true"
+              className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
+            >
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                <ClipboardCheck className="h-4 w-4 shrink-0" />
+                <span className="font-medium">Tarefas a aprovar</span>
+              </div>
+              <span className="text-lg font-light tabular-nums text-amber-800 dark:text-amber-300">
+                {pendingApprovalCount}
+              </span>
+            </Link>
+          </div>
+        )}
         <ColaboradorDashboard
           tasks={tasks}
           concludedStatusId={concludedStatusId}
@@ -132,6 +152,7 @@ export default async function DashboardPage() {
     comercialRes,
     marketingLeadsRes,
     roasRes,
+    adminPendingApproval,
   ] = await Promise.all([
     supabase.from("task_statuses").select("id").eq("key", "concluido").maybeSingle(),
     supabase.from("launch_statuses").select("id").in("key", ["concluido", "cancelado"]),
@@ -160,6 +181,7 @@ export default async function DashboardPage() {
     supabase.from("commercial_closer_metrics").select("valor_vendas, month_name, year").eq("funnel", "incubadora").eq("closer_name", "TOTAL"),
     supabase.from("marketing_funnel_monthly").select("leads, month_name, year").eq("funnel", "incubadora"),
     supabase.from("marketing_roas_monthly").select("receita_fechada, fechos, month_name, year"),
+    user ? getPendingApprovalTasks(user.id, true) : Promise.resolve([]),
   ]);
 
   // Batch B: só as 3 queries que dependem dos status IDs do Batch A
@@ -258,6 +280,22 @@ export default async function DashboardPage() {
       <div className="w-full border border-border bg-card">
         <TodayTasks memberId={user?.id ?? ""} />
       </div>
+
+      {/* Tarefas a aprovar — só aparece se houver pendentes */}
+      {adminPendingApproval.length > 0 && (
+        <Link
+          href="/tarefas?pendingApproval=true"
+          className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
+        >
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+            <ClipboardCheck className="h-4 w-4 shrink-0" />
+            <span className="font-medium">Tarefas a aprovar</span>
+          </div>
+          <span className="text-lg font-light tabular-nums text-amber-800 dark:text-amber-300">
+            {adminPendingApproval.length}
+          </span>
+        </Link>
+      )}
 
       {/* Camada estratégica — dois painéis numa superfície unificada */}
       <div className="grid w-full gap-px border border-border bg-border lg:grid-cols-2">

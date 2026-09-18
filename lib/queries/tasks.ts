@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Task } from "@/lib/types";
 
+const PENDING_APPROVAL_STATUS_ID = "c9edcae7-79a6-44a2-8aab-24b96b36d835";
+
 export interface TaskWithRelations extends Task {
   status: { id: string; key: string; label: string; color: string } | null;
   client: { id: string; name: string } | null;
@@ -57,10 +59,38 @@ export async function getTasks(filters?: {
     )
     .order("created_at", { ascending: false });
 
+  query = query.neq("status_id", PENDING_APPROVAL_STATUS_ID);
   if (filters?.clientId) query = query.eq("client_id", filters.clientId);
   if (filters?.assigneeId) query = query.eq("assignee_id", filters.assigneeId);
   if (filters?.statusId) query = query.eq("status_id", filters.statusId);
   if (filters?.unassigned) query = query.is("assignee_id", null).eq("assignees", "{}");
+
+  const { data } = await query;
+  return (data ?? []) as TaskWithRelations[];
+}
+
+export async function getPendingApprovalTasks(
+  userId: string,
+  isAdmin: boolean,
+): Promise<TaskWithRelations[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("tasks")
+    .select(
+      `
+      *,
+      estimate_points,
+      status:task_statuses(id, key, label, color),
+      client:clients(id, name),
+      assignee:team_members!tasks_assignee_id_fkey(id, full_name, email)
+      `,
+    )
+    .eq("status_id", PENDING_APPROVAL_STATUS_ID)
+    .order("created_at", { ascending: false });
+
+  if (!isAdmin) {
+    query = query.or(`assignee_id.eq.${userId},assignees.cs.{${userId}}`);
+  }
 
   const { data } = await query;
   return (data ?? []) as TaskWithRelations[];
