@@ -9,12 +9,14 @@ import type { TaskWithRelations } from "@/lib/queries/tasks";
 interface PendingApprovalBannerProps {
   tasks: TaskWithRelations[];
   members: { id: string; label: string }[];
+  clients: { id: string; name: string }[];
   autoOpen: boolean;
 }
 
 export function PendingApprovalBanner({
   tasks,
   members,
+  clients,
   autoOpen,
 }: PendingApprovalBannerProps) {
   const [open, setOpen] = useState(autoOpen);
@@ -44,6 +46,7 @@ export function PendingApprovalBanner({
       <PendingApprovalModal
         tasks={tasks}
         members={members}
+        clients={clients}
         open={open}
         onOpenChange={setOpen}
       />

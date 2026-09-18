@@ -58,6 +58,7 @@ export default async function TarefasPage(props: {
       : `${tasks.length} ${tasks.length === 1 ? "tarefa" : "tarefas"}`;
 
   const membersList = members.map((m) => ({ id: m.id, label: m.full_name }));
+  const modalClients = clients.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <>
@@ -70,6 +71,7 @@ export default async function TarefasPage(props: {
           <PendingApprovalBanner
             tasks={pendingApprovalTasks}
             members={membersList}
+            clients={modalClients}
             autoOpen={pendingApprovalParam || pendingApprovalTasks.length > 0}
           />
         </div>
